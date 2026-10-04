@@ -1,0 +1,6 @@
+<connectionStrings>
+    <add name="QL_PHONGGYMEntities" providerName="System.Data.EntityClient" connectionString="metadata=res://*/Models.Model1.csdl|res://*/Models.Model1.ssdl|res://*/Models.Model1.msl;provider=Oracle.ManagedDataAccess.Client;provider connection string=&quot;USER ID=APPUSER;PASSWORD=YOUR_DATABASE_PASSWORD;DATA SOURCE=localhost/orcl;PERSIST SECURITY INFO=True&quot;" />
+    <add name="ADMIN_ENTITY" providerName="System.Data.EntityClient" connectionString="metadata=res://*/Models.Model1.csdl|res://*/Models.Model1.ssdl|res://*/Models.Model1.msl;provider=Oracle.ManagedDataAccess.Client;provider connection string=&quot;USER ID=ADMINGYM;PASSWORD=YOUR_DATABASE_PASSWORD;DATA SOURCE=localhost/orcl;PERSIST SECURITY INFO=True&quot;" />
+    <add name="ADMIN_DB" providerName="Oracle.ManagedDataAccess.Client" connectionString="USER ID=ADMINGYM;Password=YOUR_DATABASE_PASSWORD;Data Source=localhost/orcl;" />
+    <add name="MonitorConn" providerName="Oracle.ManagedDataAccess.Client" connectionString="USER ID=APP_MONITOR;Password=YOUR_DATABASE_PASSWORD;Data Source=localhost/orcl;" />
+  </connectionStrings>

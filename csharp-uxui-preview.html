@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Gym — bản xem trước giao diện C#</title>
+  <link rel="stylesheet" href="QL_GYM/UserApp/Content/bootstrap.min.css">
+  <link rel="stylesheet" href="QL_GYM/UserApp/Content/Layout.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    .preview-note { position:relative; z-index:1100; padding:7px 14px; text-align:center; background:#fff4cc; color:#604b00; font:12px Arial,sans-serif; }
+    .navbar { top:30px; }
+    .preview-hero { margin-top:110px; }
+    .preview-hero .carousel-inner { height:470px; }
+    .preview-hero img { width:100%; height:100%; object-fit:cover; }
+    .membership { background:#c5eff7; border-top:2px solid #5eb1ec; padding:48px 16px; }
+    .membership-copy { max-width:660px; }
+    .plan-card { width:288px; min-height:310px; }
+    .plan-card.annual { background:linear-gradient(45deg,#6a11cb,#2575fc); }
+    .product-image { width:100%; height:256px; object-fit:cover; }
+    .product-title { height:4rem; }
+    .promo-card img { width:100%; height:28rem; object-fit:cover; }
+    @media(max-width:575.98px) {
+      .navbar { top:30px; }
+      .preview-hero { margin-top:90px; }
+      .preview-hero .carousel-inner { height:260px; }
+      .membership { padding:36px 12px; }
+      .plan-card { width:min(100%,330px); }
+    }
+  </style>
+</head>
+<body>
+  <div class="preview-note">BẢN HTML XEM TRƯỚC TỪ VIEW C# · Giá gói theo mã nguồn; tên/mô tả gói và dữ liệu sản phẩm là minh hoạ vì Oracle chưa có dữ liệu.</div>
+
+  <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-dark bg-white fixed-top">
+    <div class="container">
+      <a href="#top"><img src="QL_GYM/UserApp/Content/Images/logo.png" style="width:5rem" alt="The Gym"></a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-label="Mở menu"><span class="navbar-toggler-icon"></span></button>
+      <div class="collapse navbar-collapse d-sm-inline-flex justify-content-between ms-5" id="mainNav">
+        <ul class="navbar-nav flex-grow-1 d-flex gap-4">
+          <li class="nav-item dropdown danhmuc p-0">
+            <a class="nav-link d-flex align-items-center gap-2 pe-0" href="#" id="danhmucDropdown" role="button" aria-expanded="false"><span class="navbar-toggler-icon small"></span><span class="text-black fs-6 text-uppercase">Danh mục</span></a>
+            <div class="dropdown-menu danhmuc-dropdown border-0 bg-white shadow-sm" aria-labelledby="danhmucDropdown">
+              <div class="w-100 d-flex justify-content-end align-items-center mb-4 px-4"><span class="d-flex align-items-center justify-content-between w-100 px-3 py-2 border-bottom fs-6 fw-bold text-dark">Tìm kiếm <img src="QL_GYM/UserApp/Content/Images/search.png" style="width:9%" alt=""></span></div>
+              <div class="fs-5 fw-bold text-uppercase" style="padding-left:40px">Danh mục sản phẩm</div>
+              <ul class="ps-2 pb-3">
+                <li><a class="dropdown-item" href="#supplements"><img src="QL_GYM/UserApp/Content/Images/Thực phẩm bổ sung.png" width="30" alt=""><span>Thực phẩm bổ sung</span></a></li>
+                <li><a class="dropdown-item" href="#clothes"><img src="QL_GYM/UserApp/Content/Images/Quần áo tập luyện.png" width="30" alt=""><span>Quần áo tập luyện</span></a></li>
+                <li><a class="dropdown-item" href="#classes"><img src="QL_GYM/UserApp/Content/Images/Phụ kiện tập luyện.png" width="30" alt=""><span>Phụ kiện tập luyện</span></a></li>
+              </ul>
+              <div class="fs-5 fw-bold text-uppercase" style="padding-left:40px">Tìm kiếm theo</div>
+              <div class="fs-5 fw-bold" style="padding-left:40px">Hãng</div>
+              <div style="padding-left:40px" class="mb-3">Nike · Applied Nutrition · Optimum Nutrition</div>
+              <div class="fs-5 fw-bold" style="padding-left:40px">Quốc gia</div>
+              <div style="padding-left:40px" class="mb-3">USA · Việt Nam</div>
+              <div class="fs-5 fw-bold" style="padding-left:40px">Mức giá</div>
+              <div style="padding-left:40px" class="d-flex flex-wrap gap-2 mt-2"><span class="btn btn-outline-primary">Dưới 100.000đ</span><span class="btn btn-outline-primary">100.000đ - 300.000đ</span><span class="btn btn-outline-primary">300.000đ - 500.000đ</span></div>
+            </div>
+          </li>
+          <li class="nav-item dropdown dich-vu-dropdown"><a class="nav-link text-black fs-6 dropdown-toggle text-uppercase" href="#classes">Dịch vụ</a><ul class="dropdown-menu border-0 bg-light p-0"><li><a class="dropdown-item py-2" href="#classes">Lớp học</a></li><li><a class="dropdown-item py-2" href="#trial">Đăng ký PT</a></li></ul></li>
+          <li><a class="nav-link text-black fs-6 text-uppercase" href="#classes">Tìm lớp</a></li>
+          <li><a class="nav-link text-black fs-6 text-uppercase" href="#membership">Gói tập</a></li>
+        </ul>
+        <form class="d-flex w-50 justify-content-end gap-3"><input class="form-control w-75 py-2" type="search" placeholder="Nhập thông tin cần tìm kiếm"><button class="btn btn-primary py-2" type="button">Tìm kiếm</button></form>
+      </div>
+      <div class="d-flex align-items-center ms-3"><a class="login-btn text-decoration-none d-flex justify-content-center" href="#"><span class="text-dark" style="font-size:16px">Đăng nhập</span><img src="QL_GYM/UserApp/Content/Images/user.png" class="ms-2" style="width:15%" alt=""></a></div>
+    </div>
+  </nav>
+
+  <main id="top">
+    <div id="heroCarousel" class="carousel slide preview-hero" data-bs-ride="carousel">
+      <div class="carousel-indicators"><button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="0" class="active" aria-label="Slide 1"></button><button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="1" aria-label="Slide 2"></button><button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="2" aria-label="Slide 3"></button></div>
+      <div class="carousel-inner"><div class="carousel-item active"><img src="QL_GYM/UserApp/Content/Images/poster.jpeg" alt="Banner The Gym"></div><div class="carousel-item"><img src="QL_GYM/UserApp/Content/Images/poster1.jpeg" alt="Banner The Gym"></div><div class="carousel-item"><img src="QL_GYM/UserApp/Content/Images/poster2.jpeg" alt="Banner The Gym"></div></div>
+    </div>
+
+    <section class="membership" id="membership">
+      <div class="d-flex flex-column gap-2 text-center container mx-auto">
+        <span class="text-dark text-uppercase fs-3 fw-bold">Hội viên The Gym</span>
+        <div class="w-50 mx-auto membership-copy"><span class="text-wrap text-dark small">The Gym cung cấp cho Hội Viên gói tập Tất Cả Chi Nhánh và 1 Chi Nhánh. Cả hai đều cho bạn tham gia tập luyện không giới hạn trong không gian <strong>Không phán xét</strong>, nơi mọi người cảm thấy luôn được chào đón và thuộc về từ khi bước vào.</span> <a class="link-primary" href="#trial">Xem chi tiết</a></div>
+      </div>
+      <div class="mt-3 d-flex gap-5 justify-content-center flex-wrap">
+        <article class="card plan-card py-3 px-3 rounded-4 bg-white">
+          <div class="d-flex justify-content-between align-items-center w-100"><div class="h5 text-uppercase m-0">1 tháng</div><div class="text-uppercase fw-bold rounded-2 p-2" style="font-size:11px;background:#17f696">Tất cả chi nhánh</div></div>
+          <div class="mt-4"><span class="fs-4 fw-bolder">399.000 VNĐ</span><span class="small"> / tháng</span></div>
+          <div class="border-top border-bottom py-2 mt-2" style="height:100px;font-size:15px">Tập luyện không giới hạn trong không gian thân thiện của The Gym.</div>
+          <a class="w-50 mx-auto btn rounded-pill btn-outline-primary border-0 fw-bold mt-4 text-white btn-info" href="#trial">Tham gia</a>
+        </article>
+        <article class="card plan-card annual py-3 px-3 rounded-4">
+          <div class="d-flex justify-content-between align-items-center w-100"><div class="h5 text-uppercase m-0 text-white">12 tháng</div><div class="text-uppercase fw-bold rounded-2 p-2" style="font-size:11px;background:#17f696">Tất cả chi nhánh</div></div>
+          <div class="mt-4"><span class="fs-4 fw-bolder text-white">10.000.000 VNĐ</span><span class="small text-white"> / năm</span></div>
+          <div class="border-top border-bottom border-white py-2 mt-2 fw-light text-white" style="height:100px;font-size:15px">Tập luyện không giới hạn trong không gian thân thiện của The Gym.</div>
+          <a class="w-50 mx-auto btn rounded-pill btn-outline-primary border-0 fw-bold mt-4 text-white btn-info" href="#trial">Tham gia</a>
+        </article>
+      </div>
+    </section>
+
+    <section class="container mt-4" id="supplements">
+      <h6 class="text-uppercase fw-bold mb-2 text-secondary">Thực phẩm bổ sung</h6><p class="d-flex gap-5 align-items-end"><span class="text-uppercase fw-bold fs-5 mb-0">Made in USA</span><a class="link-dark fw-bold fs-6" href="#supplements">View All</a></p>
+      <div class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-2">
+        <div class="col"><a class="card h-100 text-decoration-none text-dark" href="#"><img class="card-img-top product-image" src="QL_GYM/UserApp/Content/Images/abe-preworkout-energy-1.jpg" alt="ABE Pre-workout"><div class="card-body p-2"><div class="product-title"><div class="fw-bold small">ABE Pre-Workout</div><div class="text-secondary small">Applied Nutrition</div></div><div class="fw-bold">Giá xem tại cửa hàng</div></div></a></div>
+        <div class="col"><a class="card h-100 text-decoration-none text-dark" href="#"><img class="card-img-top product-image" src="QL_GYM/UserApp/Content/Images/applied-collagen-1.jpg" alt="Applied Collagen"><div class="card-body p-2"><div class="product-title"><div class="fw-bold small">Applied Collagen</div><div class="text-secondary small">Applied Nutrition</div></div><div class="fw-bold">Giá xem tại cửa hàng</div></div></a></div>
+        <div class="col"><a class="card h-100 text-decoration-none text-dark" href="#"><img class="card-img-top product-image" src="QL_GYM/UserApp/Content/Images/on-whey-vanilla-1.jpg" alt="Whey Protein"><div class="card-body p-2"><div class="product-title"><div class="fw-bold small">Whey Protein</div><div class="text-secondary small">Optimum Nutrition</div></div><div class="fw-bold">Giá xem tại cửa hàng</div></div></a></div>
+        <div class="col"><a class="card h-100 text-decoration-none text-dark" href="#"><img class="card-img-top product-image" src="QL_GYM/UserApp/Content/Images/rule1-whey-choco-1.jpg" alt="Rule1 Whey"><div class="card-body p-2"><div class="product-title"><div class="fw-bold small">Rule1 Whey Blend</div><div class="text-secondary small">Rule1</div></div><div class="fw-bold">Giá xem tại cửa hàng</div></div></a></div>
+        <div class="col"><a class="card h-100 text-decoration-none text-dark" href="#"><img class="card-img-top product-image" src="QL_GYM/UserApp/Content/Images/now-omega3-1.jpg" alt="Omega 3"><div class="card-body p-2"><div class="product-title"><div class="fw-bold small">Omega 3</div><div class="text-secondary small">NOW Foods</div></div><div class="fw-bold">Giá xem tại cửa hàng</div></div></a></div>
+      </div>
+    </section>
+
+    <div id="productCarousel" class="carousel slide mt-3 overflow-hidden" data-bs-ride="carousel"><div class="carousel-indicators"><button data-bs-target="#productCarousel" data-bs-slide-to="0" class="active" aria-label="Slide 1"></button><button data-bs-target="#productCarousel" data-bs-slide-to="1" aria-label="Slide 2"></button><button data-bs-target="#productCarousel" data-bs-slide-to="2" aria-label="Slide 3"></button></div><div class="carousel-inner" style="max-height:470px"><div class="carousel-item active"><img src="QL_GYM/UserApp/Content/Images/poster3.jpeg" class="d-block w-100" alt="The Gym"></div><div class="carousel-item"><img src="QL_GYM/UserApp/Content/Images/poster4.jpeg" class="d-block w-100" alt="The Gym"></div><div class="carousel-item"><img src="QL_GYM/UserApp/Content/Images/poster5.jpeg" class="d-block w-100" alt="The Gym"></div></div></div>
+
+    <section class="container mt-4" id="clothes"><h6 class="text-uppercase fw-bold mb-2 text-secondary">Quần áo tập luyện</h6><p class="d-flex gap-5 align-items-end"><span class="text-uppercase fw-bold fs-5 mb-0">Nike</span><a class="link-dark fw-bold fs-6" href="#clothes">View All</a></p><div class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-2">
+      <div class="col"><a class="card h-100 text-decoration-none text-dark" href="#"><img class="card-img-top product-image" src="QL_GYM/UserApp/Content/Images/nike-pro-dri-fit-den-1.jpg" alt="Nike Pro Dri-FIT"><div class="card-body p-2"><div class="product-title"><div class="fw-bold small">Nike Pro Dri-FIT</div><div class="text-secondary small">Nike</div></div><div class="fw-bold">Giá xem tại cửa hàng</div></div></a></div>
+      <div class="col"><a class="card h-100 text-decoration-none text-dark" href="#"><img class="card-img-top product-image" src="QL_GYM/UserApp/Content/Images/nike-one-legging-nu-den-1.jpg" alt="Nike One Legging"><div class="card-body p-2"><div class="product-title"><div class="fw-bold small">Nike One Legging</div><div class="text-secondary small">Nike</div></div><div class="fw-bold">Giá xem tại cửa hàng</div></div></a></div>
+      <div class="col"><a class="card h-100 text-decoration-none text-dark" href="#"><img class="card-img-top product-image" src="QL_GYM/UserApp/Content/Images/nike-dri-fit-short-xam-1.jpg" alt="Nike Dri-FIT Short"><div class="card-body p-2"><div class="product-title"><div class="fw-bold small">Nike Dri-FIT Short</div><div class="text-secondary small">Nike</div></div><div class="fw-bold">Giá xem tại cửa hàng</div></div></a></div>
+      <div class="col"><a class="card h-100 text-decoration-none text-dark" href="#"><img class="card-img-top product-image" src="QL_GYM/UserApp/Content/Images/nike-indy-bra-trang-1.jpg" alt="Nike Indy Bra"><div class="card-body p-2"><div class="product-title"><div class="fw-bold small">Nike Indy Bra</div><div class="text-secondary small">Nike</div></div><div class="fw-bold">Giá xem tại cửa hàng</div></div></a></div>
+      <div class="col"><a class="card h-100 text-decoration-none text-dark" href="#"><img class="card-img-top product-image" src="QL_GYM/UserApp/Content/Images/nike-tech-fleece-den-1.jpg" alt="Nike Tech Fleece"><div class="card-body p-2"><div class="product-title"><div class="fw-bold small">Nike Tech Fleece</div><div class="text-secondary small">Nike</div></div><div class="fw-bold">Giá xem tại cửa hàng</div></div></a></div>
+    </div></section>
+
+    <section class="container" id="classes" style="margin-top:100px"><div class="d-flex gap-5 align-items-end"><span class="fs-4 text-uppercase fw-bold">Start your training journey</span><a class="link-dark fw-bold fs-5" href="#classes">View All</a></div><div class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-2 mt-3">
+      <div class="col"><a class="card h-100 border-0 text-decoration-none" href="#"><img class="card-img-top" src="QL_GYM/UserApp/Content/Images/Aerobics.jpg" alt="Aerobics" style="height:25rem;object-fit:cover"><div class="card-body mt-4 p-0 text-uppercase fw-bold text-black">Aerobics</div></a></div>
+      <div class="col"><a class="card h-100 border-0 text-decoration-none" href="#"><img class="card-img-top" src="QL_GYM/UserApp/Content/Images/Boxing.jpg" alt="Boxing" style="height:25rem;object-fit:cover"><div class="card-body mt-4 p-0 text-uppercase fw-bold text-black">Boxing</div></a></div>
+      <div class="col"><a class="card h-100 border-0 text-decoration-none" href="#"><img class="card-img-top" src="QL_GYM/UserApp/Content/Images/Yoga.jpg" alt="Yoga" style="height:25rem;object-fit:cover"><div class="card-body mt-4 p-0 text-uppercase fw-bold text-black">Yoga</div></a></div>
+      <div class="col"><a class="card h-100 border-0 text-decoration-none" href="#"><img class="card-img-top" src="QL_GYM/UserApp/Content/Images/New Pump.jpg" alt="New Pump" style="height:25rem;object-fit:cover"><div class="card-body mt-4 p-0 text-uppercase fw-bold text-black">New Pump</div></a></div>
+      <div class="col"><a class="card h-100 border-0 text-decoration-none" href="#"><img class="card-img-top" src="QL_GYM/UserApp/Content/Images/New Combat.jpg" alt="New Combat" style="height:25rem;object-fit:cover"><div class="card-body mt-4 p-0 text-uppercase fw-bold text-black">New Combat</div></a></div>
+    </div></section>
+
+    <section class="container-fluid bg-light py-5 mt-5"><div class="text-center mb-3"><p class="fs-2 fw-bold mb-2">Testimonial</p><p class="small fw-light text-muted">What our customers say</p></div><div id="quotes" class="carousel slide" data-bs-ride="carousel"><div class="carousel-inner pb-5"><div class="carousel-item active"><div class="w-75 mx-auto d-flex flex-column justify-content-center align-items-center px-3"><img src="QL_GYM/UserApp/Content/Images/user1.png" class="rounded-circle mb-3" style="width:90px;height:90px;object-fit:cover" alt="Khách hàng"><div class="text-center fst-italic text-secondary" style="font-size:1.2rem;line-height:1.8">“The Gym thật sự là một trải nghiệm tuyệt vời cho bất cứ ai muốn cải thiện sức khỏe và vóc dáng. Không chỉ có hệ thống máy móc hiện đại, sạch sẽ, mà không gian còn rất thoải mái, tạo cảm giác hứng thú mỗi khi bước vào.”</div><p class="fw-bold mt-4">- Jane Doe</p></div></div><div class="carousel-item"><div class="w-75 mx-auto d-flex flex-column justify-content-center align-items-center px-3"><img src="QL_GYM/UserApp/Content/Images/user2.png" class="rounded-circle mb-3" style="width:90px;height:90px;object-fit:cover" alt="Khách hàng"><div class="text-center fst-italic text-secondary" style="font-size:1.2rem;line-height:1.8">“Mình đã thử khá nhiều phòng gym khác nhau, nhưng The Gym thực sự làm mình ấn tượng. Môi trường tập luyện rất năng động, máy móc đầy đủ, và đội ngũ nhân viên luôn thân thiện.”</div><p class="fw-bold mt-4">- Bill Smith</p></div></div><div class="carousel-item"><div class="w-75 mx-auto d-flex flex-column justify-content-center align-items-center px-3"><img src="QL_GYM/UserApp/Content/Images/user3.png" class="rounded-circle mb-3" style="width:90px;height:90px;object-fit:cover" alt="Khách hàng"><div class="text-center fst-italic text-secondary" style="font-size:1.2rem;line-height:1.8">“Không gian phòng tập hiện đại, các khu vực tập luyện được phân chia rõ ràng và đội ngũ huấn luyện viên chuyên nghiệp, nhiệt tình.”</div><p class="fw-bold mt-4">- Athur Mogarn</p></div></div></div><div class="carousel-indicators" style="bottom:-30px"><button data-bs-target="#quotes" data-bs-slide-to="0" class="active bg-dark" aria-label="1"></button><button data-bs-target="#quotes" data-bs-slide-to="1" class="bg-dark" aria-label="2"></button><button data-bs-target="#quotes" data-bs-slide-to="2" class="bg-dark" aria-label="3"></button></div></div></section>
+
+    <section class="container-fluid bg-white py-5"><div class="container"><div class="row row-cols-md-3 row-cols-lg-4 justify-content-center g-3">
+      <div class="col"><a class="card h-100 rounded-4 position-relative overflow-hidden text-decoration-none promo-card" href="#"><img src="QL_GYM/UserApp/Content/Images/promotion1.jpg" alt=""><div class="card-img-overlay d-flex justify-content-center align-items-center text-white text-center"><h2 class="fw-bold text-uppercase">Join a PT program</h2></div></a></div>
+      <div class="col"><a class="card h-100 rounded-4 position-relative overflow-hidden text-decoration-none promo-card" href="#"><img src="QL_GYM/UserApp/Content/Images/promotion2.jpg" alt=""><div class="card-img-overlay d-flex justify-content-center align-items-center text-white text-center"><h2 class="fw-bold text-uppercase">Workout tips</h2></div></a></div>
+      <div class="col"><a class="card h-100 rounded-4 position-relative overflow-hidden text-decoration-none promo-card" href="#"><img src="QL_GYM/UserApp/Content/Images/promotion3.jpg" alt=""><div class="card-img-overlay d-flex justify-content-center align-items-center text-white text-center"><h2 class="fw-bold text-uppercase">About us</h2></div></a></div>
+      <div class="col"><a class="card h-100 rounded-4 position-relative overflow-hidden text-decoration-none promo-card" href="#"><img src="QL_GYM/UserApp/Content/Images/promotion4.jpg" alt=""><div class="card-img-overlay d-flex justify-content-center align-items-center text-white text-center"><h2 class="fw-bold text-uppercase">Become a member</h2></div></a></div>
+    </div></div></section>
+
+    <section class="container-fluid bg-info mt-4" id="trial"><div class="container py-5 row mx-auto"><div class="col-md-6 p-0"><div class="w-75"><h1 class="text-wrap fw-bold text-white">TRẢI NGHIỆM MIỄN PHÍ NGAY!</h1><p class="mt-3 small text-wrap text-white">Tham gia 7 ngày dùng thử miễn phí dành cho khách mới. Để lại thông tin, The Gym sẽ liên hệ với bạn.</p></div></div><div class="col-md-6 p-0"><form class="text-white"><div class="mb-4"><input class="form-control border-0 border-bottom rounded-0 shadow-none" placeholder="Họ và tên*" required></div><div class="mb-4"><input type="tel" class="form-control border-0 border-bottom rounded-0 shadow-none" placeholder="Số điện thoại*" required></div><div class="mb-4"><input type="email" class="form-control border-0 border-bottom rounded-0 shadow-none" placeholder="Email*"></div><button class="btn btn-secondary text-white border-0 fw-bold px-4" type="button">ĐĂNG KÝ</button></form></div></div></section>
+  </main>
+
+  <footer class="bg-white text-black py-5 mt-4"><div class="container"><div class="row justify-content-center mb-4"><div class="col-auto"><a class="text-black text-decoration-none mx-3" href="#">Về The Gym</a></div><div class="col-auto"><a class="text-black text-decoration-none mx-3" href="#">Hệ Thống Phòng Tập</a></div><div class="col-auto"><a class="text-black text-decoration-none mx-3" href="#">Tuyển Dụng</a></div><div class="col-auto"><a class="text-black text-decoration-none mx-3" href="#">Tin Tức</a></div><div class="col-auto"><a class="text-black text-decoration-none mx-3" href="#">Liên Hệ</a></div></div><div class="row justify-content-center mb-5"><div class="col-auto"><a class="text-black text-decoration-none mx-3" href="#">Chính Sách Bảo Mật</a></div><div class="col-auto"><a class="text-black text-decoration-none mx-3" href="#">Chăm Sóc Khách Hàng / Liên Hệ</a></div><div class="col-auto"><a class="text-black text-decoration-none mx-3" href="#">Điều Khoản &amp; Điều Kiện</a></div></div></div><hr><div class="text-center fs-5"><i class="fab fa-facebook mx-3"></i><i class="fab fa-instagram mx-3"></i><i class="fab fa-tiktok mx-3"></i><i class="fab fa-youtube mx-3"></i></div></footer>
+
+  <script src="QL_GYM/UserApp/Scripts/bootstrap.bundle.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded',function(){const link=document.getElementById('danhmucDropdown');const menu=document.querySelector('.danhmuc-dropdown');if(!link||!menu)return;link.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();menu.classList.toggle('show');});document.addEventListener('click',function(e){if(!link.contains(e.target)&&!menu.contains(e.target))menu.classList.remove('show');});document.addEventListener('keydown',function(e){if(e.key==='Escape')menu.classList.remove('show');});});
+  </script>
+</body>
+</html>
