@@ -1,8 +1,10 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ManagerDashboardController;
+use App\Http\Controllers\ManagerEmployeeController;
 use App\Http\Controllers\ManagerGymPackageController;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\MembershipOrderController;
@@ -15,12 +17,16 @@ use App\Models\CheckIn;
 use App\Models\GymPackage;
 use App\Models\MembershipOrder;
 use App\Models\TrialRequest;
+use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/goi-tap', [MemberController::class, 'packages'])->name('packages.index');
 Route::get('/goi-tap/{package}', [MemberController::class, 'showPackage'])->name('packages.show');
 Route::post('/dang-ky-trai-nghiem', [TrialRequestController::class, 'store'])->name('trials.store');
+Route::post('/chatbot/message', ChatbotController::class)
+    ->middleware('throttle:10,1')
+    ->name('chatbot.message');
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/dang-nhap', [AuthController::class, 'showLogin'])->name('login');
@@ -115,4 +121,22 @@ Route::middleware(['auth', 'role:manager'])->prefix('quan-ly/goi-tap')->name('ma
     Route::patch('/{package}/trang-thai', [ManagerGymPackageController::class, 'toggleActive'])
         ->middleware('can:toggleActive,package')
         ->name('toggle-active');
+});
+
+Route::middleware(['auth', 'role:manager'])->prefix('quan-ly/nhan-vien')->name('manager.employees.')->group(function (): void {
+    Route::get('/', [ManagerEmployeeController::class, 'index'])
+        ->middleware('can:viewAny,'.User::class)
+        ->name('index');
+    Route::get('/tao', [ManagerEmployeeController::class, 'create'])
+        ->middleware('can:create,'.User::class)
+        ->name('create');
+    Route::post('/', [ManagerEmployeeController::class, 'store'])
+        ->middleware('can:create,'.User::class)
+        ->name('store');
+    Route::get('/{employee}/sua', [ManagerEmployeeController::class, 'edit'])
+        ->middleware('can:update,employee')
+        ->name('edit');
+    Route::put('/{employee}', [ManagerEmployeeController::class, 'update'])
+        ->middleware('can:update,employee')
+        ->name('update');
 });

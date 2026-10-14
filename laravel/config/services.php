@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'rag' => [
+        'url' => env('RAG_API_URL', 'http://127.0.0.1:8090'),
+        'timeout' => env('RAG_API_TIMEOUT', 30),
+    ],
+
 ];

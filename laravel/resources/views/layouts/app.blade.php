@@ -33,6 +33,7 @@
                         @if (auth()->user()->role === 'manager')
                             <li><a class="flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-semibold uppercase tracking-wide text-slate-800 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-gym-blue" href="{{ route('manager.dashboard') }}">Quản lý</a></li>
                             <li><a class="flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-semibold uppercase tracking-wide text-slate-800 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-gym-blue" href="{{ route('manager.packages.index') }}">Gói tập</a></li>
+                            <li><a class="flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-semibold uppercase tracking-wide text-slate-800 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-gym-blue" href="{{ route('manager.employees.index') }}">Tài khoản nhân viên</a></li>
                         @endif
                     @endauth
                 </ul>
@@ -107,5 +108,7 @@
             <p class="mt-6 border-t border-slate-200 pt-5 text-center text-xs text-slate-600">© {{ now(config('app.timezone'))->year }} The Gym · Tập luyện trong không gian không phán xét.</p>
         </div>
     </footer>
+
+    @include('components.chatbot')
 </body>
 </html>
