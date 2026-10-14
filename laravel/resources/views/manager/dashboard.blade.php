@@ -17,8 +17,8 @@
             <article class="gym-card"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Lượt đang tập</p><p class="mt-3 text-4xl font-extrabold tabular-nums">{{ number_format($openVisitCount) }}</p><a class="mt-3 inline-block font-semibold text-gym-blue underline underline-offset-4" href="{{ route('staff.checkins.index') }}">Mở check-in</a></article>
         </div>
 
-        <div class="mt-8 grid gap-7 lg:grid-cols-[0.8fr_1.2fr]">
-            <section>
+        <div class="mt-8 grid gap-7 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+            <section class="min-w-0">
                 <h2 class="mb-3 text-xl font-extrabold uppercase">Gói đang mở bán</h2>
                 <div class="grid gap-3">
                     @forelse ($packages as $package)
@@ -28,7 +28,7 @@
                     @endforelse
                 </div>
             </section>
-            <section>
+            <section class="min-w-0">
                 <h2 class="mb-3 text-xl font-extrabold uppercase">Đăng ký gần đây</h2>
                 <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm" tabindex="0" aria-label="Bảng đăng ký gần đây; vuốt ngang để xem thêm cột">
                     <table class="gym-table min-w-[36rem]">

@@ -12,7 +12,7 @@
         <div class="gym-card mb-8">
             <form class="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end" method="POST" action="{{ route('staff.checkins.store') }}">
                 @csrf
-                <div><label class="gym-label" for="member">Mã hội viên hoặc số điện thoại</label><input class="gym-input" id="member" name="member" type="text" inputmode="numeric" autocomplete="off" value="{{ old('member') }}" placeholder="Ví dụ: 0901234567" required></div>
+                <div><label class="gym-label" for="member">Mã hội viên hoặc số điện thoại</label><x-form-input id="member" name="member" type="text" inputmode="numeric" autocomplete="off" value="{{ old('member') }}" placeholder="Ví dụ: 0901234567" required /></div>
                 <button class="gym-btn-primary w-full sm:w-auto" type="submit">Ghi nhận vào tập</button>
             </form>
         </div>
@@ -41,7 +41,7 @@
                                     <form class="mt-2 flex gap-2" method="POST" action="{{ route('staff.checkins.manual-close', $visit) }}" onsubmit="return confirm('Đóng lượt tập này và lưu lý do điều chỉnh?')">
                                         @csrf
                                         <label class="sr-only" for="reason-{{ $visit->id }}">Lý do đóng thủ công</label>
-                                        <input class="gym-input min-h-9 min-w-0 px-2 py-1 text-sm" id="reason-{{ $visit->id }}" name="reason" placeholder="Lý do đóng thủ công" required>
+                                        <x-form-input class="min-w-0 px-2 py-1 text-sm" id="reason-{{ $visit->id }}" name="reason" placeholder="Lý do đóng thủ công" required />
                                         <button class="min-h-9 shrink-0 rounded-lg border border-slate-300 px-3 py-1 text-sm font-semibold hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-gym-blue" type="submit">Đóng lượt</button>
                                     </form>
                                 @else

@@ -14,15 +14,15 @@
                     <input type="hidden" name="token" value="{{ $token }}">
                     <div>
                         <label class="gym-label" for="email">Email tài khoản</label>
-                        <input class="gym-input" id="email" name="email" type="email" value="{{ old('email', $email) }}" autocomplete="email" required readonly>
+                        <x-form-input id="email" name="email" type="email" value="{{ old('email', $email) }}" autocomplete="email" required readonly />
                     </div>
                     <div>
                         <label class="gym-label" for="password">Mật khẩu mới</label>
-                        <input class="gym-input" id="password" name="password" type="password" autocomplete="new-password" minlength="8" required autofocus>
+                        <x-form-input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required autofocus />
                     </div>
                     <div>
                         <label class="gym-label" for="password_confirmation">Nhập lại mật khẩu mới</label>
-                        <input class="gym-input" id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" minlength="8" required>
+                        <x-form-input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" minlength="8" required error-name="password" />
                     </div>
                     <button class="gym-btn-primary w-full" type="submit">Lưu mật khẩu mới</button>
                 </form>

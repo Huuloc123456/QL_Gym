@@ -13,7 +13,7 @@
                     @csrf
                     <div>
                         <label class="gym-label" for="email">Email tài khoản</label>
-                        <input class="gym-input" id="email" name="email" type="email" value="{{ old('email') }}" autocomplete="email" required autofocus>
+                        <x-form-input id="email" name="email" type="email" value="{{ old('email') }}" autocomplete="email" required autofocus />
                     </div>
                     <button class="gym-btn-primary w-full" type="submit">Gửi liên kết khôi phục</button>
                 </form>

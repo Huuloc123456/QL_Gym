@@ -50,9 +50,9 @@
                             @if ($remaining > 0)
                                 <form class="grid gap-3 sm:grid-cols-2" method="POST" action="{{ route('staff.orders.payments.store', $order) }}">
                                     @csrf
-                                    <div><label class="gym-label" for="amount-{{ $order->id }}">Số tiền nhận</label><input class="gym-input" id="amount-{{ $order->id }}" type="number" name="amount" min="1" max="{{ $remaining }}" value="{{ $remaining }}" required></div>
-                                    <div><label class="gym-label" for="method-{{ $order->id }}">Hình thức</label><select class="gym-input" id="method-{{ $order->id }}" name="payment_method"><option value="bank_transfer">Chuyển khoản</option><option value="cash">Tiền mặt</option></select></div>
-                                    <div class="sm:col-span-2"><label class="gym-label" for="reference-{{ $order->id }}">Mã giao dịch (nếu có)</label><input class="gym-input" id="reference-{{ $order->id }}" name="reference" maxlength="255"></div>
+                                    <div><label class="gym-label" for="amount-{{ $order->id }}">Số tiền nhận</label><x-form-input id="amount-{{ $order->id }}" type="number" name="amount" min="1" max="{{ $remaining }}" value="{{ $remaining }}" required /></div>
+                                    <div><label class="gym-label" for="method-{{ $order->id }}">Hình thức</label><x-form-select id="method-{{ $order->id }}" name="payment_method"><option value="bank_transfer">Chuyển khoản</option><option value="cash">Tiền mặt</option></x-form-select></div>
+                                    <div class="sm:col-span-2"><label class="gym-label" for="reference-{{ $order->id }}">Mã giao dịch (nếu có)</label><x-form-input id="reference-{{ $order->id }}" name="reference" maxlength="255" /></div>
                                     <button class="gym-btn-outline sm:col-span-2 sm:justify-self-start" type="submit">Ghi nhận tiền đã nhận</button>
                                 </form>
                             @endif
@@ -60,7 +60,7 @@
                                 @if ($remaining === 0)
                                     <form class="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end" method="POST" action="{{ route('staff.orders.confirm', $order) }}">
                                         @csrf
-                                        <div><label class="gym-label" for="start-{{ $order->id }}">Ngày bắt đầu thực tế</label><input class="gym-input" id="start-{{ $order->id }}" type="date" name="start_date" autocomplete="off" min="{{ now(config('app.timezone'))->toDateString() }}" value="{{ $order->start_date->toDateString() >= now(config('app.timezone'))->toDateString() ? $order->start_date->toDateString() : '' }}" required></div>
+                                        <div><label class="gym-label" for="start-{{ $order->id }}">Ngày bắt đầu thực tế</label><x-form-input id="start-{{ $order->id }}" type="date" name="start_date" autocomplete="off" min="{{ now(config('app.timezone'))->toDateString() }}" value="{{ $order->start_date->toDateString() >= now(config('app.timezone'))->toDateString() ? $order->start_date->toDateString() : '' }}" required /></div>
                                         <button class="gym-btn-primary" type="submit">Xác nhận gói</button>
                                     </form>
                                 @endif

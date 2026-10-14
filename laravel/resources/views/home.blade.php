@@ -14,7 +14,7 @@
         <div class="gym-container mt-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
             @forelse ($packages as $package)
                 @php($isAnnual = $package->duration_months >= 12)
-                <article class="flex flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_16px_44px_rgba(20,48,68,0.12)] {{ $isAnnual ? 'bg-slate-900 text-white' : '' }}">
+                <article class="flex flex-col rounded-3xl border border-slate-200 p-6 shadow-[0_16px_44px_rgba(20,48,68,0.12)] {{ $isAnnual ? 'bg-slate-900 text-white' : 'bg-white text-gym-ink' }}">
                     <div class="flex items-start justify-between gap-3">
                         <h2 class="text-xl font-extrabold uppercase"><a class="rounded-sm hover:text-gym-blue focus-visible:outline-2 focus-visible:outline-gym-blue" href="{{ route('packages.show', $package) }}">{{ $package->name }}</a></h2>
                         <span class="shrink-0 rounded-md bg-gym-mint px-2 py-1 text-xs font-extrabold uppercase text-slate-900">The Gym</span>
@@ -27,8 +27,8 @@
                                 @csrf
                                 <p class="text-sm font-semibold" data-last-training-day>Ngày tập cuối dự kiến: {{ $lastTrainingDays[$package->id] }}</p>
                                 <input type="hidden" name="gym_package_id" value="{{ $package->id }}">
-                                <div><label class="gym-label {{ $isAnnual ? 'text-white' : '' }}" for="start-date-{{ $package->id }}">Ngày bắt đầu</label><input class="gym-input" id="start-date-{{ $package->id }}" type="date" name="start_date" data-start-date autocomplete="off" min="{{ now(config('app.timezone'))->toDateString() }}" value="{{ old('start_date', $suggestedStartDate->toDateString()) }}" required></div>
-                                <div><label class="gym-label {{ $isAnnual ? 'text-white' : '' }}" for="payment-{{ $package->id }}">Dự kiến thanh toán</label><select class="gym-input" id="payment-{{ $package->id }}" name="payment_method" required><option value="bank_transfer">Chuyển khoản</option><option value="cash">Tiền mặt tại quầy</option></select></div>
+                                <div><label class="gym-label {{ $isAnnual ? 'text-white' : '' }}" for="start-date-{{ $package->id }}">Ngày bắt đầu</label><x-form-input id="start-date-{{ $package->id }}" type="date" name="start_date" data-start-date autocomplete="off" min="{{ now(config('app.timezone'))->toDateString() }}" value="{{ old('start_date', $suggestedStartDate->toDateString()) }}" required /></div>
+                                <div><label class="gym-label {{ $isAnnual ? 'text-white' : '' }}" for="payment-{{ $package->id }}">Dự kiến thanh toán</label><x-form-select id="payment-{{ $package->id }}" name="payment_method" required><option value="bank_transfer">Chuyển khoản</option><option value="cash">Tiền mặt tại quầy</option></x-form-select></div>
                                 <button class="gym-btn-primary w-full" type="submit">Đăng ký gói</button>
                             </form>
                         @else
@@ -56,9 +56,9 @@
             </div>
             <form class="space-y-4" method="POST" action="{{ route('trials.store') }}">
                 @csrf
-                <div><label class="gym-label text-white" for="trial-name">Họ và tên</label><input class="gym-input" id="trial-name" type="text" name="name" autocomplete="name" value="{{ old('name') }}" required></div>
-                <div><label class="gym-label text-white" for="trial-phone">Số điện thoại</label><input class="gym-input" id="trial-phone" type="tel" name="phone" autocomplete="tel" value="{{ old('phone') }}" required></div>
-                <div><label class="gym-label text-white" for="trial-email">Email (không bắt buộc)</label><input class="gym-input" id="trial-email" type="email" name="email" autocomplete="email" value="{{ old('email') }}"></div>
+                <div><label class="gym-label text-white" for="trial-name">Họ và tên</label><x-form-input id="trial-name" type="text" name="name" autocomplete="name" value="{{ old('name') }}" required /></div>
+                <div><label class="gym-label text-white" for="trial-phone">Số điện thoại</label><x-form-input id="trial-phone" type="tel" name="phone" autocomplete="tel" value="{{ old('phone') }}" required /></div>
+                <div><label class="gym-label text-white" for="trial-email">Email (không bắt buộc)</label><x-form-input id="trial-email" type="email" name="email" autocomplete="email" value="{{ old('email') }}" /></div>
                 <button class="gym-btn-primary bg-slate-900 hover:bg-slate-800" type="submit">Đăng ký trải nghiệm</button>
             </form>
         </div>

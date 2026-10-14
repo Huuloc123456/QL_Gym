@@ -5,7 +5,7 @@
 @source '../../storage/framework/views/*.php';
 
 @theme {
-    --color-gym-blue: #1382bd;
+    --color-gym-blue: #0a70a3;
     --color-gym-blue-deep: #086493;
     --color-gym-ink: #172435;
     --color-gym-paper: #f5f8fa;
@@ -56,6 +56,11 @@
 
     .gym-input {
         @apply min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-gym-ink shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gym-blue;
+    }
+
+    [data-carousel] button:disabled {
+        cursor: wait;
+        opacity: 0.6;
     }
 
     .gym-label {
