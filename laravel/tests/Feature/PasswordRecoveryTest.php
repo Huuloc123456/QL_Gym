@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
-use Illuminate\Auth\Notifications\ResetPassword;
+use App\Notifications\ResetPasswordNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
@@ -25,6 +25,7 @@ class PasswordRecoveryTest extends TestCase
     public function test_reset_link_request_sends_email_without_disclosing_unknown_addresses(): void
     {
         Notification::fake();
+        config(['app.url' => 'https://gym.example.test']);
         $customer = User::factory()->create(['email' => 'member@example.test']);
         $message = 'Nếu email tồn tại trong hệ thống, hướng dẫn khôi phục đã được gửi.';
 
@@ -37,16 +38,21 @@ class PasswordRecoveryTest extends TestCase
             ->assertSessionHas('success', $message);
 
         $resetUrl = null;
-        Notification::assertSentTo($customer, ResetPassword::class, function (ResetPassword $notification) use ($customer, &$resetUrl): bool {
-            $resetUrl = $notification->toMail($customer)->actionUrl;
+        Notification::assertSentTo($customer, ResetPasswordNotification::class, function (ResetPasswordNotification $notification) use ($customer, &$resetUrl): bool {
+            $message = $notification->toMail($customer);
+            $resetUrl = $message->actionUrl;
 
-            return true;
+            return $message->subject === 'Khôi phục mật khẩu - The Gym'
+                && $message->actionText === 'Đặt lại mật khẩu'
+                && $message->introLines === ['Chúng tôi nhận được yêu cầu đổi mật khẩu cho tài khoản The Gym của bạn.']
+                && str_contains($message->outroLines[0], '60 phút');
         });
         Notification::assertCount(1);
-        $this->assertSame(route('password.reset', [
-            'token' => Notification::sent($customer, ResetPassword::class)->first()->token,
+        $resetPath = route('password.reset', [
+            'token' => Notification::sent($customer, ResetPasswordNotification::class)->first()->token,
             'email' => $customer->email,
-        ]), $resetUrl);
+        ], absolute: false);
+        $this->assertSame(config('app.url').$resetPath, $resetUrl);
     }
 
     public function test_valid_reset_token_changes_the_password_and_can_only_be_used_once(): void
