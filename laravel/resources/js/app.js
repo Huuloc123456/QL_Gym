@@ -31,11 +31,35 @@ if (navigationGroups.length > 0) {
 }
 
 if (menuButton && menu) {
+    const setMenuExpanded = (isExpanded) => {
+        menuButton.setAttribute('aria-expanded', String(isExpanded));
+        menuButton.setAttribute('aria-label', isExpanded ? 'Đóng menu' : 'Mở menu');
+        menu.classList.toggle('hidden', !isExpanded);
+    };
+
     menuButton.addEventListener('click', () => {
         const isExpanded = menuButton.getAttribute('aria-expanded') === 'true';
-        menuButton.setAttribute('aria-expanded', String(!isExpanded));
-        menu.classList.toggle('hidden', isExpanded);
+        setMenuExpanded(!isExpanded);
     });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && menuButton.getAttribute('aria-expanded') === 'true') {
+            setMenuExpanded(false);
+            menuButton.focus();
+        }
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!menu.contains(event.target) && !menuButton.contains(event.target)) {
+            setMenuExpanded(false);
+        }
+    });
+
+    menu.querySelectorAll('a').forEach((link) => {
+        link.addEventListener('click', () => setMenuExpanded(false));
+    });
+
+    window.matchMedia('(min-width: 1280px)').addEventListener('change', () => setMenuExpanded(false));
 }
 
 const chatWidget = document.querySelector('[data-gym-chatbot]');
@@ -189,16 +213,50 @@ if (chatWidget) {
 document.querySelectorAll('[data-carousel]').forEach((carousel) => {
     const slides = [...carousel.querySelectorAll('[data-carousel-slide]')];
     const status = carousel.querySelector('[data-carousel-status]');
+    const buttons = [...carousel.querySelectorAll('[data-carousel-prev], [data-carousel-next]')];
     let activeIndex = 0;
+    let isLoading = false;
 
-    const showSlide = (index) => {
-        activeIndex = (index + slides.length) % slides.length;
-        slides.forEach((slide, slideIndex) => {
-            slide.hidden = slideIndex !== activeIndex;
-        });
+    if (!slides.length) {
+        return;
+    }
 
-        if (status) {
-            status.textContent = 'Ảnh ' + (activeIndex + 1) + ' trên ' + slides.length;
+    const showSlide = async (index) => {
+        if (isLoading) {
+            return;
+        }
+
+        const nextIndex = (index + slides.length) % slides.length;
+        const image = slides[nextIndex].querySelector('img');
+        isLoading = true;
+        carousel.setAttribute('aria-busy', 'true');
+        buttons.forEach((button) => { button.disabled = true; });
+
+        try {
+            if (image?.dataset.src) {
+                image.srcset = image.dataset.srcset ?? '';
+                image.src = image.dataset.src;
+                await image.decode();
+                delete image.dataset.src;
+                delete image.dataset.srcset;
+            }
+
+            activeIndex = nextIndex;
+            slides.forEach((slide, slideIndex) => {
+                slide.hidden = slideIndex !== activeIndex;
+            });
+
+            if (status) {
+                status.textContent = 'Ảnh ' + (activeIndex + 1) + ' trên ' + slides.length;
+            }
+        } catch {
+            if (status) {
+                status.textContent = 'Không tải được ảnh. Bạn có thể thử lại.';
+            }
+        } finally {
+            isLoading = false;
+            carousel.setAttribute('aria-busy', 'false');
+            buttons.forEach((button) => { button.disabled = slides.length < 2; });
         }
     };
 

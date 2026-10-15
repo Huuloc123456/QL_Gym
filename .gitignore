@@ -434,3 +434,8 @@ FodyWeavers.xsd
 /laravel/database/*.sqlite
 /laravel/database/*.sqlite-*
 /laravel/.claude/
+
+
+# Laravel application views are source files, not NuGet packages
+!/laravel/resources/views/packages/**
+!/laravel/resources/views/manager/packages/**

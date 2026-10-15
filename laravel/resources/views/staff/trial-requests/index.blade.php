@@ -18,15 +18,15 @@
         <form class="gym-card mb-6 grid gap-4 sm:grid-cols-[1fr_auto_auto] sm:items-end" method="GET" action="{{ route('staff.trial-requests.index') }}">
             <div>
                 <label class="gym-label" for="search">Tìm tên, số điện thoại hoặc email</label>
-                <input class="gym-input" id="search" name="search" value="{{ $filters['search'] ?? '' }}" autocomplete="off">
+                <x-form-input id="search" name="search" value="{{ $filters['search'] ?? '' }}" autocomplete="off" />
             </div>
             <div>
                 <label class="gym-label" for="status">Trạng thái</label>
-                <select class="gym-input sm:min-w-48" id="status" name="status">
+                <x-form-select class="sm:min-w-48" id="status" name="status">
                     <option value="">Tất cả yêu cầu</option>
                     <option value="received" @selected(($filters['status'] ?? '') === 'received')>Chưa liên hệ</option>
                     <option value="contacted" @selected(($filters['status'] ?? '') === 'contacted')>Đã liên hệ</option>
-                </select>
+                </x-form-select>
             </div>
             <button class="gym-btn-primary" type="submit">Lọc danh sách</button>
         </form>
