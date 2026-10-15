@@ -19,7 +19,7 @@ class AuthorizationPolicyTest extends TestCase
     {
         $owner = User::factory()->create(['role' => 'customer']);
         $otherCustomer = User::factory()->create(['role' => 'customer']);
-        $employee = User::factory()->create(['role' => 'employee']);
+        $employee = User::factory()->employee()->create();
         $package = GymPackage::factory()->create();
         $order = MembershipOrder::factory()->for($owner)->for($package, 'gymPackage')->create();
 
@@ -34,7 +34,7 @@ class AuthorizationPolicyTest extends TestCase
     public function test_only_staff_can_view_the_order_queue_and_record_or_confirm_payments(): void
     {
         $customer = User::factory()->create(['role' => 'customer']);
-        $employee = User::factory()->create(['role' => 'employee']);
+        $employee = User::factory()->employee()->create();
         $manager = User::factory()->create(['role' => 'manager']);
         $package = GymPackage::factory()->create();
         $order = MembershipOrder::factory()->for($customer)->for($package, 'gymPackage')->create();
@@ -55,7 +55,7 @@ class AuthorizationPolicyTest extends TestCase
     public function test_only_staff_can_check_in_and_close_visits(): void
     {
         $customer = User::factory()->create(['role' => 'customer']);
-        $employee = User::factory()->create(['role' => 'employee']);
+        $employee = User::factory()->employee()->create();
         $manager = User::factory()->create(['role' => 'manager']);
         $package = GymPackage::factory()->create();
         $order = MembershipOrder::factory()->for($customer)->for($package, 'gymPackage')->paid()->create();

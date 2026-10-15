@@ -46,6 +46,9 @@ class DatabaseSeeder extends Seeder
                     'phone' => '0900000002',
                     'role' => 'employee',
                     'password' => 'GymDemo@2026',
+                    'can_manage_trial_requests' => true,
+                    'can_manage_orders' => true,
+                    'can_manage_check_ins' => true,
                 ],
             );
         }

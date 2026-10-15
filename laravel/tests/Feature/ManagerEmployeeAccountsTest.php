@@ -28,7 +28,7 @@ class ManagerEmployeeAccountsTest extends TestCase
             ->assertSee('Tạo tài khoản nhân viên')
             ->assertDontSee('name="role"', false);
 
-        $this->post(route('manager.employees.store'), [
+        $response = $this->post(route('manager.employees.store'), [
             'name' => 'Nhân viên mới',
             'username' => 'nhanvienmoi',
             'email' => 'newemployee@example.test',
@@ -36,9 +36,10 @@ class ManagerEmployeeAccountsTest extends TestCase
             'password' => 'StrongPass123!',
             'password_confirmation' => 'StrongPass123!',
             'role' => 'manager',
-        ])->assertRedirect(route('manager.employees.index'));
+        ]);
 
         $createdEmployee = User::query()->where('username', 'nhanvienmoi')->firstOrFail();
+        $response->assertRedirect(route('manager.employees.permissions.edit', $createdEmployee));
 
         $this->assertSame('employee', $createdEmployee->role);
         $this->assertTrue(Hash::check('StrongPass123!', $createdEmployee->password));

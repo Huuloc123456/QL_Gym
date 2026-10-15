@@ -11,6 +11,7 @@ use App\Http\Controllers\MembershipOrderController;
 use App\Http\Controllers\PasswordRecoveryController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StaffCheckInController;
+use App\Http\Controllers\StaffDashboardController;
 use App\Http\Controllers\StaffOrderController;
 use App\Http\Controllers\TrialRequestController;
 use App\Models\CheckIn;
@@ -65,7 +66,9 @@ Route::post('/my/don-hang', [MembershipOrderController::class, 'store'])
     ->middleware(['auth', 'role:customer'])
     ->name('orders.store');
 
-Route::middleware('auth')->prefix('staff')->name('staff.')->group(function (): void {
+Route::middleware(['auth', 'role:employee,manager'])->prefix('staff')->name('staff.')->group(function (): void {
+    Route::get('/', StaffDashboardController::class)->name('dashboard');
+
     Route::get('/yeu-cau-tap-thu', [TrialRequestController::class, 'index'])
         ->middleware('can:viewAny,'.TrialRequest::class)
         ->name('trial-requests.index');
@@ -102,41 +105,43 @@ Route::middleware('auth')->prefix('staff')->name('staff.')->group(function (): v
 
 Route::middleware(['auth', 'role:manager'])->get('/quan-ly', [ManagerDashboardController::class, 'index'])->name('manager.dashboard');
 
-Route::middleware(['auth', 'role:manager'])->prefix('quan-ly/goi-tap')->name('manager.packages.')->group(function (): void {
-    Route::get('/', [ManagerGymPackageController::class, 'index'])
-        ->middleware('can:viewAny,'.GymPackage::class)
-        ->name('index');
-    Route::get('/tao', [ManagerGymPackageController::class, 'create'])
-        ->middleware('can:create,'.GymPackage::class)
-        ->name('create');
-    Route::post('/', [ManagerGymPackageController::class, 'store'])
-        ->middleware('can:create,'.GymPackage::class)
-        ->name('store');
-    Route::get('/{package}/sua', [ManagerGymPackageController::class, 'edit'])
-        ->middleware('can:update,package')
-        ->name('edit');
-    Route::put('/{package}', [ManagerGymPackageController::class, 'update'])
-        ->middleware('can:update,package')
-        ->name('update');
-    Route::patch('/{package}/trang-thai', [ManagerGymPackageController::class, 'toggleActive'])
-        ->middleware('can:toggleActive,package')
-        ->name('toggle-active');
-});
+Route::middleware(['auth', 'role:manager'])->prefix('quan-ly')->name('manager.')->group(function (): void {
+    Route::resource('goi-tap', ManagerGymPackageController::class)
+        ->only(['index', 'create', 'store', 'edit', 'update'])
+        ->parameters(['goi-tap' => 'package'])
+        ->names([
+            'index' => 'packages.index',
+            'create' => 'packages.create',
+            'store' => 'packages.store',
+            'edit' => 'packages.edit',
+            'update' => 'packages.update',
+        ])
+        ->middlewareFor('index', 'can:viewAny,'.GymPackage::class)
+        ->middlewareFor(['create', 'store'], 'can:create,'.GymPackage::class)
+        ->middlewareFor(['edit', 'update'], 'can:update,package');
 
-Route::middleware(['auth', 'role:manager'])->prefix('quan-ly/nhan-vien')->name('manager.employees.')->group(function (): void {
-    Route::get('/', [ManagerEmployeeController::class, 'index'])
-        ->middleware('can:viewAny,'.User::class)
-        ->name('index');
-    Route::get('/tao', [ManagerEmployeeController::class, 'create'])
-        ->middleware('can:create,'.User::class)
-        ->name('create');
-    Route::post('/', [ManagerEmployeeController::class, 'store'])
-        ->middleware('can:create,'.User::class)
-        ->name('store');
-    Route::get('/{employee}/sua', [ManagerEmployeeController::class, 'edit'])
+    Route::patch('goi-tap/{package}/trang-thai', [ManagerGymPackageController::class, 'toggleActive'])
+        ->middleware('can:toggleActive,package')
+        ->name('packages.toggle-active');
+
+    Route::resource('nhan-vien', ManagerEmployeeController::class)
+        ->only(['index', 'create', 'store', 'edit', 'update'])
+        ->parameters(['nhan-vien' => 'employee'])
+        ->names([
+            'index' => 'employees.index',
+            'create' => 'employees.create',
+            'store' => 'employees.store',
+            'edit' => 'employees.edit',
+            'update' => 'employees.update',
+        ])
+        ->middlewareFor('index', 'can:viewAny,'.User::class)
+        ->middlewareFor(['create', 'store'], 'can:create,'.User::class)
+        ->middlewareFor(['edit', 'update'], 'can:update,employee');
+
+    Route::get('nhan-vien/{employee}/phan-quyen', [ManagerEmployeeController::class, 'editPermissions'])
         ->middleware('can:update,employee')
-        ->name('edit');
-    Route::put('/{employee}', [ManagerEmployeeController::class, 'update'])
+        ->name('employees.permissions.edit');
+    Route::put('nhan-vien/{employee}/phan-quyen', [ManagerEmployeeController::class, 'updatePermissions'])
         ->middleware('can:update,employee')
-        ->name('update');
+        ->name('employees.permissions.update');
 });

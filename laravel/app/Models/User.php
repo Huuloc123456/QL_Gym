@@ -12,7 +12,19 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'username', 'email', 'phone', 'birth_date', 'gender', 'role', 'password'])]
+#[Fillable([
+    'name',
+    'username',
+    'email',
+    'phone',
+    'birth_date',
+    'gender',
+    'role',
+    'password',
+    'can_manage_trial_requests',
+    'can_manage_orders',
+    'can_manage_check_ins',
+])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -30,7 +42,28 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'birth_date' => 'date',
             'password' => 'hashed',
+            'can_manage_trial_requests' => 'boolean',
+            'can_manage_orders' => 'boolean',
+            'can_manage_check_ins' => 'boolean',
         ];
+    }
+
+    public function canManageTrialRequests(): bool
+    {
+        return $this->role === 'manager'
+            || ($this->role === 'employee' && $this->can_manage_trial_requests);
+    }
+
+    public function canManageOrders(): bool
+    {
+        return $this->role === 'manager'
+            || ($this->role === 'employee' && $this->can_manage_orders);
+    }
+
+    public function canManageCheckIns(): bool
+    {
+        return $this->role === 'manager'
+            || ($this->role === 'employee' && $this->can_manage_check_ins);
     }
 
     public function membershipOrders(): HasMany

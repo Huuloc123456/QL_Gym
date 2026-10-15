@@ -52,6 +52,9 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'role' => 'employee',
+            'can_manage_trial_requests' => true,
+            'can_manage_orders' => true,
+            'can_manage_check_ins' => true,
         ]);
     }
 

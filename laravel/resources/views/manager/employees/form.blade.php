@@ -16,27 +16,18 @@
                 @if ($isEditing)
                     @method('PUT')
                 @endif
-                <div>
-                    <label class="gym-label" for="name">Họ và tên</label>
-                    <input class="gym-input" id="name" name="name" value="{{ old('name', $employee->name) }}" maxlength="255" autocomplete="name" required autofocus>
-                </div>
+                <x-input name="name" label="Họ và tên" :value="$employee->name" maxlength="255" autocomplete="name" required autofocus />
                 <div class="grid gap-5 sm:grid-cols-2">
-                    <div>
-                        <label class="gym-label" for="username">Tên đăng nhập</label>
-                        <input class="gym-input" id="username" name="username" value="{{ old('username', $employee->username) }}" maxlength="50" autocomplete="username" required>
-                    </div>
-                    <div>
-                        <label class="gym-label" for="phone">Số điện thoại</label>
-                        <input class="gym-input" id="phone" name="phone" type="tel" value="{{ old('phone', $employee->phone) }}" maxlength="20" autocomplete="tel" required>
-                    </div>
+                    <x-input name="username" label="Tên đăng nhập" :value="$employee->username" maxlength="50" autocomplete="username" required />
+                    <x-input name="phone" label="Số điện thoại" :value="$employee->phone" type="tel" maxlength="20" autocomplete="tel" required />
                 </div>
-                <div>
-                    <label class="gym-label" for="email">Email</label>
-                    <input class="gym-input" id="email" name="email" type="email" value="{{ old('email', $employee->email) }}" maxlength="255" autocomplete="email" required>
-                </div>
+                <x-input name="email" label="Email" :value="$employee->email" type="email" maxlength="255" autocomplete="email" required />
                 <div class="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm leading-6 text-sky-950">
                     <label class="gym-label" for="password">{{ $isEditing ? 'Mật khẩu mới (không bắt buộc)' : 'Mật khẩu' }}</label>
-                    <input class="gym-input" id="password" name="password" type="password" autocomplete="new-password" @required(! $isEditing)>
+                    <input class="gym-input" id="password" name="password" type="password" autocomplete="new-password" aria-invalid="{{ $errors->has('password') ? 'true' : 'false' }}" @if ($errors->has('password')) aria-describedby="password-error" @endif @required(! $isEditing)>
+                    @error('password')
+                        <p class="mt-1 text-sm font-medium text-red-700" id="password-error">{{ $message }}</p>
+                    @enderror
                     <p class="mt-2">{{ $isEditing ? 'Để trống nếu không đổi mật khẩu.' : 'Mật khẩu cần ít nhất 8 ký tự.' }}</p>
                     <label class="gym-label mt-4" for="password_confirmation">{{ $isEditing ? 'Nhập lại mật khẩu mới' : 'Nhập lại mật khẩu' }}</label>
                     <input class="gym-input" id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" @required(! $isEditing)>

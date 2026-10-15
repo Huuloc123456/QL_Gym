@@ -12,12 +12,12 @@
                 <form class="mt-6 grid gap-4 sm:grid-cols-2" method="POST" action="{{ route('register.store') }}">
                     @csrf
                     @if ($packageId > 0)<input type="hidden" name="package_id" value="{{ $packageId }}">@endif
-                    <div><label class="gym-label" for="name">Họ và tên</label><input class="gym-input" id="name" name="name" value="{{ old('name') }}" autocomplete="name" required></div>
-                    <div><label class="gym-label" for="register-username">Tên đăng nhập</label><input class="gym-input" id="register-username" name="username" value="{{ old('username') }}" autocomplete="username" required></div>
-                    <div><label class="gym-label" for="phone">Số điện thoại</label><input class="gym-input" id="phone" name="phone" type="tel" value="{{ old('phone') }}" autocomplete="tel" required></div>
-                    <div><label class="gym-label" for="email">Email</label><input class="gym-input" id="email" name="email" type="email" value="{{ old('email') }}" autocomplete="email" required></div>
-                    <div><label class="gym-label" for="register-password">Mật khẩu</label><input class="gym-input" id="register-password" name="password" type="password" autocomplete="new-password" required></div>
-                    <div><label class="gym-label" for="password_confirmation">Nhập lại mật khẩu</label><input class="gym-input" id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" required></div>
+                    <x-input name="name" label="Họ và tên" autocomplete="name" required />
+                    <x-input name="username" label="Tên đăng nhập" autocomplete="username" required />
+                    <x-input name="phone" label="Số điện thoại" type="tel" autocomplete="tel" required />
+                    <x-input name="email" label="Email" type="email" autocomplete="email" required />
+                    <x-input name="password" label="Mật khẩu" type="password" autocomplete="new-password" required />
+                    <x-input name="password_confirmation" label="Nhập lại mật khẩu" type="password" autocomplete="new-password" required />
                     <button class="gym-btn-primary w-full sm:col-span-2" type="submit">Tạo tài khoản</button>
                 </form>
                 <p class="mt-5 text-center text-sm text-slate-600">Đã có tài khoản? <a class="font-semibold text-gym-blue underline underline-offset-2" href="{{ route('login') }}">Đăng nhập</a></p>

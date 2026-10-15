@@ -216,6 +216,9 @@ PublishScripts/
 **/[Pp]ackages/*
 # except build/, which is used as an MSBuild target.
 !**/[Pp]ackages/build/
+# Laravel Blade package catalog views are source files, not restored dependencies.
+!/laravel/resources/views/packages/
+!/laravel/resources/views/packages/*.blade.php
 # Uncomment if necessary however generally it will be regenerated when needed
 #!**/[Pp]ackages/repositories.config
 # NuGet v3's project.json files produces more ignorable files

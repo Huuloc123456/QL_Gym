@@ -29,6 +29,6 @@ class CheckInPolicy
 
     private function isStaff(User $user): bool
     {
-        return in_array($user->role, ['employee', 'manager'], true);
+        return $user->canManageCheckIns();
     }
 }

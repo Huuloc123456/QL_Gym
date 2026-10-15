@@ -17,7 +17,7 @@ class StaffCheckInTest extends TestCase
     public function test_staff_cannot_check_in_a_customer_without_a_paid_membership(): void
     {
         $this->travelTo('2026-10-02 09:00:00');
-        $staff = User::factory()->create(['role' => 'employee']);
+        $staff = User::factory()->employee()->create();
         $customer = User::factory()->create(['role' => 'customer']);
 
         $response = $this->actingAs($staff)->from(route('staff.checkins.index'))
@@ -30,7 +30,7 @@ class StaffCheckInTest extends TestCase
     public function test_staff_cannot_check_in_before_the_membership_starts(): void
     {
         $this->travelTo('2026-10-02 09:00:00');
-        $staff = User::factory()->create(['role' => 'employee']);
+        $staff = User::factory()->employee()->create();
         $customer = User::factory()->create(['role' => 'customer']);
         $membership = $this->membershipFor($customer, '2026-10-10', '2026-11-10');
 
@@ -45,7 +45,7 @@ class StaffCheckInTest extends TestCase
     public function test_staff_cannot_check_in_after_the_membership_expires(): void
     {
         $this->travelTo('2026-11-01 00:00:00');
-        $staff = User::factory()->create(['role' => 'employee']);
+        $staff = User::factory()->employee()->create();
         $customer = User::factory()->create(['role' => 'customer']);
         $this->membershipFor($customer, '2026-10-01', '2026-11-01');
 
@@ -59,7 +59,7 @@ class StaffCheckInTest extends TestCase
     public function test_active_member_gets_one_open_check_in_and_cannot_enter_twice(): void
     {
         $this->travelTo('2026-10-02 09:00:00');
-        $staff = User::factory()->create(['role' => 'employee']);
+        $staff = User::factory()->employee()->create();
         $customer = User::factory()->create(['role' => 'customer']);
         $membership = $this->membershipFor($customer, '2026-10-01', '2026-11-01');
 
@@ -81,7 +81,7 @@ class StaffCheckInTest extends TestCase
     public function test_staff_can_check_out_and_customer_cannot_change_attendance(): void
     {
         $this->travelTo('2026-10-02 09:00:00');
-        $staff = User::factory()->create(['role' => 'employee']);
+        $staff = User::factory()->employee()->create();
         $customer = User::factory()->create(['role' => 'customer']);
         $membership = $this->membershipFor($customer, '2026-10-01', '2026-11-01');
         $visit = CheckIn::factory()->for($customer)->for($membership)->create([
@@ -101,7 +101,7 @@ class StaffCheckInTest extends TestCase
     public function test_manual_close_of_a_forgotten_visit_requires_a_reason(): void
     {
         $this->travelTo('2026-10-02 12:00:00');
-        $staff = User::factory()->create(['role' => 'employee']);
+        $staff = User::factory()->employee()->create();
         $customer = User::factory()->create(['role' => 'customer']);
         $membership = $this->membershipFor($customer, '2026-10-01', '2026-11-01');
         $visit = CheckIn::factory()->for($customer)->for($membership)->create([
@@ -128,7 +128,7 @@ class StaffCheckInTest extends TestCase
     public function test_staff_cannot_close_an_already_closed_visit_again(): void
     {
         $this->travelTo('2026-10-02 12:00:00');
-        $staff = User::factory()->create(['role' => 'employee']);
+        $staff = User::factory()->employee()->create();
         $customer = User::factory()->create(['role' => 'customer']);
         $membership = $this->membershipFor($customer, '2026-10-01', '2026-11-01');
         $visit = CheckIn::factory()->for($customer)->for($membership)->create([

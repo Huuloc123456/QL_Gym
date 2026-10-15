@@ -12,8 +12,8 @@
                 <form class="mt-6 space-y-4" method="POST" action="{{ route('login.store') }}">
                     @csrf
                     @if ($packageId > 0)<input type="hidden" name="package_id" value="{{ $packageId }}">@endif
-                    <div><label class="gym-label" for="username">Tên đăng nhập</label><input class="gym-input" id="username" name="username" value="{{ old('username') }}" autocomplete="username" required autofocus></div>
-                    <div><label class="gym-label" for="password">Mật khẩu</label><input class="gym-input" id="password" name="password" type="password" autocomplete="current-password" required></div>
+                    <x-input name="username" label="Tên đăng nhập" autocomplete="username" required autofocus />
+                    <x-input name="password" label="Mật khẩu" type="password" autocomplete="current-password" required />
                     <p class="-mt-2 text-right text-sm"><a class="font-semibold text-gym-blue underline underline-offset-2" href="{{ route('password.request') }}">Quên mật khẩu?</a></p>
                     <button class="gym-btn-primary w-full" type="submit">Đăng nhập</button>
                 </form>

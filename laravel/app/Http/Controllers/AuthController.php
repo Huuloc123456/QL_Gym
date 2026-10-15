@@ -45,7 +45,7 @@ class AuthController extends Controller
         }
 
         if ($request->user()->role === 'employee') {
-            return redirect()->route('staff.orders.index');
+            return redirect()->route('staff.dashboard');
         }
 
         if ($packageId !== null && $request->user()->role === 'customer') {

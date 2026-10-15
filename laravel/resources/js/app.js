@@ -1,5 +1,34 @@
+import { parseAssistantAnswer } from './chat-answer.js';
+
 const menuButton = document.querySelector('[data-menu-toggle]');
 const menu = document.querySelector('[data-menu]');
+
+const navigationGroups = document.querySelectorAll('details[name="gym-primary-navigation"]');
+
+if (navigationGroups.length > 0) {
+    document.addEventListener('click', (event) => {
+        if (event.target instanceof Element && event.target.closest('details[name="gym-primary-navigation"]')) {
+            return;
+        }
+
+        navigationGroups.forEach((group) => {
+            group.open = false;
+        });
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') {
+            return;
+        }
+
+        const openGroup = [...navigationGroups].find((group) => group.open);
+
+        if (openGroup) {
+            openGroup.open = false;
+            openGroup.querySelector('summary')?.focus();
+        }
+    });
+}
 
 if (menuButton && menu) {
     menuButton.addEventListener('click', () => {
@@ -36,11 +65,31 @@ if (chatWidget) {
 
     const appendMessage = (role, text, sources = []) => {
         const article = document.createElement('article');
-        article.className = `gym-chat-message gym-chat-message--${role}`;
+        article.className = `gym-chat-message gym-chat-message--${role} space-y-2`;
 
-        const paragraph = document.createElement('p');
-        paragraph.textContent = text.replace(/\*\*(.*?)\*\*/g, '$1').replace(/__(.*?)__/g, '$1');
-        article.append(paragraph);
+        if (role === 'assistant') {
+            parseAssistantAnswer(text).forEach((block) => {
+                if (block.type === 'list') {
+                    const list = document.createElement('ul');
+                    list.className = 'list-disc space-y-1 pl-5';
+                    block.items.forEach((item) => {
+                        const listItem = document.createElement('li');
+                        listItem.textContent = item;
+                        list.append(listItem);
+                    });
+                    article.append(list);
+                    return;
+                }
+
+                const paragraph = document.createElement('p');
+                paragraph.textContent = block.text;
+                article.append(paragraph);
+            });
+        } else {
+            const paragraph = document.createElement('p');
+            paragraph.textContent = text;
+            article.append(paragraph);
+        }
 
         if (sources.length > 0) {
             const sourceList = document.createElement('div');

@@ -35,6 +35,32 @@ class PortalCoverageTest extends TestCase
             ->assertSee('<main id="main"', false);
     }
 
+    public function test_manager_navigation_groups_operational_and_management_links(): void
+    {
+        $manager = User::factory()->manager()->create();
+
+        $this->actingAs($manager)->get(route('manager.dashboard'))
+            ->assertOk()
+            ->assertSee('lg:hidden', false)
+            ->assertSee('lg:flex', false)
+            ->assertSee('lg:flex-1', false)
+            ->assertSee('whitespace-nowrap', false)
+            ->assertSee('data-nav-group="operations"', false)
+            ->assertSee('data-nav-group="management"', false)
+            ->assertSee(route('staff.trial-requests.index'), false)
+            ->assertSee(route('staff.checkins.index'), false)
+            ->assertSee(route('staff.orders.index'), false)
+            ->assertSee(route('manager.employees.index'), false);
+    }
+
+    public function test_manager_dropdowns_share_an_exclusive_disclosure_group(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $html = $this->actingAs($manager)->get(route('manager.dashboard'))->assertOk()->getContent();
+
+        $this->assertSame(2, substr_count($html, 'name="gym-primary-navigation"'));
+    }
+
     public function test_customer_can_open_their_attendance_history(): void
     {
         $customer = User::factory()->create(['role' => 'customer']);

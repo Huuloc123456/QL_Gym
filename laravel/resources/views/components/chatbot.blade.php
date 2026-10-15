@@ -1,7 +1,7 @@
 <div data-gym-chatbot class="fixed bottom-5 right-4 z-[60] sm:bottom-6 sm:right-6">
     <section
         id="gymChatPanel"
-        class="gym-chat-panel fixed inset-x-3 bottom-3 flex h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl sm:absolute sm:inset-auto sm:bottom-16 sm:right-0 sm:h-[min(34rem,calc(100dvh-6rem))] sm:w-[22.5rem]"
+        class="gym-chat-panel fixed inset-x-3 bottom-3 flex h-auto max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl sm:absolute sm:inset-auto sm:bottom-16 sm:right-0 sm:max-h-[min(34rem,calc(100dvh-6rem))] sm:w-[22.5rem]"
         data-chat-panel
         aria-labelledby="gymChatTitle"
         aria-modal="false"
@@ -20,7 +20,7 @@
             </button>
         </header>
 
-        <div class="gym-chat-messages flex-1 space-y-3 overflow-y-auto bg-gym-paper px-3 py-4 sm:px-4" data-chat-messages role="log" aria-live="polite" aria-relevant="additions text">
+        <div class="gym-chat-messages min-h-24 max-h-[45dvh] space-y-3 overflow-y-auto bg-gym-paper px-3 py-4 sm:max-h-72 sm:px-4" data-chat-messages role="log" aria-live="polite" aria-relevant="additions text">
             <article class="gym-chat-message gym-chat-message--assistant">
                 <p>Chào bạn! Mình có thể giúp gì về gói tập hoặc tài khoản hội viên?</p>
             </article>

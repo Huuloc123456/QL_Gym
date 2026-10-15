@@ -69,18 +69,17 @@ class CustomerAccountTest extends TestCase
         $this->assertAuthenticatedAs($manager);
     }
 
-    public function test_employee_login_redirects_to_staff_orders(): void
+    public function test_employee_login_redirects_to_the_staff_dashboard(): void
     {
-        User::factory()->create([
+        User::factory()->employee()->create([
             'username' => 'nhanvien',
             'password' => 'GymDemo@2026',
-            'role' => 'employee',
         ]);
 
         $this->post(route('login.store'), [
             'username' => 'nhanvien',
             'password' => 'GymDemo@2026',
-        ])->assertRedirect(route('staff.orders.index'));
+        ])->assertRedirect(route('staff.dashboard'));
     }
 
     public function test_repeated_invalid_login_attempts_are_throttled(): void

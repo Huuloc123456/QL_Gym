@@ -10,7 +10,9 @@
                 <h1 class="gym-title mt-2">Đăng ký tập thử</h1>
                 <p class="mt-2 text-slate-600">Liên hệ khách đã để lại thông tin và lưu trạng thái xử lý.</p>
             </div>
-            <a class="gym-btn-outline" href="{{ route('staff.orders.index') }}">Đơn hội viên</a>
+            @can('viewAny', \App\Models\MembershipOrder::class)
+                <a class="gym-btn-outline" href="{{ route('staff.orders.index') }}">Đơn hội viên</a>
+            @endcan
         </header>
 
         <form class="gym-card mb-6 grid gap-4 sm:grid-cols-[1fr_auto_auto] sm:items-end" method="GET" action="{{ route('staff.trial-requests.index') }}">

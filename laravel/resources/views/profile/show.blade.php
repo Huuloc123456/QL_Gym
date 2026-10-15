@@ -12,9 +12,9 @@
                 <form class="mt-6 grid gap-4 sm:grid-cols-2" method="POST" action="{{ route('my.profile.update') }}">
                     @csrf
                     @method('PUT')
-                    <div><label class="gym-label" for="name">Họ và tên</label><input class="gym-input" id="name" name="name" autocomplete="name" value="{{ old('name', $customer->name) }}" required></div>
-                    <div><label class="gym-label" for="phone">Số điện thoại</label><input class="gym-input" id="phone" name="phone" type="tel" autocomplete="tel" value="{{ old('phone', $customer->phone) }}" required></div>
-                    <div><label class="gym-label" for="birth_date">Ngày sinh</label><input class="gym-input" id="birth_date" name="birth_date" type="date" autocomplete="bday" value="{{ old('birth_date', $customer->birth_date?->toDateString()) }}"></div>
+                    <x-input name="name" label="Họ và tên" :value="$customer->name" autocomplete="name" required />
+                    <x-input name="phone" label="Số điện thoại" :value="$customer->phone" type="tel" autocomplete="tel" required />
+                    <x-input name="birth_date" label="Ngày sinh" :value="$customer->birth_date?->toDateString()" type="date" autocomplete="bday" />
                     <div><label class="gym-label" for="gender">Giới tính</label><select class="gym-input" id="gender" name="gender"><option value="">Chưa chọn</option><option value="male" @selected(old('gender', $customer->gender) === 'male')>Nam</option><option value="female" @selected(old('gender', $customer->gender) === 'female')>Nữ</option><option value="other" @selected(old('gender', $customer->gender) === 'other')>Khác</option></select></div>
                     <div><span class="gym-label">Tên đăng nhập</span><p class="rounded-xl bg-slate-50 px-3 py-3 text-slate-600">{{ $customer->username }}</p></div>
                     <div><span class="gym-label">Email</span><p class="rounded-xl bg-slate-50 px-3 py-3 text-slate-600">{{ $customer->email }}</p></div>

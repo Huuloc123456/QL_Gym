@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreEmployeeAccountRequest;
+use App\Http\Requests\UpdateEmployeeAccountRequest;
+use App\Http\Requests\UpdateEmployeePermissionsRequest;
 use App\Models\User;
 use App\Repositories\EmployeeAccountRepository;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 
 class ManagerEmployeeController extends Controller
@@ -32,11 +33,12 @@ class ManagerEmployeeController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreEmployeeAccountRequest $request): RedirectResponse
     {
-        $this->employees->create($request->validate($this->rules()));
+        $employee = $this->employees->create($request->validated());
 
-        return redirect()->route('manager.employees.index')->with('success', 'Đã tạo tài khoản nhân viên.');
+        return redirect()->route('manager.employees.permissions.edit', $employee)
+            ->with('success', 'Đã tạo tài khoản. Hãy cấp quyền nghiệp vụ trước khi nhân viên đăng nhập.');
     }
 
     public function edit(User $employee): View
@@ -47,9 +49,9 @@ class ManagerEmployeeController extends Controller
         ]);
     }
 
-    public function update(Request $request, User $employee): RedirectResponse
+    public function update(UpdateEmployeeAccountRequest $request, User $employee): RedirectResponse
     {
-        $validated = $request->validate($this->rules($employee));
+        $validated = $request->validated();
 
         if (blank($validated['password'] ?? null)) {
             unset($validated['password']);
@@ -60,29 +62,16 @@ class ManagerEmployeeController extends Controller
         return redirect()->route('manager.employees.index')->with('success', 'Đã cập nhật tài khoản nhân viên.');
     }
 
-    /** @return array<string, mixed> */
-    private function rules(?User $employee = null): array
+    public function editPermissions(User $employee): View
     {
-        $uniqueUsername = Rule::unique('users', 'username');
-        $uniqueEmail = Rule::unique('users', 'email');
-        $uniquePhone = Rule::unique('users', 'phone');
+        return view('manager.employees.permissions', compact('employee'));
+    }
 
-        if ($employee !== null) {
-            $uniqueUsername->ignore($employee->id);
-            $uniqueEmail->ignore($employee->id);
-            $uniquePhone->ignore($employee->id);
-        }
+    public function updatePermissions(UpdateEmployeePermissionsRequest $request, User $employee): RedirectResponse
+    {
+        $employee->update($request->validated());
 
-        return [
-            'name' => ['required', 'string', 'max:255'],
-            'username' => ['required', 'string', 'alpha_dash', 'max:50', $uniqueUsername],
-            'email' => ['required', 'email', 'max:255', $uniqueEmail],
-            'phone' => ['required', 'string', 'max:20', $uniquePhone],
-            'password' => [
-                $employee === null ? 'required' : 'nullable',
-                'confirmed',
-                Password::min(8),
-            ],
-        ];
+        return redirect()->route('manager.employees.index')
+            ->with('success', 'Đã cập nhật quyền nghiệp vụ cho nhân viên.');
     }
 }

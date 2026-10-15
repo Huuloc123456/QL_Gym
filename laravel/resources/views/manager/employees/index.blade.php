@@ -32,7 +32,10 @@
                             <td>{{ $employee->username }}</td>
                             <td>{{ $employee->email }}</td>
                             <td>{{ $employee->phone }}</td>
-                            <td><a class="font-semibold text-gym-blue underline underline-offset-4" href="{{ route('manager.employees.edit', $employee) }}">Sửa tài khoản<span class="sr-only"> của {{ $employee->name }}</span></a></td>
+                            <td class="space-x-3">
+                                <a class="font-semibold text-gym-blue underline underline-offset-4" href="{{ route('manager.employees.edit', $employee) }}">Sửa tài khoản<span class="sr-only"> của {{ $employee->name }}</span></a>
+                                <a class="font-semibold text-gym-blue underline underline-offset-4" href="{{ route('manager.employees.permissions.edit', $employee) }}">Phân quyền<span class="sr-only"> cho {{ $employee->name }}</span></a>
+                            </td>
                         </tr>
                     @empty
                         <tr><td colspan="5" class="py-10 text-center text-slate-600">Chưa có nhân viên khớp với thông tin tìm kiếm.</td></tr>
