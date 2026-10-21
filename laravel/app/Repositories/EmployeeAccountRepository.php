@@ -12,6 +12,7 @@ class EmployeeAccountRepository
     {
         return User::query()
             ->where('role', 'employee')
+            ->with('lockedBy:id,name')
             ->when($search !== null && $search !== '', function (Builder $query) use ($search): void {
                 $query->where(function (Builder $query) use ($search): void {
                     $query->where('name', 'like', '%'.$search.'%')

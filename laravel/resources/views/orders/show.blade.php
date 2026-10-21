@@ -16,7 +16,21 @@
                 <div><dt class="text-sm text-slate-500">Phương thức dự kiến</dt><dd class="mt-1 font-semibold">{{ $order->payment_method === 'cash' ? 'Tiền mặt' : 'Chuyển khoản' }}</dd></div>
             </dl>
             @if ($order->status === 'pending')
-                <p class="mt-5 rounded-xl border border-sky-200 bg-sky-50 p-4 leading-6 text-sky-950">{{ $order->payment_method === 'cash' ? 'Bạn có thể thanh toán tiền mặt tại quầy.' : 'Vui lòng liên hệ quầy để nhận hướng dẫn chuyển khoản.' }} Nhân viên sẽ ghi nhận khoản đã nhận; chọn phương thức thanh toán không tự kích hoạt gói.</p>
+                @if ($order->payment_method === 'cash')
+                    <p class="mt-5 rounded-xl border border-sky-200 bg-sky-50 p-4 leading-6 text-sky-950">Bạn có thể thanh toán tiền mặt tại quầy. Nhân viên sẽ ghi nhận khoản đã nhận; lựa chọn phương thức thanh toán không tự kích hoạt gói.</p>
+                @elseif ($gymSettings?->bank_account)
+                    <div class="mt-5 rounded-xl border border-sky-200 bg-sky-50 p-4 leading-6 text-sky-950">
+                        <p>Chuyển khoản đến tài khoản của phòng tập. Nhân viên cần xác nhận khoản tiền đã nhận trước khi gói được kích hoạt.</p>
+                        <dl class="mt-3 grid gap-2 sm:grid-cols-2">
+                            @if ($gymSettings->bank_name)<div><dt class="text-sm text-sky-800">Ngân hàng</dt><dd class="font-bold">{{ $gymSettings->bank_name }}</dd></div>@endif
+                            <div><dt class="text-sm text-sky-800">Số tài khoản</dt><dd class="font-bold">{{ $gymSettings->bank_account }}</dd></div>
+                            @if ($gymSettings->bank_account_name)<div><dt class="text-sm text-sky-800">Chủ tài khoản</dt><dd class="font-bold">{{ $gymSettings->bank_account_name }}</dd></div>@endif
+                            <div><dt class="text-sm text-sky-800">Nội dung chuyển khoản</dt><dd class="font-bold">GYM-{{ $order->id }}</dd></div>
+                        </dl>
+                    </div>
+                @else
+                    <p class="mt-5 rounded-xl border border-sky-200 bg-sky-50 p-4 leading-6 text-sky-950">Vui lòng liên hệ quầy để nhận hướng dẫn chuyển khoản. Nhân viên cần xác nhận khoản đã nhận; chọn phương thức thanh toán không tự kích hoạt gói.</p>
+                @endif
             @endif
             <h2 class="mt-6 text-lg font-bold">Các khoản đã nhận</h2>
             <div class="mt-2 divide-y divide-slate-100">

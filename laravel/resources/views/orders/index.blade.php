@@ -8,6 +8,12 @@
             <div><p class="text-sm font-bold uppercase tracking-[0.18em] text-gym-blue">Tài khoản của bạn</p><h1 class="gym-title mt-2">Đơn đăng ký gói tập</h1><p class="mt-2 text-slate-600">Nhân viên sẽ cập nhật khi nhận và xác nhận thanh toán.</p></div>
             <a class="gym-btn-primary" href="{{ route('packages.index') }}">Đăng ký gói mới</a>
         </header>
+        <nav class="mb-5 flex flex-wrap gap-2" aria-label="Lọc trạng thái đơn hàng">
+            @foreach (['all' => 'Tất cả', 'pending' => 'Chờ xác nhận', 'paid' => 'Đã xác nhận', 'cancelled' => 'Đã hủy'] as $status => $label)
+                <a class="rounded-full px-4 py-2 text-sm font-semibold {{ $filters['status'] === $status ? 'bg-gym-blue text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50' }}" href="{{ route('my.orders.index', ['status' => $status]) }}" @if ($filters['status'] === $status) aria-current="page" @endif>{{ $label }}</a>
+            @endforeach
+        </nav>
+        <p class="mb-3 text-sm text-slate-600">{{ number_format($orders->total()) }} đơn · {{ $orders->firstItem() ?? 0 }}–{{ $orders->lastItem() ?? 0 }}</p>
         <div class="grid gap-4">
             @forelse ($orders as $order)
                 @php($received = (int) ($order->payments_sum_amount ?? 0))
@@ -35,9 +41,10 @@
                     @endif
                 </article>
             @empty
-                <div class="gym-card py-10 text-center"><p class="text-slate-600">Bạn chưa đăng ký gói tập nào.</p><a class="gym-btn-primary mt-5" href="{{ route('packages.index') }}">Xem gói tập</a></div>
+                <div class="gym-card py-10 text-center"><p class="text-slate-600">{{ $filters['status'] === 'all' ? 'Bạn chưa đăng ký gói tập nào.' : 'Không có đơn hàng ở trạng thái này.' }}</p>@if ($filters['status'] === 'all')<a class="gym-btn-primary mt-5" href="{{ route('packages.index') }}">Xem gói tập</a>@endif</div>
             @endforelse
         </div>
+        <nav class="mt-6" aria-label="Các trang đơn hàng">{{ $orders->links() }}</nav>
     </section>
 @endsection
 

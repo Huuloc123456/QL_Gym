@@ -54,9 +54,12 @@ class MemberController extends Controller
 
     public function memberships(Request $request, MembershipRepository $membershipsRepository): View
     {
-        $memberships = $membershipsRepository->forCustomer($request->user())->get();
+        $today = now(config('app.timezone'))->toDateString();
+        $activeMemberships = $membershipsRepository->paginateForCustomerSection($request->user(), 'active', $today);
+        $upcomingMemberships = $membershipsRepository->paginateForCustomerSection($request->user(), 'upcoming', $today);
+        $expiredMemberships = $membershipsRepository->paginateForCustomerSection($request->user(), 'expired', $today);
 
-        return view('memberships.index', ['memberships' => $memberships]);
+        return view('memberships.index', compact('activeMemberships', 'upcomingMemberships', 'expiredMemberships', 'today'));
     }
 
     public function attendance(Request $request, CheckInRepository $checkInRepository): View

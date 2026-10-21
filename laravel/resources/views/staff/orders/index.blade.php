@@ -6,9 +6,38 @@
     <section class="gym-container py-10 sm:py-14">
         <header class="mb-8">
             <p class="text-sm font-bold uppercase tracking-[0.18em] text-gym-blue">Khu vực nhân viên</p>
-            <h1 class="gym-title mt-2">Đơn đăng ký gói tập</h1>
-            <p class="mt-2 text-slate-600">Ghi từng khoản tiền nhận được, sau đó xác nhận khi đã thu đủ.</p>
+            <h1 class="gym-title mt-2">Đơn hội viên</h1>
+            <p class="mt-2 text-slate-600">Tìm đơn theo mã hoặc thông tin khách; đơn đã thanh toán và đã hủy được lưu trong lịch sử.</p>
         </header>
+
+        <nav class="mb-5 flex flex-wrap gap-2" aria-label="Lọc đơn theo trạng thái">
+            @foreach (['pending' => 'Cần xử lý', 'history' => 'Lịch sử', 'all' => 'Tất cả'] as $status => $label)
+                @php($tabQuery = array_filter(['q' => $filters['q'] ?? null, 'from_date' => $filters['from_date'] ?? null, 'to_date' => $filters['to_date'] ?? null, 'status' => $status], fn ($value) => $value !== null && $value !== ''))
+                <a class="{{ ($filters['status'] ?? 'pending') === $status ? 'gym-btn-primary' : 'gym-btn-outline' }}" href="{{ route('staff.orders.index', $tabQuery) }}" @if (($filters['status'] ?? 'pending') === $status) aria-current="page" @endif>{{ $label }}</a>
+            @endforeach
+        </nav>
+
+        <form class="gym-card mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end" method="GET" action="{{ route('staff.orders.index') }}">
+            <input type="hidden" name="status" value="{{ $filters['status'] }}">
+            <div class="sm:col-span-2">
+                <label class="gym-label" for="order-search">Mã đơn, tên, số điện thoại hoặc email</label>
+                <x-form-input id="order-search" name="q" value="{{ $filters['q'] ?? '' }}" autocomplete="off" placeholder="Ví dụ: 125 hoặc 0901234567" />
+            </div>
+            <div>
+                <label class="gym-label" for="from-date">Từ ngày tạo</label>
+                <x-form-input id="from-date" type="date" name="from_date" value="{{ $filters['from_date'] ?? '' }}" />
+            </div>
+            <div>
+                <label class="gym-label" for="to-date">Đến ngày</label>
+                <x-form-input id="to-date" type="date" name="to_date" value="{{ $filters['to_date'] ?? '' }}" />
+            </div>
+            <div class="flex flex-wrap items-center gap-3 sm:col-span-2 lg:col-span-4">
+                <button class="gym-btn-primary" type="submit">Tìm đơn</button>
+                <a class="font-semibold text-gym-blue underline underline-offset-4" href="{{ route('staff.orders.index', ['status' => $filters['status']]) }}">Xóa bộ lọc</a>
+                <span class="text-sm text-slate-600">{{ number_format($orders->total()) }} đơn phù hợp · 20 đơn mỗi trang</span>
+            </div>
+        </form>
+
         <div class="grid gap-5">
             @forelse ($orders as $order)
                 @php($received = (int) ($order->payments_sum_amount ?? 0))
@@ -77,9 +106,13 @@
                     @endif
                 </article>
             @empty
-                <div class="gym-card py-10 text-center text-slate-600">Chưa có đơn đăng ký nào.</div>
+                <div class="gym-card py-10 text-center text-slate-600">{{ $filters['status'] === 'pending' ? 'Không có đơn cần xử lý phù hợp.' : 'Không tìm thấy đơn phù hợp.' }}</div>
             @endforelse
         </div>
+
+        @if ($orders->hasPages())
+            <nav class="mt-6" aria-label="Các trang đơn hội viên">{{ $orders->links() }}</nav>
+        @endif
     </section>
 @endsection
 

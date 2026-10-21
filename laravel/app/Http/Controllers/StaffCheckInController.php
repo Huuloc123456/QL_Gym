@@ -11,11 +11,29 @@ use Illuminate\View\View;
 
 class StaffCheckInController extends Controller
 {
-    public function index(CheckInRepository $checkInRepository): View
+    public function index(Request $request, CheckInRepository $checkInRepository): View
     {
-        $visits = $checkInRepository->staffHistory();
+        $filters = $request->validate([
+            'status' => ['nullable', 'in:open,history,all'],
+            'q' => ['nullable', 'string', 'max:100'],
+            'from_date' => ['nullable', 'date_format:Y-m-d'],
+            'to_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from_date'],
+        ]);
 
-        return view('staff.checkins.index', ['visits' => $visits]);
+        $filters['status'] ??= 'open';
+        if (
+            ! empty($filters['from_date'])
+            && ! empty($filters['to_date'])
+            && $filters['from_date'] > $filters['to_date']
+        ) {
+            return redirect()->route('staff.checkins.index', $request->query())->withErrors([
+                'to_date' => 'Ngày kết thúc phải bằng hoặc sau ngày bắt đầu.',
+            ]);
+        }
+
+        $visits = $checkInRepository->staffHistory($filters);
+
+        return view('staff.checkins.index', compact('visits', 'filters'));
     }
 
     public function store(Request $request, CheckInService $service): RedirectResponse

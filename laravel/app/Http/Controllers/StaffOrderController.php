@@ -7,15 +7,23 @@ use App\Repositories\MembershipOrderRepository;
 use App\Services\MembershipOrderService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class StaffOrderController extends Controller
 {
-    public function index(MembershipOrderRepository $orderRepository): View
+    public function index(Request $request, MembershipOrderRepository $orderRepository): View
     {
-        $orders = $orderRepository->forStaff()->get();
+        $filters = $request->validate([
+            'status' => ['nullable', 'string', Rule::in(['pending', 'history', 'all', 'paid', 'cancelled'])],
+            'q' => ['nullable', 'string', 'max:100'],
+            'from_date' => ['nullable', 'date_format:Y-m-d'],
+            'to_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from_date'],
+        ]);
+        $filters['status'] ??= 'pending';
+        $orders = $orderRepository->paginateForStaff($filters);
 
-        return view('staff.orders.index', ['orders' => $orders]);
+        return view('staff.orders.index', compact('orders', 'filters'));
     }
 
     public function recordPayment(Request $request, MembershipOrder $order, MembershipOrderService $service): RedirectResponse

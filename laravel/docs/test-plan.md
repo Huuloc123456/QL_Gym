@@ -45,6 +45,8 @@ Verify the user-visible workflows in the agreed one-gym scope, and the added arc
 | ORD-01 | Customer | Place an order | Pending order snapshots current package price and chosen start date; no membership yet | Covered |
 | ORD-02 | Customer with paid period | Place an overlapping order | Validation error; no order is added | Covered |
 | ORD-03 | Customer | Request cancellation of pending order | Request timestamp is stored; order and recorded payments remain visible | Covered |
+| ORD-05 | Staff | Browse pending, history, and all orders; search by order ID, name, phone, or email | Correct status/search results; 20 per page; filters persist across pages | Covered; passed |
+| ORD-06 | Staff with 101 matching orders | Open page 6 | The oldest result remains reachable and count is 101 | Covered; passed |
 | PAY-01 | Staff | Record partial payment | Payment persists; order stays pending; no membership is created | Covered |
 | PAY-02 | Staff | Confirm before full payment | Confirmation is rejected; no membership is created | Covered |
 | PAY-03 | Staff | Confirm fully paid order twice | One paid order and exactly one membership | Covered |
@@ -56,12 +58,24 @@ Verify the user-visible workflows in the agreed one-gym scope, and the added arc
 | CHECK-03 | Staff | Check out a visit | Checkout timestamp and staff identity are saved | Covered |
 | CHECK-04 | Staff | Manually close a forgotten visit without a reason | Validation error; visit remains open | Covered |
 | CHECK-05 | Customer | Mutate attendance record | HTTP 403; visit is unchanged | Covered |
+| CHECK-06 | Staff with more than 50 visits | Search member and browse history | Old visits remain searchable; open/history/all lists paginate 20 at a time | Covered; passed |
+| CHECK-07 | Staff | Filter check-ins by member, date, and open/history status | Filters combine and remain selected across pages; closed visits have no checkout actions | Covered; passed |
+| CUST-01 | Customer with many orders | Filter pending/paid/cancelled orders and open later pages | Only the authenticated customer's records appear; 20 per page | Covered; passed |
+| CUST-02 | Customer with current/future/expired plans | Open membership page and history page 2 | Plans are grouped by dates; expired membership history is paginated | Covered; passed |
+| RPT-01 | Manager | Select a date range on reports | Created-order counts, paid-at revenue, and received-at receipts are separate and use the gym timezone | Covered; passed |
+| RPT-02 | Manager | Download report workbook | Three valid XLSX sheets contain summary, relevant orders, and receipt records; string values cannot become formulas | Covered; passed |
+| RPT-03 | Employee/customer | Open or export manager report | HTTP 403 | Covered; passed |
 | TRIAL-01 | Guest | Submit a free trial request | Request is stored without creating an account | Covered |
 | TRIAL-02 | Employee or manager | Review a trial request and mark it contacted | Inbox renders; staff member and handling time are stored; duplicate processing is rejected | Covered; passed |
 | TRIAL-03 | Customer | Open or process the staff trial inbox | HTTP 403; guest is redirected to sign in | Covered; passed |
 | CHAT-01 | Visitor | Ask a RAG question through the chat endpoint | Message is forwarded to the configured RAG `/chat` endpoint and the answer and source names are returned | Covered; passed with a mocked RAG response |
 | CHAT-02 | Visitor | Submit a blank or overlong chat message | Validation rejects it before making an RAG request | Covered; passed |
 | CHAT-03 | Visitor | Ask while RAG is unavailable | A generic service-unavailable response is returned without exposing internal errors | Covered; passed with mocked failure responses |
+| RAG-05 | Manager | Search the knowledge list or edit FAQ/documents | Main list hides IDs and Markdown while preserving FAQ edit and status actions | Covered; passed |
+| RAG-06 | Manager | Add or edit FAQ with topic, question, and answer fields | RAG document is generated automatically without requiring Markdown | Covered; passed |
+| RAG-07 | Manager | Download the Excel template, preview a valid batch, and confirm | Preview shows add/update counts; one authenticated batch request updates documents and rebuilds the index once | Covered; passed |
+| RAG-08 | Manager | Upload an invalid spreadsheet (duplicate IDs, bad headers, missing values, too many rows) | Per-row errors are shown; confirmation is blocked and no partial batch is sent | Covered; passed for duplicate IDs; other validations implemented |
+| RAG-09 | RAG service test | Simulate index rebuild failure during a batch | Every prior document and index is restored; no new partial document remains | Covered; passed |
 | POL-01 | Owner, another customer, employee, manager | Ask each order policy ability | Only the permitted role/owner is allowed | Covered; passed |
 | POL-02 | Customer, employee, manager | Ask each check-in policy ability | Only employee/manager abilities are allowed | Covered; passed |
 | REPO-01 | Feature tests across package, order, membership, check-in | Exercise repository-backed reads and writes | Existing workflow results remain correct | Covered; passed |
@@ -123,8 +137,60 @@ The latest automated run excludes `PasswordRecoveryTest` per the user's request.
 - Trial requests can be reviewed and marked contacted by employees/managers. Call outcomes and staff assignment are not tracked beyond the person who marks contact.
 - Managers can create, edit, activate, and deactivate packages; package records are retained when they have order history.
 - Password recovery uses a single-use email reset link; this local environment currently uses the `log` mailer, so real mailbox delivery requires SMTP settings.
-- Managers can search, create, and edit employee accounts. Creation always assigns the employee role; changing passwords during edits is optional. There is no account deletion or activation toggle.
-- The RAG chatbot depends on a separate service configured with `RAG_API_URL`; automated coverage stubs this service, so it does not prove that the live RAG process or its document index is available.
-- Staff orders and trial requests support filtering/pagination; staff check-in history is capped at the latest 50 visits, while customer attendance is paginated.
+- Managers can search, create, edit, lock, and unlock employee accounts. Locking records its time and manager, blocks future login, and ends an existing session on its next web request. Account deletion remains out of scope.
+- Authenticated customers, employees, and managers can change their own password after confirming the current one. Password recovery and external mail delivery are separate flows.
+- Managers can edit public contact/intro/payment details and hero banners. Chatbot knowledge has a separate FAQ form, long-guide form, search, single-document actions, and Excel import preview/confirmation. The RAG process remains a separate service configured with `RAG_API_URL` and a shared `RAG_ADMIN_TOKEN`; automated tests mock expensive FAISS rebuilds, so they do not prove a live Groq answer or a real FAISS reindex on the recipient's machine.
+- Staff orders and trial requests support filtering/pagination. Staff check-in history is searchable and paginated without a latest-50 cap; customer order and attendance histories are paginated.
 - Staff check-in looks up a member by identifier or phone, then shows the member and active package for staff to compare before confirming entry.
 - Inventory/product sales, branches, PT, classes, online payment processing, and web-based refunds are outside the one-gym membership scope.
+
+## Added capability test cases — 21 October 2026
+
+| ID | Role / setup | Action | Expected result |
+| --- | --- | --- | --- |
+| SITE-01 | Manager | Save gym contact details, intro, bank details, and FAQ pairs | Values persist and public home/order pages show only configured information |
+| SITE-02 | Manager | Upload a valid JPEG/PNG/WebP hero image | Image is stored on the public disk and appears in the home carousel |
+| SITE-03 | Manager | Upload SVG or an oversized image | Server validation rejects it and does not create a banner |
+| SITE-04 | Employee/customer | Open or submit manager content forms | Server returns 403 and data is unchanged |
+| EMP-05 | Manager | Lock and unlock an employee | Status, lock time, and manager are stored; reactivation clears lock audit fields |
+| EMP-06 | Locked employee | Sign in or request any web page with an existing session | Login is denied and an existing session is logged out |
+| AUTH-10 | Authenticated user | Change password with a wrong/current password and a valid one | Wrong current password is rejected; valid update stores a hash and keeps the session usable |
+| RAG-01 | Manager | Add, edit, pause, re-enable, and delete a Markdown document | Laravel sends authenticated admin requests; status and document content refresh |
+| RAG-02 | Employee/customer/guest | Open or submit the manager document screens | Access is denied or redirected before any admin request is sent |
+| RAG-03 | Manager; RAG service unavailable or rebuild fails | Save a document while the RAG service is offline or indexing errors | UI shows a clear error and does not claim success; document/index rollback is attempted |
+| RAG-04 | Manager | Open the floating website chatbot after changing knowledge | The existing widget remains the single place to try a question and displays answer sources |
+
+The Laravel feature tests use the dedicated MySQL test database configured in `phpunit.xml`. The RAG unit tests use temporary directories and mock embedding/index rebuild work; live Groq delivery, full FAISS replacement, local browser layout review, and database backup restoration require a separate manual run with the RAG service and local preview running.
+
+### Automated verification — 21 October 2026
+
+- Laravel: `php artisan test --compact --filter='^(?!.*PasswordRecoveryTest).*$'` — **95 tests passed, 509 assertions**. Password recovery was excluded as requested; the other authentication and account-management cases ran.
+- RAG service: `python -m unittest discover -s tests -v` — **18 tests passed**. Embedding/index rebuilds are mocked in unit tests.
+- PHP formatting: `vendor/bin/pint --dirty --format agent` — passed.
+- Frontend production build: `npm run build` — passed. Vite reported that optional `fontaine` is unavailable, but completed the build.
+- Laravel manager and account route lists were checked. Tests used the dedicated test database; no migration was applied to the regular local preview database.
+- Still needs a live acceptance run on the target machine: apply migrations, run Laravel and the separate RAG service with matching `RAG_ADMIN_TOKEN`, then exercise image uploads, document reindexing/Groq responses, backup/restore, and browser layouts. No live RAG provider call or real FAISS rebuild is claimed by the test results above.
+
+### Search, reporting, customer history, and FAQ import — 21 October 2026
+
+- Laravel: `php artisan test --compact --filter='^(?!.*PasswordRecoveryTest).*$'` — **114 tests passed, 674 assertions**. The acceptance includes 101 matching orders, 55+ check-ins, manager-only reports, report period boundaries, customer ownership, valid XLSX download/import, invalid duplicate IDs, non-manager access, and the 100-row import limit. Password recovery tests remain excluded per the user's request.
+- RAG: `python -m unittest discover -s tests -v` — **20 tests passed**, including batch writes, one index rebuild on success, and restoration after a failed rebuild.
+- `vendor/bin/pint --dirty --format agent` — passed.
+- `npm run build` — passed. Vite emitted its optional `fontaine` optimization notice and completed successfully.
+- Excel processing uses PhpSpreadsheet and PHP's `zip` extension; the local Laragon PHP configuration has `extension=zip` enabled. A recipient must enable the same extension in their PHP runtime.
+- The local application MySQL database was not reset. Laravel tests ran against `qly_phonggym_test`; no direct browser, live Groq request, or actual FAISS embedding rebuild was performed during this implementation pass.
+
+### Direct browser acceptance — 21 October 2026
+
+- Ran the new manager workflows against `qly_phonggym_test`, not the regular application database. Saved a temporary gym introduction, confirmed it appeared on the public home page, then restored the field.
+- Uploaded two project WebP banners, edited one title and alt text, replaced its image, changed their order, and confirmed the public carousel showed the new first banner. Toggled banners off/on, deleted both QA banners, and confirmed the manager page returned to its empty state with the default hero on the home page.
+- Locked the seeded QA employee, confirmed login was rejected with the generic login error, then unlocked the account and confirmed its active status and lock audit details in the manager list.
+- Connected Laravel to the local RAG API with an in-memory QA-only token because the local Laravel `.env` has no `RAG_ADMIN_TOKEN`. Added, edited, paused, re-enabled, and deleted a temporary Markdown document; each change rebuilt the real FAISS index. A Groq-backed test question returned the edited marker and listed the QA document as a source. After deletion/reindexing, the chatbot said it had no information about that marker. The original 12-document corpus was restored, and no secret was written to either `.env` file.
+- Opened the change-password screen; no credential was entered or changed in the browser. The automated feature tests cover its validation and update behavior.
+- Stopped the temporary Laravel and RAG servers and reset only the dedicated `qly_phonggym_test` schema to a clean migrated state. The normal application database was not migrated or modified.
+
+### Baseline before integrating `newrepo/main` — 21 October 2026
+
+- `php artisan test --compact` — **118 tests passed, 701 assertions**, using only `qly_phonggym_test`.
+- Backed up `qly_phonggym_laravel` outside the repository and restored it into the separate `qly_phonggym_restore_20261021b` database. Restore verification found 17 tables; the source database also has no stored routines or triggers.
+- No migration from `newrepo/main` has been applied to either the application database or the restored copy.

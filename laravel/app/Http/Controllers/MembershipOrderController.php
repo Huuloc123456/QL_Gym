@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\GymSetting;
 use App\Models\MembershipOrder;
 use App\Repositories\GymPackageRepository;
 use App\Repositories\MembershipOrderRepository;
@@ -14,16 +15,23 @@ class MembershipOrderController extends Controller
 {
     public function index(Request $request, MembershipOrderRepository $orderRepository): View
     {
-        $orders = $orderRepository->forCustomer($request->user())->get();
+        $filters = $request->validate([
+            'status' => ['nullable', 'in:all,pending,paid,cancelled'],
+        ]);
+        $filters['status'] ??= 'all';
+        $orders = $orderRepository->paginateForCustomer($request->user(), $filters['status']);
 
-        return view('orders.index', ['orders' => $orders]);
+        return view('orders.index', compact('orders', 'filters'));
     }
 
     public function show(Request $request, MembershipOrder $order, MembershipOrderRepository $orderRepository): View
     {
         $order = $orderRepository->findForCustomer($request->user(), $order->id);
 
-        return view('orders.show', ['order' => $order]);
+        return view('orders.show', [
+            'order' => $order,
+            'gymSettings' => GymSetting::query()->find(1),
+        ]);
     }
 
     public function store(Request $request, MembershipOrderService $orders, GymPackageRepository $packages): RedirectResponse

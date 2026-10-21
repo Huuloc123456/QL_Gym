@@ -54,8 +54,12 @@
                                     </summary>
                                     <ul class="mt-1 grid gap-1 border-l border-slate-200 pl-2 lg:absolute lg:left-0 lg:top-full lg:z-50 lg:mt-2 lg:min-w-56 lg:rounded-xl lg:border lg:bg-white lg:p-2 lg:shadow-lg">
                                         <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep focus-visible:outline-2 focus-visible:outline-gym-blue {{ request()->routeIs('manager.dashboard') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('manager.dashboard') }}" @if (request()->routeIs('manager.dashboard')) aria-current="page" @endif>Tổng quan quản lý</a></li>
+                                        <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep {{ request()->routeIs('manager.reports.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('manager.reports.index') }}" @if (request()->routeIs('manager.reports.*')) aria-current="page" @endif>Báo cáo đơn hàng</a></li>
                                         <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep focus-visible:outline-2 focus-visible:outline-gym-blue {{ request()->routeIs('manager.packages.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('manager.packages.index') }}" @if (request()->routeIs('manager.packages.*')) aria-current="page" @endif>Quản lý gói tập</a></li>
                                         <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep focus-visible:outline-2 focus-visible:outline-gym-blue {{ request()->routeIs('manager.employees.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('manager.employees.index') }}" @if (request()->routeIs('manager.employees.*')) aria-current="page" @endif>Tài khoản nhân viên</a></li>
+                                        <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep {{ request()->routeIs('manager.settings.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('manager.settings.edit') }}">Cài đặt phòng tập</a></li>
+                                        <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep {{ request()->routeIs('manager.banners.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('manager.banners.index') }}">Ảnh banner</a></li>
+                                        <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep {{ request()->routeIs('manager.knowledge.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('manager.knowledge.index') }}">Tài liệu chatbot</a></li>
                                     </ul>
                                 </details>
                             </li>
@@ -74,6 +78,7 @@
                                     <li><a class="block rounded-lg px-3 py-2 hover:bg-slate-50 {{ request()->routeIs('my.orders.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : '' }}" href="{{ route('my.orders.index') }}" @if (request()->routeIs('my.orders.*')) aria-current="page" @endif>Đơn đăng ký</a></li>
                                     <li><a class="block rounded-lg px-3 py-2 hover:bg-slate-50 {{ request()->routeIs('my.attendance.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : '' }}" href="{{ route('my.attendance.index') }}" @if (request()->routeIs('my.attendance.*')) aria-current="page" @endif>Lịch sử tập</a></li>
                                     <li><a class="block rounded-lg px-3 py-2 hover:bg-slate-50 {{ request()->routeIs('my.profile.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : '' }}" href="{{ route('my.profile.show') }}" @if (request()->routeIs('my.profile.*')) aria-current="page" @endif>Thông tin cá nhân</a></li>
+                                    <li><a class="block rounded-lg px-3 py-2 hover:bg-slate-50" href="{{ route('account.password.edit') }}">Đổi mật khẩu</a></li>
                                     <li class="my-1 border-t border-slate-100"></li>
                                     <li><form method="POST" action="{{ route('logout') }}">@csrf<button class="w-full rounded-lg px-3 py-2 text-left text-red-700 hover:bg-red-50" type="submit">Đăng xuất</button></form></li>
                                 </ul>
@@ -81,6 +86,7 @@
                         @else
                             <div class="flex items-center justify-between gap-3 lg:justify-start">
                                 <span class="max-w-36 truncate text-sm font-semibold text-slate-800" title="{{ auth()->user()->name }}">{{ auth()->user()->name }}</span>
+                                <a class="whitespace-nowrap text-sm font-semibold text-gym-blue underline underline-offset-4" href="{{ route('account.password.edit') }}">Đổi mật khẩu</a>
                                 <form class="shrink-0" method="POST" action="{{ route('logout') }}">@csrf<button class="gym-btn-outline min-h-10 px-4 py-2 text-sm" type="submit">Đăng xuất</button></form>
                             </div>
                         @endif
@@ -95,15 +101,19 @@
     <div class="pt-20">
         @if (request()->routeIs('home'))
             <section class="relative isolate h-56 overflow-hidden bg-slate-900 sm:h-72 lg:h-[26rem]" data-carousel aria-label="Hình ảnh The Gym">
-            <div class="absolute inset-0" data-carousel-slide>
-                <img class="h-full w-full object-cover" src="{{ asset('images/csharp/poster.jpeg') }}" alt="Không gian tập luyện The Gym" width="1600" height="700" fetchpriority="high">
-            </div>
-            <div class="absolute inset-0 hidden" data-carousel-slide>
-                <img class="h-full w-full object-cover" src="{{ asset('images/csharp/poster1.jpeg') }}" alt="Thiết bị tập luyện tại The Gym" width="1600" height="700">
-            </div>
-            <div class="absolute inset-0 hidden" data-carousel-slide>
-                <img class="h-full w-full object-cover" src="{{ asset('images/csharp/poster2.jpeg') }}" alt="Bắt đầu hành trình tập luyện" width="1600" height="700">
-            </div>
+            @forelse (($heroBanners ?? collect()) as $banner)
+                <div class="absolute inset-0 {{ $loop->first ? '' : 'hidden' }}" data-carousel-slide>
+                    <img class="h-full w-full object-cover" src="{{ asset('storage/'.$banner->image_path) }}" alt="{{ $banner->alt_text }}" width="1600" height="700" @if ($loop->first) fetchpriority="high" @endif>
+                    <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 via-slate-950/35 to-transparent px-6 pb-20 pt-24 text-white sm:px-12">
+                        <p class="text-xs font-bold uppercase tracking-[0.22em] text-sky-200">{{ $gymSettings?->gym_name ?? 'The Gym' }}</p>
+                        <h2 class="mt-2 max-w-3xl text-2xl font-extrabold sm:text-4xl">{{ $banner->title }}</h2>
+                    </div>
+                </div>
+            @empty
+                <div class="absolute inset-0" data-carousel-slide><img class="h-full w-full object-cover" src="{{ asset('images/csharp/poster.jpeg') }}" alt="Không gian tập luyện The Gym" width="1600" height="700" fetchpriority="high"></div>
+                <div class="absolute inset-0 hidden" data-carousel-slide><img class="h-full w-full object-cover" src="{{ asset('images/csharp/poster1.jpeg') }}" alt="Thiết bị tập luyện tại The Gym" width="1600" height="700"></div>
+                <div class="absolute inset-0 hidden" data-carousel-slide><img class="h-full w-full object-cover" src="{{ asset('images/csharp/poster2.jpeg') }}" alt="Bắt đầu hành trình tập luyện" width="1600" height="700"></div>
+            @endforelse
             <div class="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-slate-950/70 to-transparent px-4 pb-4 pt-12 sm:px-8 sm:pb-6">
                 <button class="gym-btn-outline min-h-10 border-white/70 bg-slate-950/20 px-4 py-2 text-sm text-white hover:bg-white/15" type="button" data-carousel-prev aria-label="Ảnh trước">← Trước</button>
                 <span class="sr-only" data-carousel-status aria-live="polite"></span>
@@ -115,6 +125,9 @@
 
     @if (session('success'))
         <div class="gym-container mt-4" role="status" aria-live="polite"><p class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-900">{{ session('success') }}</p></div>
+    @endif
+    @if (session('error'))
+        <div class="gym-container mt-4" role="alert" aria-live="assertive"><p class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-900">{{ session('error') }}</p></div>
     @endif
     @if ($errors->any())
                     <div class="gym-container mt-4" role="alert" aria-live="assertive"><div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-900"><p class="font-semibold">Kiểm tra lại thông tin:</p><ul class="mt-1 list-inside list-disc">@foreach ($errors->getBag('default')->messages() as $field => $messages) @foreach ($messages as $error)<li><a class="underline underline-offset-2" href="#{{ str_replace('.', '-', $field) }}">{{ $error }}</a></li>@endforeach @endforeach</ul></div></div>
@@ -133,6 +146,9 @@
                 <a class="hover:text-gym-blue focus-visible:outline-2 focus-visible:outline-gym-blue" href="{{ route('login') }}">Chăm sóc hội viên</a>
             </nav>
             <p class="mt-6 border-t border-slate-200 pt-5 text-center text-xs text-slate-500">© {{ now(config('app.timezone'))->year }} The Gym · Tập luyện trong không gian không phán xét.</p>
+            @if (! empty($gymSettings?->address) || ! empty($gymSettings?->phone) || ! empty($gymSettings?->opening_hours))
+                <p class="mt-2 text-center text-xs text-slate-500">{{ $gymSettings?->address }} @if ($gymSettings?->phone) · {{ $gymSettings->phone }} @endif @if ($gymSettings?->opening_hours) · {{ $gymSettings->opening_hours }} @endif</p>
+            @endif
         </div>
     </footer>
 

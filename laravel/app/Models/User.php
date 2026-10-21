@@ -8,6 +8,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -24,6 +25,7 @@ use Illuminate\Notifications\Notifiable;
     'can_manage_trial_requests',
     'can_manage_orders',
     'can_manage_check_ins',
+    'is_active',
 ])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
@@ -45,6 +47,8 @@ class User extends Authenticatable
             'can_manage_trial_requests' => 'boolean',
             'can_manage_orders' => 'boolean',
             'can_manage_check_ins' => 'boolean',
+            'is_active' => 'boolean',
+            'locked_at' => 'datetime',
         ];
     }
 
@@ -69,6 +73,11 @@ class User extends Authenticatable
     public function membershipOrders(): HasMany
     {
         return $this->hasMany(MembershipOrder::class);
+    }
+
+    public function lockedBy(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'locked_by');
     }
 
     public function memberships(): HasMany

@@ -1,11 +1,16 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ChangePasswordController;
 use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ManagerDashboardController;
 use App\Http\Controllers\ManagerEmployeeController;
 use App\Http\Controllers\ManagerGymPackageController;
+use App\Http\Controllers\ManagerHeroBannerController;
+use App\Http\Controllers\ManagerRagKnowledgeController;
+use App\Http\Controllers\ManagerReportController;
+use App\Http\Controllers\ManagerSiteSettingController;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\MembershipOrderController;
 use App\Http\Controllers\PasswordRecoveryController;
@@ -47,6 +52,11 @@ Route::middleware('guest')->group(function (): void {
 });
 
 Route::post('/dang-xuat', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
+
+Route::middleware('auth')->prefix('tai-khoan')->name('account.')->group(function (): void {
+    Route::get('/doi-mat-khau', [ChangePasswordController::class, 'edit'])->name('password.edit');
+    Route::put('/doi-mat-khau', [ChangePasswordController::class, 'update'])->name('password.update');
+});
 
 Route::middleware(['auth', 'role:customer'])->prefix('my')->name('my.')->group(function (): void {
     Route::get('/goi-tap', [MemberController::class, 'memberships'])->name('memberships.index');
@@ -106,6 +116,33 @@ Route::middleware(['auth', 'role:employee,manager'])->prefix('staff')->name('sta
 Route::middleware(['auth', 'role:manager'])->get('/quan-ly', [ManagerDashboardController::class, 'index'])->name('manager.dashboard');
 
 Route::middleware(['auth', 'role:manager'])->prefix('quan-ly')->name('manager.')->group(function (): void {
+    Route::get('bao-cao', [ManagerReportController::class, 'index'])->name('reports.index');
+    Route::get('bao-cao/xuat-excel', [ManagerReportController::class, 'export'])->name('reports.export');
+
+    Route::get('cai-dat', [ManagerSiteSettingController::class, 'edit'])->name('settings.edit');
+    Route::put('cai-dat', [ManagerSiteSettingController::class, 'update'])->name('settings.update');
+    Route::get('banner', [ManagerHeroBannerController::class, 'index'])->name('banners.index');
+    Route::post('banner', [ManagerHeroBannerController::class, 'store'])->name('banners.store');
+    Route::put('banner/{banner}', [ManagerHeroBannerController::class, 'update'])->name('banners.update');
+    Route::patch('banner/{banner}/trang-thai', [ManagerHeroBannerController::class, 'toggle'])->name('banners.toggle');
+    Route::patch('banner-thu-tu', [ManagerHeroBannerController::class, 'reorder'])->name('banners.reorder');
+    Route::delete('banner/{banner}', [ManagerHeroBannerController::class, 'destroy'])->name('banners.destroy');
+
+    Route::get('tai-lieu-chatbot', [ManagerRagKnowledgeController::class, 'index'])->name('knowledge.index');
+    Route::get('tai-lieu-chatbot/tao-moi', [ManagerRagKnowledgeController::class, 'create'])->name('knowledge.create');
+    Route::get('tai-lieu-chatbot/faq/tao-moi', [ManagerRagKnowledgeController::class, 'createFaq'])->name('knowledge.faq.create');
+    Route::post('tai-lieu-chatbot/faq', [ManagerRagKnowledgeController::class, 'storeFaq'])->name('knowledge.faq.store');
+    Route::put('tai-lieu-chatbot/{document}/faq', [ManagerRagKnowledgeController::class, 'updateFaq'])->name('knowledge.faq.update');
+    Route::get('tai-lieu-chatbot/mau-excel', [ManagerRagKnowledgeController::class, 'downloadTemplate'])->name('knowledge.import.template');
+    Route::post('tai-lieu-chatbot/excel/xem-truoc', [ManagerRagKnowledgeController::class, 'previewImport'])->name('knowledge.import.preview');
+    Route::get('tai-lieu-chatbot/excel/xem-truoc', [ManagerRagKnowledgeController::class, 'importReview'])->name('knowledge.import.review');
+    Route::post('tai-lieu-chatbot/excel/xac-nhan', [ManagerRagKnowledgeController::class, 'confirmImport'])->name('knowledge.import.confirm');
+    Route::post('tai-lieu-chatbot', [ManagerRagKnowledgeController::class, 'store'])->name('knowledge.store');
+    Route::get('tai-lieu-chatbot/{document}/sua', [ManagerRagKnowledgeController::class, 'edit'])->name('knowledge.edit');
+    Route::put('tai-lieu-chatbot/{document}', [ManagerRagKnowledgeController::class, 'update'])->name('knowledge.update');
+    Route::patch('tai-lieu-chatbot/{document}/trang-thai', [ManagerRagKnowledgeController::class, 'toggle'])->name('knowledge.toggle');
+    Route::delete('tai-lieu-chatbot/{document}', [ManagerRagKnowledgeController::class, 'destroy'])->name('knowledge.destroy');
+
     Route::resource('goi-tap', ManagerGymPackageController::class)
         ->only(['index', 'create', 'store', 'edit', 'update'])
         ->parameters(['goi-tap' => 'package'])
@@ -144,4 +181,7 @@ Route::middleware(['auth', 'role:manager'])->prefix('quan-ly')->name('manager.')
     Route::put('nhan-vien/{employee}/phan-quyen', [ManagerEmployeeController::class, 'updatePermissions'])
         ->middleware('can:update,employee')
         ->name('employees.permissions.update');
+    Route::patch('nhan-vien/{employee}/trang-thai', [ManagerEmployeeController::class, 'toggleActive'])
+        ->middleware('can:update,employee')
+        ->name('employees.toggle-active');
 });

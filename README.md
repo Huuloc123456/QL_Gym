@@ -14,9 +14,11 @@
 
 - **Khách vãng lai:** xem gói đang mở bán, chi tiết giá/thời hạn và gửi yêu cầu tập thử. Yêu cầu tập thử không tạo tài khoản hoặc quyền vào tập.
 - **Khách hàng:** đăng ký, đăng nhập, khôi phục mật khẩu qua email, cập nhật hồ sơ được phép, chọn gói và ngày bắt đầu, theo dõi đơn/gói/lịch sử vào ra, gửi yêu cầu hủy đơn đang chờ.
-- **Nhân viên:** tìm và lọc đơn, ghi nhận nhiều khoản tiền mặt hoặc chuyển khoản, kiểm tra đã thu đủ rồi xác nhận; tra cứu hội viên, xem quyền tập, check-in/check-out và đóng lượt quên check-out kèm lý do; xử lý yêu cầu tập thử.
-- **Quản lý:** xem bảng điều khiển, doanh thu từ đơn đã thanh toán, tạo/sửa/mở/ngừng bán gói, và tạo/sửa tài khoản nhân viên.
-- **Trợ lý The Gym (RAG):** nhận câu hỏi nghiệp vụ tối đa 500 ký tự, chuyển đến dịch vụ RAG qua API và hiển thị câu trả lời cùng nguồn tài liệu. Nếu dịch vụ chưa chạy, website báo trợ lý tạm thời không sẵn sàng; các chức năng còn lại vẫn dùng được.
+- **Nhân viên:** lọc đơn chờ, lịch sử hoặc tất cả; tìm theo mã đơn, tên, số điện thoại, email và ngày tạo; xem lịch sử phân trang, ghi nhận nhiều khoản tiền mặt/chuyển khoản và chỉ xác nhận khi đã thu đủ. Màn check-in tìm theo mã/tên/số điện thoại, lọc ngày/trạng thái và phân trang cả lượt đang tập lẫn lịch sử.
+- **Khách hàng:** xem đơn theo trạng thái và phân trang; xem riêng gói đang dùng, sắp bắt đầu và đã hết hạn; lịch sử vẫn thuộc đúng tài khoản.
+- **Quản lý:** xem bảng điều khiển và báo cáo theo khoảng ngày. Báo cáo tách đơn tạo trong kỳ, giá trị đơn được xác nhận theo `paid_at`, và tiền thực nhận theo `received_at`; có số tiền mặt/chuyển khoản và tải Excel gồm tổng quan, đơn, khoản thu. Quản lý cũng quản lý gói, tài khoản/quyền nhân viên, thông tin phòng tập và banner.
+- **Trợ lý The Gym (RAG):** nhận câu hỏi nghiệp vụ tối đa 500 ký tự, chuyển đến dịch vụ RAG qua API và hiển thị nguồn. Quản lý có biểu mẫu tiếng Việt để thêm/sửa câu hỏi thường gặp, chỉnh hướng dẫn dài, tìm tài liệu, tạm ngừng/bật lại/xóa và nhập tối đa 100 câu hỏi từ Excel sau bước xem trước. Nhập hàng loạt chỉ dựng chỉ mục một lần; lỗi thì khôi phục tài liệu và chỉ mục cũ. Người quản lý thử câu trả lời bằng nút nổi chatbot trên website.
+- **Tài khoản nhân viên:** quản lý có thể khóa/mở tài khoản. Tài khoản bị khóa không đăng nhập lại được và phiên đang mở sẽ bị kết thúc ở yêu cầu tiếp theo. Người dùng đang đăng nhập có thể đổi mật khẩu sau khi xác nhận mật khẩu hiện tại.
 
 ## Quy tắc quan trọng
 
@@ -29,8 +31,9 @@
 
 ## Công nghệ
 
-- PHP 8.3+, Laravel 13, MySQL 8+, Node.js 20.19+ hoặc 22.12+
+- PHP 8.3+ (bật `ext-zip` trong Laragon để nhập/xuất `.xlsx`), Laravel 13, MySQL 8+, Node.js 20.19+ hoặc 22.12+
 - Blade, Tailwind CSS 4 và Vite
+- PhpSpreadsheet để đọc mẫu Excel và xuất báo cáo `.xlsx`
 - PHPUnit; bộ kiểm thử dùng MySQL riêng `qly_phonggym_test` theo `laravel/phpunit.xml`
 - Repository Pattern cho truy cập dữ liệu; Laravel policies cho quyền sở hữu đơn và thao tác nhân viên
 
@@ -55,6 +58,7 @@ Tạo database MySQL rỗng (mặc định tên `qly_phonggym_laravel`), rồi c
 
 ```powershell
 php artisan migrate --seed
+php artisan storage:link
 npm ci
 npm run build
 php artisan serve
@@ -62,7 +66,13 @@ php artisan serve
 
 Mở `http://127.0.0.1:8000`. Nếu Laragon đã cung cấp PHP, Composer, MySQL và Node.js trong PATH, có thể dùng các thành phần đó; nếu không, mở terminal từ Laragon hoặc thêm đường dẫn cài đặt tương ứng vào PATH.
 
+Nếu `php -m` chưa liệt kê `zip`, mở `php.ini` đang dùng bởi Laragon, bật dòng `extension=zip`, rồi khởi động lại PHP/Apache. Excel import/export cần tiện ích này.
+
 Chatbot cần dịch vụ RAG chạy riêng. Mặc định Laravel gọi `http://127.0.0.1:8090/chat`; cập nhật `RAG_API_URL` và `RAG_API_TIMEOUT` trong `.env` nếu dịch vụ chạy ở địa chỉ khác.
+
+Để dùng quản lý tài liệu chatbot, chạy project [SimpleRAGChatbot](https://github.com/phulee203/simple-rag-chatbot) riêng: tạo `.env` từ `.env.example`, cài `requirements.txt`, điền `GROQ_API_KEY`, tạo một token ngẫu nhiên dài và đặt cùng giá trị vào `RAG_ADMIN_TOKEN` của cả hai project. Trong Laravel, đặt thêm `RAG_ADMIN_TIMEOUT=180`. Chạy `python embed_pdfs.py` lần đầu để tạo chỉ mục, sau đó chạy `python rag_api.py` và để cửa sổ dịch vụ hoạt động. API mặc định chỉ lắng nghe trên máy local; không đổi host thành `0.0.0.0` khi không có mạng nội bộ được bảo vệ.
+
+Khi chạy production, lưu token trong `.env` phía máy chủ và chạy `php artisan config:cache` sau khi cấu hình; không đưa token lên HTML, JavaScript hoặc Git. Ảnh banner được lưu trong `laravel/storage/app/public/hero-banners`; giữ thư mục này khi chuyển máy.
 
 ### Tài khoản mẫu local
 
@@ -86,7 +96,22 @@ php artisan test --compact
 npm run build
 ```
 
-Test dùng database MySQL riêng và làm mới schema của database đó. Kế hoạch, kết quả test thủ công và các điểm còn cần kiểm tra nằm trong [test plan](laravel/docs/test-plan.md).
+## Sao lưu và khôi phục
+
+Sao lưu MySQL và các file người dùng cùng nhau; không lưu bản sao dưới `public/`. Ví dụ chạy trong PowerShell, thay tên database/user theo `.env`:
+
+```powershell
+$backup = "D:/Backups/TheGym/$(Get-Date -Format yyyyMMdd-HHmmss)"
+New-Item -ItemType Directory -Force -Path $backup | Out-Null
+$ragProject = 'D:/Learning/Projects/SimpleRAGChatbot'
+mysqldump --single-transaction --routines --triggers -u root -p qly_phonggym_laravel --result-file="$backup/database.sql"
+Copy-Item ./laravel/storage/app/public "$backup/public-files" -Recurse
+Copy-Item "$ragProject/knowledge_base" "$backup/knowledge-base" -Recurse
+```
+
+Khôi phục vào database đã tạo sẵn bằng `cmd /c "mysql -u root -p qly_phonggym_laravel < $backup/database.sql"`, sau đó chép `public-files` về `laravel/storage/app/public` và `knowledge-base` về thư mục project RAG. Không thay `.env` bằng bản mẫu; giữ khóa và thông tin mail của máy nhận riêng. Thử khôi phục trên database riêng trước khi thay dữ liệu đang chạy.
+
+Test dùng database MySQL riêng và làm mới schema của database đó. Kế hoạch, kết quả kiểm thử và các điểm còn cần kiểm tra nằm trong [test plan](laravel/docs/test-plan.md). Thiết kế và phạm vi các phần tra cứu, báo cáo, lịch sử khách hàng và quản lý RAG nằm trong [kế hoạch chức năng](docs/plans/2026-10-21-tra-cuu-bao-cao-chatbot.md).
 
 ## Tài liệu
 

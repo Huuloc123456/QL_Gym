@@ -32,7 +32,7 @@ class AuthController extends Controller
         $packageId = $credentials['package_id'] ?? null;
         unset($credentials['package_id']);
 
-        if (! Auth::attempt($credentials)) {
+        if (! Auth::attempt([...$credentials, 'is_active' => true])) {
             return back()->withErrors([
                 'username' => 'Tên đăng nhập hoặc mật khẩu chưa chính xác.',
             ])->onlyInput('username');

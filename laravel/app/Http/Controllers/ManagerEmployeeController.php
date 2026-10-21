@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Repositories\EmployeeAccountRepository;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 
 class ManagerEmployeeController extends Controller
@@ -73,5 +74,18 @@ class ManagerEmployeeController extends Controller
 
         return redirect()->route('manager.employees.index')
             ->with('success', 'Đã cập nhật quyền nghiệp vụ cho nhân viên.');
+    }
+
+    public function toggleActive(Request $request, User $employee): RedirectResponse
+    {
+        $isActivating = ! $employee->is_active;
+        $employee->forceFill([
+            'is_active' => $isActivating,
+            'locked_at' => $isActivating ? null : Carbon::now(),
+            'locked_by' => $isActivating ? null : $request->user()->id,
+        ])->save();
+
+        return redirect()->route('manager.employees.index')
+            ->with('success', $isActivating ? 'Đã mở khóa tài khoản nhân viên.' : 'Đã khóa tài khoản nhân viên.');
     }
 }

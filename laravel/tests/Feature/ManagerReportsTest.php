@@ -1,0 +1,131 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\GymPackage;
+use App\Models\MembershipOrder;
+use App\Models\OrderPayment;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
+
+class ManagerReportsTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
+
+    #[Test]
+    public function manager_sees_orders_confirmed_and_receipts_in_the_selected_local_period(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-21 09:00:00', 'Asia/Ho_Chi_Minh'));
+
+        $manager = User::factory()->manager()->create();
+        $employee = User::factory()->employee()->create();
+        $package = GymPackage::factory()->create();
+        $customer = User::factory()->create(['name' => 'Report Member']);
+        $confirmedThisMonth = MembershipOrder::factory()->paid()->for($customer)->for($package, 'gymPackage')->create([
+            'amount' => 500000,
+            'created_at' => Carbon::parse('2026-09-30 23:00:00', 'Asia/Ho_Chi_Minh'),
+            'paid_at' => Carbon::parse('2026-10-01 00:00:00', 'Asia/Ho_Chi_Minh'),
+        ]);
+        MembershipOrder::factory()->paid()->for($customer)->for($package, 'gymPackage')->create([
+            'amount' => 300000,
+            'paid_at' => Carbon::parse('2026-09-30 23:59:59', 'Asia/Ho_Chi_Minh'),
+        ]);
+        $pending = MembershipOrder::factory()->for($customer)->for($package, 'gymPackage')->create([
+            'amount' => 200000,
+            'created_at' => Carbon::parse('2026-10-31 23:59:59', 'Asia/Ho_Chi_Minh'),
+        ]);
+
+        OrderPayment::factory()->for($confirmedThisMonth, 'order')->create([
+            'received_by' => $employee->id,
+            'amount' => 100000,
+            'payment_method' => 'cash',
+            'received_at' => Carbon::parse('2026-10-01 00:00:00', 'Asia/Ho_Chi_Minh'),
+        ]);
+        OrderPayment::factory()->for($confirmedThisMonth, 'order')->create([
+            'received_by' => $employee->id,
+            'amount' => 250000,
+            'payment_method' => 'bank_transfer',
+            'received_at' => Carbon::parse('2026-10-31 23:59:59', 'Asia/Ho_Chi_Minh'),
+        ]);
+        OrderPayment::factory()->for($confirmedThisMonth, 'order')->create([
+            'received_by' => $employee->id,
+            'amount' => 150000,
+            'payment_method' => 'cash',
+            'received_at' => Carbon::parse('2026-11-01 00:00:00', 'Asia/Ho_Chi_Minh'),
+        ]);
+
+        $this->actingAs($manager)
+            ->get(route('manager.reports.index', ['from_date' => '2026-10-01', 'to_date' => '2026-10-31']))
+            ->assertOk()
+            ->assertSee('500.000')
+            ->assertSee('350.000')
+            ->assertViewHas('report', function (array $report) use ($confirmedThisMonth, $pending): bool {
+                $this->assertSame(500000, $report['confirmed_revenue']);
+                $this->assertSame(350000, $report['receipts_total']);
+                $this->assertSame(100000, $report['receipts_by_method']['cash']);
+                $this->assertSame(250000, $report['receipts_by_method']['bank_transfer']);
+                $this->assertSame(1, $report['order_counts']['pending']);
+                $this->assertTrue($report['orders']->contains('id', $confirmedThisMonth->id));
+                $this->assertTrue($report['orders']->contains('id', $pending->id));
+
+                return true;
+            });
+    }
+
+    #[Test]
+    public function only_managers_can_view_or_export_reports(): void
+    {
+        $customer = User::factory()->create();
+        $employee = User::factory()->employee()->create();
+
+        $this->actingAs($customer)->get(route('manager.reports.index'))->assertForbidden();
+        $this->actingAs($employee)->get(route('manager.reports.index'))->assertForbidden();
+        $this->actingAs($employee)->get(route('manager.reports.export'))->assertForbidden();
+    }
+
+    #[Test]
+    public function manager_can_download_xlsx_with_summary_orders_and_receipts(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $employee = User::factory()->employee()->create();
+        $package = GymPackage::factory()->create();
+        $customer = User::factory()->create(['name' => '=HYPERLINK("https://bad.example")']);
+        $order = MembershipOrder::factory()->paid()->for($customer)->for($package, 'gymPackage')->create([
+            'amount' => 399000,
+            'paid_at' => now(),
+        ]);
+        OrderPayment::factory()->for($order, 'order')->create([
+            'received_by' => $employee->id,
+            'amount' => 399000,
+            'received_at' => now(),
+        ]);
+
+        $response = $this->actingAs($manager)->get(route('manager.reports.export'));
+
+        $response->assertOk()
+            ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+        $path = tempnam(sys_get_temp_dir(), 'gym-report-');
+        file_put_contents($path, $response->streamedContent());
+        $spreadsheet = IOFactory::load($path);
+        unlink($path);
+
+        $this->assertSame('Tổng quan', $spreadsheet->getSheet(0)->getTitle());
+        $this->assertSame('Đơn hàng', $spreadsheet->getSheet(1)->getTitle());
+        $this->assertSame('Khoản thu', $spreadsheet->getSheet(2)->getTitle());
+        $customerName = $spreadsheet->getSheet(1)->getCell('B2');
+        $this->assertSame('=HYPERLINK("https://bad.example")', $customerName->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $customerName->getDataType());
+    }
+}

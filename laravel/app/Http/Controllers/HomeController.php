@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\GymSetting;
+use App\Models\HeroBanner;
 use App\Repositories\GymPackageRepository;
 use App\Services\MembershipOrderService;
 use App\Services\MembershipPeriod;
@@ -24,11 +26,16 @@ class HomeController extends Controller
             return [$package->id => $period->lastTrainingDay($expiresOn)->format('d/m/Y')];
         });
 
+        $gymSettings = GymSetting::query()->find(1);
+
         return view('home', [
             'packages' => $packages,
             'suggestedStartDate' => $suggestedStartDate,
             'lastTrainingDays' => $lastTrainingDays,
             'selectedPackageId' => $request->integer('package_id'),
+            'heroBanners' => HeroBanner::query()->where('is_active', true)->orderBy('position')->orderBy('id')->get(),
+            'gymSettings' => $gymSettings,
+            'faqs' => $gymSettings?->faq_items ?? [],
         ]);
     }
 }

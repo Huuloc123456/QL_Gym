@@ -23,8 +23,8 @@
         </form>
 
         <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm" tabindex="0" aria-label="Danh sách nhân viên; vuốt ngang để xem thêm cột">
-            <table class="gym-table min-w-[48rem]">
-                <thead><tr><th scope="col">Nhân viên</th><th scope="col">Tên đăng nhập</th><th scope="col">Email</th><th scope="col">Điện thoại</th><th scope="col"><span class="sr-only">Thao tác</span></th></tr></thead>
+            <table class="gym-table min-w-[58rem]">
+                <thead><tr><th scope="col">Nhân viên</th><th scope="col">Tên đăng nhập</th><th scope="col">Email</th><th scope="col">Điện thoại</th><th scope="col">Trạng thái</th><th scope="col"><span class="sr-only">Thao tác</span></th></tr></thead>
                 <tbody>
                     @forelse ($employees as $employee)
                         <tr>
@@ -32,13 +32,23 @@
                             <td>{{ $employee->username }}</td>
                             <td>{{ $employee->email }}</td>
                             <td>{{ $employee->phone }}</td>
+                            <td>
+                                <span class="inline-flex rounded-full px-3 py-1 text-xs font-bold {{ $employee->is_active ? 'bg-emerald-100 text-emerald-900' : 'bg-slate-200 text-slate-700' }}">{{ $employee->is_active ? 'Đang hoạt động' : 'Đã khóa' }}</span>
+                                @if ($employee->locked_at)
+                                    <p class="mt-1 text-xs text-slate-500">Khóa lúc {{ $employee->locked_at->format('d/m/Y H:i') }} bởi {{ $employee->lockedBy?->name ?? 'quản lý đã xóa' }}</p>
+                                @endif
+                            </td>
                             <td class="space-x-3">
                                 <a class="font-semibold text-gym-blue underline underline-offset-4" href="{{ route('manager.employees.edit', $employee) }}">Sửa tài khoản<span class="sr-only"> của {{ $employee->name }}</span></a>
                                 <a class="font-semibold text-gym-blue underline underline-offset-4" href="{{ route('manager.employees.permissions.edit', $employee) }}">Phân quyền<span class="sr-only"> cho {{ $employee->name }}</span></a>
+                                <form class="mt-2 inline-block" method="POST" action="{{ route('manager.employees.toggle-active', $employee) }}">
+                                    @csrf @method('PATCH')
+                                    <button class="font-semibold underline underline-offset-4 {{ $employee->is_active ? 'text-red-700' : 'text-emerald-700' }}" type="submit">{{ $employee->is_active ? 'Khóa tài khoản' : 'Mở khóa' }}<span class="sr-only"> của {{ $employee->name }}</span></button>
+                                </form>
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="5" class="py-10 text-center text-slate-600">Chưa có nhân viên khớp với thông tin tìm kiếm.</td></tr>
+                        <tr><td colspan="6" class="py-10 text-center text-slate-600">Chưa có nhân viên khớp với thông tin tìm kiếm.</td></tr>
                     @endforelse
                 </tbody>
             </table>

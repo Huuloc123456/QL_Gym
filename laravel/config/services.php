@@ -38,6 +38,8 @@ return [
     'rag' => [
         'url' => env('RAG_API_URL', 'http://127.0.0.1:8090'),
         'timeout' => env('RAG_API_TIMEOUT', 30),
+        'admin_token' => env('RAG_ADMIN_TOKEN'),
+        'admin_timeout' => env('RAG_ADMIN_TIMEOUT', 180),
     ],
 
 ];

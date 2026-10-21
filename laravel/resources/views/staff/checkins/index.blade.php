@@ -17,7 +17,23 @@
             </form>
         </div>
 
-        <h2 class="mb-3 text-xl font-extrabold uppercase">Lịch sử lượt tập</h2>
+        <div class="mb-4 flex flex-wrap items-center gap-2" aria-label="Lọc trạng thái lượt tập">
+            @foreach (['open' => 'Đang tập', 'history' => 'Lịch sử', 'all' => 'Tất cả'] as $status => $label)
+                <a class="rounded-full px-4 py-2 text-sm font-semibold {{ $filters['status'] === $status ? 'bg-gym-blue text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50' }}" href="{{ route('staff.checkins.index', array_merge(request()->except('page'), ['status' => $status])) }}" @if ($filters['status'] === $status) aria-current="page" @endif>{{ $label }}</a>
+            @endforeach
+        </div>
+        <form class="gym-card mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(14rem,1fr)_minmax(10rem,0.7fr)_minmax(10rem,0.7fr)_auto] xl:items-end" method="GET" action="{{ route('staff.checkins.index') }}">
+            <input type="hidden" name="status" value="{{ $filters['status'] }}">
+            <div><label class="gym-label" for="q">Tìm hội viên</label><x-form-input id="q" name="q" type="search" value="{{ $filters['q'] ?? '' }}" placeholder="Mã, tên hoặc số điện thoại" /></div>
+            <div><label class="gym-label" for="from_date">Từ ngày</label><x-form-input id="from_date" name="from_date" type="date" value="{{ $filters['from_date'] ?? '' }}" /></div>
+            <div><label class="gym-label" for="to_date">Đến ngày</label><x-form-input id="to_date" name="to_date" type="date" value="{{ $filters['to_date'] ?? '' }}" /></div>
+            <div class="flex gap-2"><button class="gym-btn-primary" type="submit">Tìm</button><a class="gym-btn-outline" href="{{ route('staff.checkins.index', ['status' => $filters['status']]) }}">Xóa lọc</a></div>
+        </form>
+
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-xl font-extrabold uppercase">{{ $filters['status'] === 'open' ? 'Hội viên đang tập' : ($filters['status'] === 'history' ? 'Lịch sử lượt tập' : 'Tất cả lượt tập') }}</h2>
+            <p class="text-sm text-slate-600">{{ number_format($visits->total()) }} lượt · {{ $visits->firstItem() ?? 0 }}–{{ $visits->lastItem() ?? 0 }}</p>
+        </div>
         <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm" tabindex="0" aria-label="Bảng lượt tập; vuốt ngang để xem thêm cột">
             <table class="gym-table">
                 <thead><tr><th scope="col">Hội viên</th><th scope="col">Gói</th><th scope="col">Giờ vào</th><th scope="col">Giờ ra</th><th scope="col">Thao tác</th></tr></thead>
@@ -50,11 +66,12 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="5" class="py-10 text-center text-slate-500">Chưa có lượt tập nào được ghi nhận.</td></tr>
+                        <tr><td colspan="5" class="py-10 text-center text-slate-500">{{ $filters['status'] === 'open' ? 'Không có hội viên nào đang tập.' : 'Không tìm thấy lượt tập phù hợp.' }}</td></tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
+        <nav class="mt-6" aria-label="Các trang lượt tập">{{ $visits->links() }}</nav>
     </section>
 @endsection
 
