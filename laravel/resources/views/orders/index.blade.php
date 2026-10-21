@@ -15,6 +15,9 @@
                     <div class="flex flex-wrap items-start justify-between gap-4">
                         <div class="min-w-0">
                             <h2 class="text-xl font-bold"><a class="break-words text-gym-ink underline decoration-slate-300 underline-offset-4 hover:text-gym-blue" href="{{ route('my.orders.show', $order) }}">{{ $order->gymPackage->name }}</a></h2>
+                            @if ($order->duration_months !== null)
+                                <p class="mt-1 text-sm text-slate-600">Thời hạn đã đặt: {{ $order->duration_months }} tháng</p>
+                            @endif
                             <p class="mt-2 text-sm text-slate-600">Ngày bắt đầu dự kiến {{ $order->start_date->format('d/m/Y') }} · {{ number_format($order->amount, 0, ',', '.') }} VNĐ</p>
                             <p class="mt-1 text-sm text-slate-600">Đã ghi nhận {{ number_format($received, 0, ',', '.') }} VNĐ · {{ $order->payment_method === 'cash' ? 'Tiền mặt' : 'Chuyển khoản' }}</p>
                         </div>

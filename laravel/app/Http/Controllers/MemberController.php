@@ -6,9 +6,11 @@ use App\Models\GymPackage;
 use App\Repositories\CheckInRepository;
 use App\Repositories\GymPackageRepository;
 use App\Repositories\MembershipRepository;
+use App\Services\GymIdentityService;
 use App\Services\MembershipOrderService;
 use App\Services\MembershipPeriod;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class MemberController extends Controller
@@ -54,9 +56,11 @@ class MemberController extends Controller
 
     public function memberships(Request $request, MembershipRepository $membershipsRepository): View
     {
-        $memberships = $membershipsRepository->forCustomer($request->user())->get();
+        $memberships = $membershipsRepository->forCustomer($request->user())->whereNull('sql_membership_id')->get();
+        $customer = app(GymIdentityService::class)->customer($request->user());
+        $sqlMemberships = DB::table('DANGKYGOITAP as d')->join('GOITAP as g', 'g.MAGOITAP', '=', 'd.MAGOITAP')->leftJoin('trial_requests as t', 't.sql_membership_id', '=', 'd.MADKGT')->where('d.MAKH', $customer)->select('d.*', 'g.TENGOI', 't.id as trial_request_id')->orderByDesc('d.NGAYBATDAU')->get();
 
-        return view('memberships.index', ['memberships' => $memberships]);
+        return view('memberships.index', ['memberships' => $memberships, 'sqlMemberships' => $sqlMemberships]);
     }
 
     public function attendance(Request $request, CheckInRepository $checkInRepository): View

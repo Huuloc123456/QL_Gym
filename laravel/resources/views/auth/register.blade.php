@@ -16,6 +16,10 @@
                     <x-input name="username" label="Tên đăng nhập" autocomplete="username" required />
                     <x-input name="phone" label="Số điện thoại" type="tel" autocomplete="tel" required />
                     <x-input name="email" label="Email" type="email" autocomplete="email" required />
+                    <x-input name="birth_date" label="Ngày sinh (để xét hạng khách)" type="date" autocomplete="bday" />
+                    <label class="grid gap-2 text-sm font-semibold text-slate-700">Giới tính
+                        <select name="gender" class="gym-input"><option value="">Chưa cung cấp</option><option value="male" @selected(old('gender') === 'male')>Nam</option><option value="female" @selected(old('gender') === 'female')>Nữ</option><option value="other" @selected(old('gender') === 'other')>Khác</option></select>
+                    </label>
                     <x-input name="password" label="Mật khẩu" type="password" autocomplete="new-password" required />
                     <x-input name="password_confirmation" label="Nhập lại mật khẩu" type="password" autocomplete="new-password" required />
                     <button class="gym-btn-primary w-full sm:col-span-2" type="submit">Tạo tài khoản</button>

@@ -34,6 +34,7 @@
         <div class="grid gap-4">
             @forelse ($trialRequests as $trialRequest)
                 <article class="gym-card p-5 sm:p-6">
+                    @if ($trialRequest->sql_membership_id)<p class="mb-4 text-sm font-semibold text-emerald-700">Đã duyệt tập thử · Mã đăng ký {{ $trialRequest->sql_membership_id }}</p>@else<form class="mb-5 flex flex-wrap items-end gap-3 border-b border-slate-200 pb-5" method="POST" action="{{ route('staff.trial-requests.approve', $trialRequest) }}">@csrf<div><label class="gym-label" for="trial-package-{{ $trialRequest->id }}">Thời lượng thử (tối đa 7 ngày)</label><select class="gym-input" id="trial-package-{{ $trialRequest->id }}" name="package" required>@foreach ($trialPackages as $package)<option value="{{ $package->MAGOITAP }}">{{ $package->TENGOI }} · thử {{ $package->THOIHAN }} ngày</option>@endforeach</select></div><label class="flex max-w-xs items-center gap-2 text-sm"><input type="checkbox" name="identity_verified" value="1" required> Đã xác minh khách và số điện thoại</label><button class="gym-btn-outline" type="submit">Duyệt tập thử</button></form>@endif
                     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <div class="min-w-0">
                             <div class="flex flex-wrap items-center gap-2">

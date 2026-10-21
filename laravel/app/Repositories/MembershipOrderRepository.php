@@ -14,6 +14,7 @@ class MembershipOrderRepository
     public function forCustomer(User $customer): HasMany
     {
         return $customer->membershipOrders()
+            ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('gym_fulfillments')->whereColumn('invoice_id', 'membership_orders.sql_invoice_id'))
             ->with(['gymPackage', 'membership', 'payments'])
             ->withSum('payments', 'amount')
             ->latest();
@@ -31,6 +32,7 @@ class MembershipOrderRepository
     {
         return MembershipOrder::query()
             ->with(['user', 'gymPackage', 'payments.receiver', 'membership'])
+            ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('gym_fulfillments')->whereColumn('invoice_id', 'membership_orders.sql_invoice_id'))
             ->withSum('payments', 'amount')
             ->latest();
     }

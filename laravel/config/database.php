@@ -64,6 +64,19 @@ return [
             ]) : [],
         ],
 
+        'gym_admin' => [
+            'driver' => 'mysql',
+            'host' => env('GYM_ADMIN_DB_HOST', env('DB_HOST', '127.0.0.1')),
+            'port' => env('GYM_ADMIN_DB_PORT', env('DB_PORT', '3307')),
+            'database' => env('DB_DATABASE'),
+            'username' => env('GYM_ADMIN_DB_USERNAME', env('APP_ENV') === 'local' ? env('DB_USERNAME') : null),
+            'password' => env('GYM_ADMIN_DB_PASSWORD', env('APP_ENV') === 'local' ? env('DB_PASSWORD') : null),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'strict' => true,
+        ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),

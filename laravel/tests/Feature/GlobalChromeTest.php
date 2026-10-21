@@ -14,7 +14,12 @@ class GlobalChromeTest extends TestCase
     {
         $this->get(route('home'))
             ->assertOk()
-            ->assertSee('data-carousel', false);
+            ->assertSee('Be Vietnam Pro', false)
+            ->assertSee('as="font"', false)
+            ->assertSee('data-carousel-pause', false)
+            ->assertSee('data-carousel-go', false)
+            ->assertDontSee('data-carousel-prev', false)
+            ->assertDontSee('data-carousel-next', false);
 
         $manager = User::factory()->manager()->create();
 

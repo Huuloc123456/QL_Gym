@@ -10,7 +10,7 @@ use App\Models\User;
 use App\Repositories\MembershipOrderRepository;
 use App\Repositories\MembershipRepository;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class MembershipOrderService
@@ -19,12 +19,15 @@ class MembershipOrderService
         private MembershipPeriod $period,
         private MembershipOrderRepository $orders,
         private MembershipRepository $memberships,
+        private GymIdentityService $identities,
+        private OriginalGymSql $sql,
     ) {}
 
     public function create(User $customer, GymPackage $package, string $startsOn, string $paymentMethod): MembershipOrder
     {
-        return DB::transaction(function () use ($customer, $package, $startsOn, $paymentMethod): MembershipOrder {
+        return $this->sql->transaction(function () use ($customer, $package, $startsOn, $paymentMethod): MembershipOrder {
             $lockedCustomer = User::query()->lockForUpdate()->findOrFail($customer->id);
+            $package = GymPackage::query()->lockForUpdate()->findOrFail($package->id);
             $startDate = CarbonImmutable::parse($startsOn, config('app.timezone'))->startOfDay();
             $today = CarbonImmutable::now(config('app.timezone'))->startOfDay();
 
@@ -43,6 +46,7 @@ class MembershipOrderService
                 'user_id' => $lockedCustomer->id,
                 'gym_package_id' => $package->id,
                 'amount' => $package->price,
+                'duration_months' => $package->duration_months,
                 'start_date' => $startDate->toDateString(),
                 'payment_method' => $paymentMethod,
                 'status' => MembershipOrder::STATUS_PENDING,
@@ -57,7 +61,7 @@ class MembershipOrderService
         string $paymentMethod,
         ?string $reference = null,
     ): OrderPayment {
-        return DB::transaction(function () use ($order, $staff, $amount, $paymentMethod, $reference): OrderPayment {
+        return $this->sql->transaction(function () use ($order, $staff, $amount, $paymentMethod, $reference): OrderPayment {
             $lockedOrder = $this->orders->lockForUpdate($order->id);
 
             if ($lockedOrder->status !== MembershipOrder::STATUS_PENDING) {
@@ -80,9 +84,9 @@ class MembershipOrderService
         });
     }
 
-    public function confirm(MembershipOrder $order, User $staff, string $startsOn): Membership
+    public function confirm(MembershipOrder $order, User $staff, string $startsOn, ?int $legacyDurationMonths = null): Membership
     {
-        return DB::transaction(function () use ($order, $staff, $startsOn): Membership {
+        return $this->sql->transaction(function () use ($order, $staff, $startsOn, $legacyDurationMonths): Membership {
             $lockedOrder = $this->orders->lockForUpdate($order->id);
 
             if ($lockedOrder->status === MembershipOrder::STATUS_PAID) {
@@ -106,30 +110,41 @@ class MembershipOrderService
                 throw ValidationException::withMessages(['start_date' => 'Ngày bắt đầu đã qua. Hãy chốt ngày mới với khách.']);
             }
 
-            $package = $lockedOrder->gymPackage()->firstOrFail();
-            $expiresOn = $this->period->expiresOn($startDate, $package->duration_months);
+            $durationMonths = $lockedOrder->duration_months ?? $legacyDurationMonths;
+
+            if ($durationMonths === null || $durationMonths < 1 || $durationMonths > 65535) {
+                throw ValidationException::withMessages(['duration_months' => 'Hãy xác minh và nhập thời hạn đã thỏa thuận của đơn cũ (1–65535 tháng).']);
+            }
+
+            $expiresOn = $this->period->expiresOn($startDate, $durationMonths);
             $this->assertPeriodAvailable($customer, $startDate, $expiresOn);
 
             $lockedOrder->update([
                 'start_date' => $startDate->toDateString(),
+                'duration_months' => $durationMonths,
                 'status' => MembershipOrder::STATUS_PAID,
                 'paid_at' => now(config('app.timezone')),
                 'confirmed_by_user_id' => $staff->id,
             ]);
 
-            return $this->memberships->create([
+            $membership = $this->memberships->create([
                 'membership_order_id' => $lockedOrder->id,
                 'user_id' => $customer->id,
-                'gym_package_id' => $package->id,
+                'gym_package_id' => $lockedOrder->gym_package_id,
                 'starts_on' => $startDate->toDateString(),
                 'expires_on' => $expiresOn->toDateString(),
             ]);
+            if (Schema::hasTable('GOITAP')) {
+                $this->identities->recordMembership($membership, $lockedOrder);
+            }
+
+            return $membership;
         });
     }
 
     public function cancel(MembershipOrder $order): void
     {
-        DB::transaction(function () use ($order): void {
+        $this->sql->transaction(function () use ($order): void {
             $lockedOrder = $this->orders->lockForUpdate($order->id);
 
             if ($lockedOrder->status === MembershipOrder::STATUS_CANCELLED) {
@@ -146,7 +161,7 @@ class MembershipOrderService
 
     public function requestCancellation(MembershipOrder $order): void
     {
-        DB::transaction(function () use ($order): void {
+        $this->sql->transaction(function () use ($order): void {
             $lockedOrder = $this->orders->lockForUpdate($order->id);
 
             if ($lockedOrder->status !== MembershipOrder::STATUS_PENDING) {

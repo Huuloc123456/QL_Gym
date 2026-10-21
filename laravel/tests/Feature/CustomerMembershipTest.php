@@ -49,6 +49,7 @@ class CustomerMembershipTest extends TestCase
             'user_id' => $customer->id,
             'gym_package_id' => $package->id,
             'amount' => 399000,
+            'duration_months' => 1,
             'status' => 'pending',
         ]);
         $this->assertSame($startDate, MembershipOrder::query()->firstOrFail()->start_date->toDateString());

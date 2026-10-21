@@ -18,6 +18,9 @@
                         <div class="min-w-0">
                             <h2 class="break-words text-lg font-bold">{{ $order->user->name }} · {{ $order->gymPackage->name }}</h2>
                             <p class="mt-1 text-sm text-slate-600">Đơn #{{ $order->id }} · {{ $order->user->phone }} · Bắt đầu {{ $order->start_date->format('d/m/Y') }}</p>
+                            @if ($order->duration_months !== null)
+                                <p class="mt-1 text-sm text-slate-600">Thời hạn đã đặt: {{ $order->duration_months }} tháng</p>
+                            @endif
                         </div>
                         <span class="shrink-0 rounded-full px-3 py-2 text-sm font-bold {{ $order->status === 'paid' ? 'bg-emerald-100 text-emerald-900' : ($order->status === 'cancelled' ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-950') }}">{{ $order->status === 'paid' ? 'Đã thanh toán' : ($order->status === 'cancelled' ? 'Đã hủy' : 'Đang chờ') }}</span>
                     </div>
@@ -60,6 +63,13 @@
                                 @if ($remaining === 0)
                                     <form class="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end" method="POST" action="{{ route('staff.orders.confirm', $order) }}">
                                         @csrf
+                                        @if ($order->duration_months === null)
+                                            <div class="sm:col-span-2">
+                                                <label class="gym-label" for="duration-{{ $order->id }}">Thời hạn đã thỏa thuận (tháng)</label>
+                                                <x-form-input id="duration-{{ $order->id }}" name="duration_months" type="number" min="1" max="65535" value="{{ old('duration_months') }}" required />
+                                                <p class="mt-1 text-sm text-slate-600">Đối chiếu thỏa thuận với khách trước khi xác nhận đơn cũ này.</p>
+                                            </div>
+                                        @endif
                                         <div><label class="gym-label" for="start-{{ $order->id }}">Ngày bắt đầu thực tế</label><x-form-input id="start-{{ $order->id }}" type="date" name="start_date" autocomplete="off" min="{{ now(config('app.timezone'))->toDateString() }}" value="{{ $order->start_date->toDateString() >= now(config('app.timezone'))->toDateString() ? $order->start_date->toDateString() : '' }}" required /></div>
                                         <button class="gym-btn-primary" type="submit">Xác nhận gói</button>
                                     </form>

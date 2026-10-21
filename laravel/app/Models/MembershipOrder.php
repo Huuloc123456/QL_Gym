@@ -20,11 +20,11 @@ class MembershipOrder extends Model
 
     public const STATUS_CANCELLED = 'cancelled';
 
-    protected $fillable = ['user_id', 'gym_package_id', 'amount', 'start_date', 'payment_method', 'status', 'paid_at', 'confirmed_by_user_id', 'cancellation_requested_at'];
+    protected $fillable = ['user_id', 'gym_package_id', 'amount', 'duration_months', 'start_date', 'payment_method', 'status', 'paid_at', 'confirmed_by_user_id', 'cancellation_requested_at'];
 
     protected function casts(): array
     {
-        return ['amount' => 'integer', 'start_date' => 'date', 'paid_at' => 'datetime', 'cancellation_requested_at' => 'datetime'];
+        return ['amount' => 'integer', 'duration_months' => 'integer', 'start_date' => 'date', 'paid_at' => 'datetime', 'cancellation_requested_at' => 'datetime'];
     }
 
     public function user(): BelongsTo

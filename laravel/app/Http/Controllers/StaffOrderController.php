@@ -41,9 +41,15 @@ class StaffOrderController extends Controller
     {
         $validated = $request->validate([
             'start_date' => ['required', 'date'],
+            'duration_months' => ['nullable', 'integer', 'min:1', 'max:65535'],
         ]);
 
-        $service->confirm($order, $request->user(), $validated['start_date']);
+        $service->confirm(
+            $order,
+            $request->user(),
+            $validated['start_date'],
+            isset($validated['duration_months']) ? (int) $validated['duration_months'] : null,
+        );
 
         return redirect()->route('staff.orders.index')->with('success', 'Đã xác nhận thanh toán và kích hoạt gói tập.');
     }

@@ -10,6 +10,9 @@
                 <div><p class="text-sm font-bold uppercase tracking-[0.18em] text-gym-blue">Đơn #{{ $order->id }}</p><h1 class="gym-title mt-2">{{ $order->gymPackage->name }}</h1><p class="mt-2 text-sm text-slate-600">Tạo ngày {{ $order->created_at->format('d/m/Y H:i') }}</p></div>
                 <span class="rounded-full px-3 py-2 text-sm font-bold {{ $order->status === 'paid' ? 'bg-emerald-100 text-emerald-900' : ($order->status === 'cancelled' ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-950') }}">{{ $order->status === 'paid' ? 'Đã xác nhận' : ($order->status === 'cancelled' ? 'Đã hủy' : 'Đang chờ') }}</span>
             </div>
+            @if ($order->duration_months !== null)
+                <p class="mt-3 text-sm text-slate-600">Thời hạn đã đặt: {{ $order->duration_months }} tháng</p>
+            @endif
             <dl class="mt-6 grid gap-3 border-y border-slate-100 py-5 sm:grid-cols-3">
                 <div><dt class="text-sm text-slate-500">Tổng tiền</dt><dd class="mt-1 font-bold tabular-nums">{{ number_format($order->amount, 0, ',', '.') }} VNĐ</dd></div>
                 <div><dt class="text-sm text-slate-500">Ngày bắt đầu dự kiến</dt><dd class="mt-1 font-semibold">{{ $order->start_date->format('d/m/Y') }}</dd></div>

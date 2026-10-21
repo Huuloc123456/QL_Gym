@@ -1,0 +1,7 @@
+@extends('layouts.app')
+@section('title', 'Địa chỉ nhận hàng')
+@section('content')
+<section class="gym-container py-10"><h1 class="gym-title">Địa chỉ nhận hàng</h1><a class="mt-3 inline-block text-sm text-gym-blue underline" href="{{ route('gym.cart') }}">← Về giỏ hàng</a><div class="mt-7 grid items-start gap-6 lg:grid-cols-2">
+<div class="space-y-5">@forelse ($addresses as $address)<article class="gym-card"><h2 class="font-bold">Địa chỉ #{{ $address->MADC }} @if ($address->LADIACHIMACDINH)<span class="ml-2 rounded bg-emerald-50 px-2 py-1 text-xs text-emerald-700">Mặc định</span>@endif</h2><form class="mt-4 grid gap-3 sm:grid-cols-2" method="POST" action="{{ route('gym.addresses.save', $address->MADC) }}">@csrf @include('gym.address-fields', ['address' => $address, 'prefix' => 'address-'.$address->MADC])<button class="gym-btn-primary sm:col-span-2" type="submit">Lưu thay đổi</button></form><form class="mt-4" method="POST" action="{{ route('gym.addresses.delete', $address->MADC) }}">@csrf @method('DELETE')<button class="text-sm text-red-700 underline" type="submit">Xóa địa chỉ này</button></form></article>@empty<p class="text-slate-500">Bạn chưa có địa chỉ nhận hàng.</p>@endforelse</div>
+<form class="gym-card grid gap-4 sm:grid-cols-2" method="POST" action="{{ route('gym.addresses.save') }}">@csrf<h2 class="text-xl font-bold sm:col-span-2">Thêm địa chỉ</h2>@include('gym.address-fields', ['address' => null, 'prefix' => 'new-address'])<button class="gym-btn-primary sm:col-span-2" type="submit">Thêm địa chỉ</button></form></div></section>
+@endsection

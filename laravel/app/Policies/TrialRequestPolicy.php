@@ -17,6 +17,11 @@ class TrialRequestPolicy
         return $this->isStaff($user) && $trialRequest->status === 'received';
     }
 
+    public function approve(User $user, TrialRequest $trialRequest): bool
+    {
+        return $this->isStaff($user);
+    }
+
     private function isStaff(User $user): bool
     {
         return $user->canManageTrialRequests();

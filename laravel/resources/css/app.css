@@ -3,6 +3,7 @@
 @source '../views/**/*.blade.php';
 @source '../js/**/*.js';
 @source '../../storage/framework/views/*.php';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 
 @theme {
     --color-gym-blue: #0a70a3;
@@ -10,8 +11,9 @@
     --color-gym-ink: #172435;
     --color-gym-paper: #f5f8fa;
     --color-gym-mint: #17f696;
-    --font-sans: 'Instrument Sans', ui-sans-serif, sans-serif;
-    --font-display: 'Instrument Sans', ui-sans-serif, sans-serif;
+    --font-sans: 'Be Vietnam Pro', ui-sans-serif, sans-serif;
+    --font-display: 'Be Vietnam Pro', ui-sans-serif, sans-serif;
+    --font-weight-extrabold: 700;
 }
 
 @layer base {
@@ -20,7 +22,7 @@
     }
 
     body {
-        @apply bg-white font-sans text-gym-ink antialiased;
+        @apply bg-white font-sans leading-relaxed text-gym-ink antialiased;
     }
 
     button,
@@ -34,7 +36,7 @@
 
 @layer components {
     .gym-container {
-        @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+        @apply mx-auto w-full max-w-[1140px] px-4 sm:px-6;
     }
 
     .gym-title {
@@ -43,7 +45,7 @@
     }
 
     .gym-card {
-        @apply rounded-3xl border border-slate-100 bg-white p-6 shadow-[0_16px_44px_rgba(20,48,68,0.10)];
+        @apply rounded-xl border border-slate-200 bg-white p-6 shadow-sm;
     }
 
     .gym-btn-primary {
@@ -55,12 +57,72 @@
     }
 
     .gym-input {
-        @apply min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-gym-ink shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gym-blue;
+        @apply min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-base text-gym-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gym-blue;
     }
 
-    [data-carousel] button:disabled {
-        cursor: wait;
-        opacity: 0.6;
+    .gym-package-grid {
+        @apply mx-auto mt-8 flex max-w-[1140px] flex-wrap justify-center gap-6 px-4 sm:gap-10 sm:px-6;
+    }
+
+    .gym-package-card {
+        @apply flex w-full max-w-80 flex-col rounded-2xl bg-white p-5 text-gym-ink;
+    }
+
+    .gym-package-card--annual {
+        background: linear-gradient(45deg, #6a11cb, #2575fc);
+        color: white;
+    }
+
+    .gym-internal {
+        @apply bg-slate-50;
+    }
+
+    .gym-internal-link {
+        @apply block rounded-lg px-4 py-3 text-sm text-slate-300 transition-colors hover:bg-slate-700 hover:text-white focus-visible:outline-2 focus-visible:outline-sky-300;
+    }
+
+    .gym-internal-link[aria-current='page'] {
+        @apply bg-slate-700 font-semibold text-white;
+    }
+
+    .gym-internal .gym-page {
+        @apply flex min-h-svh flex-col pt-20 lg:ml-[260px] lg:pt-0;
+    }
+
+    .gym-internal main {
+        @apply min-w-0 flex-1;
+    }
+
+    .gym-internal main > .gym-container {
+        @apply max-w-none py-7 sm:px-8;
+    }
+
+    .gym-auth-shell {
+        @apply grid min-h-[calc(100svh-5rem)] lg:grid-cols-[7fr_5fr];
+    }
+
+    .gym-auth-intro {
+        @apply order-last flex flex-col items-center justify-center bg-slate-50 px-6 py-10 sm:px-12 lg:order-first;
+    }
+
+    .gym-auth-content {
+        @apply flex min-w-0 flex-col justify-center bg-white py-6;
+    }
+
+    .gym-auth-content .gym-card {
+        @apply border-0 p-0 shadow-none;
+    }
+
+    .gym-auth-content .gym-title {
+        @apply text-2xl text-gym-blue;
+    }
+
+    .gym-auth-content .gym-btn-primary {
+        @apply rounded-md;
+    }
+
+    .gym-auth-content section.gym-container {
+        @apply py-6 sm:px-10;
     }
 
     .gym-label {
