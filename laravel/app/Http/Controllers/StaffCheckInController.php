@@ -33,7 +33,9 @@ class StaffCheckInController extends Controller
 
         $visits = $checkInRepository->staffHistory($filters);
 
-        return view('staff.checkins.index', compact('visits', 'filters'));
+        $openVisits = $checkInRepository->openVisits();
+
+        return view('staff.checkins.index', compact('visits', 'openVisits', 'filters'));
     }
 
     public function store(Request $request, CheckInService $service): RedirectResponse

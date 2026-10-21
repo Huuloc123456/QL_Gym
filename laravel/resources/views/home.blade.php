@@ -23,6 +23,9 @@
                     <p class="mt-4 min-h-24 border-y border-current/20 py-4 text-sm leading-6">{{ $package->description ?: 'Tập luyện không giới hạn trong thời hạn gói.' }}</p>
                     @auth
                         @if (auth()->user()->role === 'customer')
+                            @if ($package->sql_package_id)
+                                <x-package-cart-form :package="$package" :last-training-day="$lastTrainingDays[$package->id]" />
+                            @else
                             <form class="mt-5 space-y-3" method="POST" action="{{ route('orders.store') }}" data-membership-purchase data-duration-months="{{ $package->duration_months }}">
                                 @csrf
                                 <p class="text-sm font-semibold" data-last-training-day>Ngày tập cuối dự kiến: {{ $lastTrainingDays[$package->id] }}</p>
@@ -31,6 +34,7 @@
                                 <div><label class="gym-label {{ $isAnnual ? 'text-white' : '' }}" for="payment-{{ $package->id }}">Dự kiến thanh toán</label><x-form-select id="payment-{{ $package->id }}" name="payment_method" required><option value="bank_transfer">Chuyển khoản</option><option value="cash">Tiền mặt tại quầy</option></x-form-select></div>
                                 <button class="gym-btn-primary w-full" type="submit">Đăng ký gói</button>
                             </form>
+                            @endif
                         @else
                             <p class="mt-4 text-sm">Ngày tập cuối dự kiến nếu bắt đầu hôm nay: {{ $lastTrainingDays[$package->id] }}</p>
                             <a class="gym-btn-primary mt-4 w-full" href="{{ route('login', ['package_id' => $package->id]) }}">Tham gia</a>
@@ -46,6 +50,20 @@
             @endforelse
         </div>
     </section>
+
+    @if ($featuredProducts->isNotEmpty())
+        <section class="gym-container py-12 sm:py-16" aria-labelledby="featured-products-title">
+            <header class="flex flex-wrap items-end justify-between gap-4">
+                <div><p class="text-sm font-bold uppercase tracking-[0.18em] text-gym-blue">Bổ sung cho buổi tập</p><h2 class="gym-title mt-2" id="featured-products-title">Sản phẩm tại The Gym</h2></div>
+                <a class="font-semibold text-gym-blue underline underline-offset-4" href="{{ route('gym.products.index') }}">Xem tất cả sản phẩm</a>
+            </header>
+            <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                @foreach ($featuredProducts as $product)
+                    <x-product-card :product="$product" />
+                @endforeach
+            </div>
+        </section>
+    @endif
 
     @if (! empty($faqs))
         <section class="bg-white py-12 sm:py-16" aria-labelledby="faq-heading">

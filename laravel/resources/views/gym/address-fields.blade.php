@@ -1,0 +1,5 @@
+@foreach (['TINHTHANHPHO' => 'Tỉnh/thành phố', 'QUANHUYEN' => 'Quận/huyện', 'PHUONGXA' => 'Phường/xã', 'DIACHICUTHE' => 'Số nhà, tên đường'] as $field => $label)
+<div><label class="gym-label" for="{{ $prefix }}-{{ $field }}">{{ $label }}</label><input class="gym-input" id="{{ $prefix }}-{{ $field }}" name="{{ $field }}" value="{{ old($field, $address?->$field) }}" maxlength="{{ $field === 'DIACHICUTHE' ? 255 : 100 }}" required></div>
+@endforeach
+@foreach (['KINHDO' => 'Kinh độ (tùy chọn)', 'VIDO' => 'Vĩ độ (tùy chọn)'] as $field => $label)<div><label class="gym-label" for="{{ $prefix }}-{{ $field }}">{{ $label }}</label><input class="gym-input" id="{{ $prefix }}-{{ $field }}" name="{{ $field }}" type="number" step="0.000000001" min="{{ $field === 'KINHDO' ? -180 : -90 }}" max="{{ $field === 'KINHDO' ? 180 : 90 }}" value="{{ old($field, $address?->$field) }}"></div>@endforeach
+<label class="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" name="LADIACHIMACDINH" value="1" @checked(old('LADIACHIMACDINH', $address?->LADIACHIMACDINH))> Đặt làm địa chỉ mặc định</label>

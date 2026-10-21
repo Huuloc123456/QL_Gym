@@ -44,7 +44,8 @@ class PortalCoverageTest extends TestCase
             ->assertSee('lg:hidden', false)
             ->assertSee('lg:flex', false)
             ->assertSee('lg:flex-1', false)
-            ->assertSee('whitespace-nowrap', false)
+            ->assertSee('id="gymNavbar"', false)
+            ->assertSee('name="gym-primary-navigation"', false)
             ->assertSee('data-nav-group="operations"', false)
             ->assertSee('data-nav-group="management"', false)
             ->assertSee(route('staff.trial-requests.index'), false)
@@ -53,12 +54,14 @@ class PortalCoverageTest extends TestCase
             ->assertSee(route('manager.employees.index'), false);
     }
 
-    public function test_manager_dropdowns_share_an_exclusive_disclosure_group(): void
+    public function test_manager_navigation_keeps_two_collapsible_sections(): void
     {
         $manager = User::factory()->manager()->create();
         $html = $this->actingAs($manager)->get(route('manager.dashboard'))->assertOk()->getContent();
 
-        $this->assertSame(2, substr_count($html, 'name="gym-primary-navigation"'));
+        $this->assertStringContainsString('data-nav-group="operations"', $html);
+        $this->assertStringContainsString('data-nav-group="management"', $html);
+        $this->assertSame(2, substr_count($html, 'data-nav-group='));
     }
 
     public function test_customer_can_open_their_attendance_history(): void

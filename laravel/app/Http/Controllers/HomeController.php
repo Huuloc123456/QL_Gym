@@ -8,6 +8,8 @@ use App\Repositories\GymPackageRepository;
 use App\Services\MembershipOrderService;
 use App\Services\MembershipPeriod;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class HomeController extends Controller
@@ -33,6 +35,11 @@ class HomeController extends Controller
             'suggestedStartDate' => $suggestedStartDate,
             'lastTrainingDays' => $lastTrainingDays,
             'selectedPackageId' => $request->integer('package_id'),
+            'featuredProducts' => Schema::hasTable('SANPHAM')
+                ? DB::table('SANPHAM as p')->select('p.*')
+                    ->selectSub(DB::table('HINHANH')->select('URL')->whereColumn('MASP', 'p.MASP')->orderByDesc('ISMAIN')->orderBy('MAHINH')->limit(1), 'image')
+                    ->where('SOLUONGTON', '>', 0)->orderByRaw('GIAKHUYENMAI IS NULL')->orderBy('MASP')->limit(10)->get()
+                : collect(),
             'heroBanners' => HeroBanner::query()->where('is_active', true)->orderBy('position')->orderBy('id')->get(),
             'gymSettings' => $gymSettings,
             'faqs' => $gymSettings?->faq_items ?? [],

@@ -7,6 +7,7 @@ use App\Models\GymPackage;
 use App\Models\Membership;
 use App\Models\MembershipOrder;
 use App\Models\User;
+use App\Services\MembershipPeriod;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -144,6 +145,57 @@ class StaffCheckInTest extends TestCase
             'id' => $visit->id,
             'checked_out_at' => '2026-10-02 09:00:00',
         ]);
+    }
+
+    public function test_an_old_open_visit_remains_actionable_while_closed_history_is_paginated(): void
+    {
+        $this->travelTo('2026-10-21 12:00:00');
+        $staff = User::factory()->employee()->create();
+        $customer = User::factory()->create();
+        $membership = $this->membershipFor($customer, '2026-10-01', '2026-11-01');
+        $oldVisit = CheckIn::factory()->for($customer)->for($membership)->create([
+            'checked_in_at' => '2026-10-01 08:00:00',
+        ]);
+        CheckIn::factory()->count(51)->for($customer)->for($membership)->create([
+            'checked_in_at' => '2026-10-20 08:00:00', 'checked_out_at' => '2026-10-20 09:00:00',
+        ]);
+
+        $this->actingAs($staff)->get(route('staff.checkins.index', ['status' => 'history']))
+            ->assertSee(route('staff.checkins.checkout', $oldVisit), false)
+            ->assertSee(route('staff.checkins.manual-close', $oldVisit), false)
+            ->assertViewHas('openVisits', fn ($visits): bool => $visits->count() === 1 && $visits->first()->is($oldVisit))
+            ->assertViewHas('visits', fn ($visits): bool => $visits->total() === 51 && $visits->count() === 20);
+        $this->get(route('staff.checkins.index', ['status' => 'history', 'page' => 2]))
+            ->assertSee(route('staff.checkins.checkout', $oldVisit), false)
+            ->assertViewHas('visits', fn ($visits): bool => $visits->count() === 20);
+        $this->post(route('staff.checkins.manual-close', $oldVisit), [
+            'reason' => 'Đã đối chiếu lượt quên ghi giờ ra.',
+        ])->assertRedirect(route('staff.checkins.index'));
+
+        $this->assertDatabaseHas('check_ins', [
+            'id' => $oldVisit->id, 'checked_out_at' => '2026-10-21 12:00:00',
+            'closed_by_user_id' => $staff->id, 'manual_close_reason' => 'Đã đối chiếu lượt quên ghi giờ ra.',
+        ]);
+    }
+
+    public function test_month_end_member_can_train_on_february_28_but_not_march_1(): void
+    {
+        $this->travelTo('2026-02-28 23:59:00');
+        $staff = User::factory()->employee()->create();
+        $customer = User::factory()->create();
+        $expiry = app(MembershipPeriod::class)->expiresOn('2026-01-31', 1);
+        $this->membershipFor($customer, '2026-01-31', $expiry->toDateString());
+
+        $this->actingAs($staff)->post(route('staff.checkins.store'), ['member' => $customer->phone])
+            ->assertRedirect(route('staff.checkins.index'));
+        $visit = CheckIn::query()->where('user_id', $customer->id)->firstOrFail();
+        $this->post(route('staff.checkins.checkout', $visit))->assertRedirect(route('staff.checkins.index'));
+        $this->travelTo('2026-03-01 00:00:00');
+        $this->post(route('staff.checkins.store'), ['member' => $customer->phone])
+            ->assertSessionHasErrors('member');
+
+        $this->assertDatabaseCount('check_ins', 1);
+        $this->assertDatabaseHas('check_ins', ['id' => $visit->id, 'checked_out_at' => '2026-02-28 23:59:00']);
     }
 
     private function membershipFor(User $customer, string $startsOn, string $expiresOn): Membership

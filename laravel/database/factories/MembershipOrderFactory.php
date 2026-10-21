@@ -23,6 +23,7 @@ class MembershipOrderFactory extends Factory
             'user_id' => User::factory(),
             'gym_package_id' => GymPackage::factory(),
             'amount' => 399000,
+            'duration_months' => 1,
             'start_date' => now()->toDateString(),
             'payment_method' => 'cash',
             'status' => 'pending',

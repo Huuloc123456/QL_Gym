@@ -15,6 +15,8 @@
 - **Khách vãng lai:** xem gói đang mở bán, chi tiết giá/thời hạn và gửi yêu cầu tập thử. Yêu cầu tập thử không tạo tài khoản hoặc quyền vào tập.
 - **Khách hàng:** đăng ký, đăng nhập, khôi phục mật khẩu qua email, cập nhật hồ sơ được phép, chọn gói và ngày bắt đầu, theo dõi đơn/gói/lịch sử vào ra, gửi yêu cầu hủy đơn đang chờ.
 - **Nhân viên:** lọc đơn chờ, lịch sử hoặc tất cả; tìm theo mã đơn, tên, số điện thoại, email và ngày tạo; xem lịch sử phân trang, ghi nhận nhiều khoản tiền mặt/chuyển khoản và chỉ xác nhận khi đã thu đủ. Màn check-in tìm theo mã/tên/số điện thoại, lọc ngày/trạng thái và phân trang cả lượt đang tập lẫn lịch sử.
+- **Cửa hàng:** khách tìm và xem sản phẩm, quản lý giỏ hàng/địa chỉ, chọn nhận tại quầy hoặc giao hàng; giá và khuyến mãi lấy từ MySQL. Hệ thống giữ hàng trong đơn chờ, chỉ trừ tồn khi nhân viên xác nhận đã thu đủ; hủy đơn hợp lệ giải phóng phần giữ.
+- **Huấn luyện và lớp học:** khách xem/đăng ký lớp hoặc buổi PT, nhân viên/quản lý quản lý lịch và hồ sơ chuyên môn; hệ thống chặn lịch trùng, kiểm tra chỗ còn và tạo hóa đơn cùng luồng thanh toán chung.
 - **Khách hàng:** xem đơn theo trạng thái và phân trang; xem riêng gói đang dùng, sắp bắt đầu và đã hết hạn; lịch sử vẫn thuộc đúng tài khoản.
 - **Quản lý:** xem bảng điều khiển và báo cáo theo khoảng ngày. Báo cáo tách đơn tạo trong kỳ, giá trị đơn được xác nhận theo `paid_at`, và tiền thực nhận theo `received_at`; có số tiền mặt/chuyển khoản và tải Excel gồm tổng quan, đơn, khoản thu. Quản lý cũng quản lý gói, tài khoản/quyền nhân viên, thông tin phòng tập và banner.
 - **Trợ lý The Gym (RAG):** nhận câu hỏi nghiệp vụ tối đa 500 ký tự, chuyển đến dịch vụ RAG qua API và hiển thị nguồn. Quản lý có biểu mẫu tiếng Việt để thêm/sửa câu hỏi thường gặp, chỉnh hướng dẫn dài, tìm tài liệu, tạm ngừng/bật lại/xóa và nhập tối đa 100 câu hỏi từ Excel sau bước xem trước. Nhập hàng loạt chỉ dựng chỉ mục một lần; lỗi thì khôi phục tài liệu và chỉ mục cũ. Người quản lý thử câu trả lời bằng nút nổi chatbot trên website.
@@ -27,7 +29,7 @@
 - Ngày hết hạn được lưu như mốc không còn quyền tập, ở đầu ngày theo múi giờ `Asia/Ho_Chi_Minh`. Khách tập đến hết ngày liền trước mốc này. Ví dụ gói một tháng bắt đầu 31/01/2026 hết quyền lúc 00:00 ngày 01/03/2026, nên ngày tập cuối là 28/02/2026.
 - Tài khoản quản lý/nhân viên mẫu chỉ được tạo khi `APP_ENV=local`; không dùng thông tin mẫu ở môi trường thật.
 
-Đây là đồ án giới hạn một phòng tập. Hệ thống không quản lý tồn kho/sản phẩm, chi nhánh, PT, lớp học, cổng thanh toán, hoàn tiền tự động hay xác minh tài khoản nhiều bước.
+Đây là đồ án giới hạn một cơ sở phòng tập; chưa hỗ trợ nhiều chi nhánh, cổng thanh toán trực tuyến, hoàn tiền tự động hay xác minh tài khoản nhiều bước. Khoản thanh toán đều do nhân viên ghi nhận thủ công bằng tiền mặt hoặc chuyển khoản.
 
 ## Công nghệ
 

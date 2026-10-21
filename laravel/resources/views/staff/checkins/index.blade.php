@@ -17,6 +17,34 @@
             </form>
         </div>
 
+        @if ($filters['status'] !== 'open')
+            <section class="gym-card mb-8" aria-labelledby="open-visits-title">
+                <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <h2 class="text-xl font-extrabold" id="open-visits-title">Hội viên đang tập</h2>
+                    <span class="text-sm text-slate-500">{{ number_format($openVisits->count()) }} lượt chưa ghi giờ ra</span>
+                </div>
+                @forelse ($openVisits as $openVisit)
+                    <article class="flex flex-wrap items-center justify-between gap-4 border-t border-slate-200 py-4 first:border-0 first:pt-0 last:pb-0">
+                        <div>
+                            <p class="font-bold">{{ $openVisit->user->name }} <span class="font-normal text-slate-500">· {{ $openVisit->user->phone }}</span></p>
+                            <p class="mt-1 text-sm text-slate-600">{{ $openVisit->membership?->gymPackage?->name ?? 'Gói từ dữ liệu SQL' }} · Vào {{ $openVisit->checked_in_at->format('d/m/Y H:i') }}</p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <form method="POST" action="{{ route('staff.checkins.checkout', $openVisit) }}">@csrf<button class="gym-btn-outline min-h-9 px-3 py-1.5 text-sm" type="submit">Ghi giờ ra</button></form>
+                            <form class="flex gap-2" method="POST" action="{{ route('staff.checkins.manual-close', $openVisit) }}" onsubmit="return confirm('Đóng lượt tập này và lưu lý do điều chỉnh?')">
+                                @csrf
+                                <label class="sr-only" for="open-reason-{{ $openVisit->id }}">Lý do đóng thủ công</label>
+                                <x-form-input class="min-w-0 px-2 py-1 text-sm" id="open-reason-{{ $openVisit->id }}" name="reason" placeholder="Lý do đóng thủ công" required />
+                                <button class="min-h-9 shrink-0 rounded-lg border border-slate-300 px-3 py-1 text-sm font-semibold hover:bg-slate-50" type="submit">Đóng lượt</button>
+                            </form>
+                        </div>
+                    </article>
+                @empty
+                    <p class="border-t border-slate-200 pt-4 text-sm text-slate-500">Không có lượt tập đang mở.</p>
+                @endforelse
+            </section>
+        @endif
+
         <div class="mb-4 flex flex-wrap items-center gap-2" aria-label="Lọc trạng thái lượt tập">
             @foreach (['open' => 'Đang tập', 'history' => 'Lịch sử', 'all' => 'Tất cả'] as $status => $label)
                 <a class="rounded-full px-4 py-2 text-sm font-semibold {{ $filters['status'] === $status ? 'bg-gym-blue text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50' }}" href="{{ route('staff.checkins.index', array_merge(request()->except('page'), ['status' => $status])) }}" @if ($filters['status'] === $status) aria-current="page" @endif>{{ $label }}</a>
@@ -41,7 +69,7 @@
                     @forelse ($visits as $visit)
                         <tr>
                             <td><strong>{{ $visit->user->name }}</strong><div class="text-xs text-slate-500">{{ $visit->user->phone }}</div></td>
-                            <td>{{ $visit->membership->gymPackage->name }}</td>
+                            <td>{{ $visit->membership?->gymPackage?->name ?? 'Gói từ dữ liệu SQL' }}</td>
                             <td class="whitespace-nowrap">{{ $visit->checked_in_at->format('d/m/Y H:i') }}</td>
                             <td>
                                 @if ($visit->checked_out_at)

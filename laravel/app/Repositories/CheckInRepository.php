@@ -6,11 +6,22 @@ use App\Models\CheckIn;
 use App\Models\Membership;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class CheckInRepository
 {
+    /** @return Collection<int, CheckIn> */
+    public function openVisits(): Collection
+    {
+        return CheckIn::query()
+            ->with(['user', 'membership.gymPackage'])
+            ->whereNull('checked_out_at')
+            ->latest('checked_in_at')
+            ->get();
+    }
+
     /** @param array{status: string, q?: string|null, from_date?: string|null, to_date?: string|null}
      * @return LengthAwarePaginator<int, CheckIn>
      */
@@ -63,6 +74,11 @@ class CheckInRepository
         $customerQuery = User::query()->where('role', 'customer');
 
         if (ctype_digit($identifier)) {
+            $sqlCustomer = (clone $customerQuery)->where('sql_customer_id', (int) $identifier)->first();
+            if ($sqlCustomer) {
+                return $sqlCustomer;
+            }
+
             $customerQuery->where(function ($query) use ($identifier): void {
                 $query->whereKey((int) $identifier)->orWhere('phone', $identifier);
             });

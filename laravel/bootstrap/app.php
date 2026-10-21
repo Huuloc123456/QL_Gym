@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Middleware\EnsureActiveAccount;
+use App\Http\Middleware\EnsureGymAccountActive;
 use App\Http\Middleware\EnsureUserHasRole;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -14,7 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->appendToGroup('web', EnsureActiveAccount::class);
+        $middleware->appendToGroup('web', EnsureGymAccountActive::class);
         $middleware->alias([
             'role' => EnsureUserHasRole::class,
         ]);

@@ -194,3 +194,12 @@ The Laravel feature tests use the dedicated MySQL test database configured in `p
 - `php artisan test --compact` — **118 tests passed, 701 assertions**, using only `qly_phonggym_test`.
 - Backed up `qly_phonggym_laravel` outside the repository and restored it into the separate `qly_phonggym_restore_20261021b` database. Restore verification found 17 tables; the source database also has no stored routines or triggers.
 - No migration from `newrepo/main` has been applied to either the application database or the restored copy.
+
+### SQL integration and current MySQL verification — 21 October 2026
+
+- Created a fresh backup of `qly_phonggym_laravel` at `C:\laragon\tmp\qly_phonggym_laravel-pre-integration-20261021.sql` before applying schema changes.
+- Confirmed Laravel connects with `DB_CONNECTION=mysql` to `qly_phonggym_laravel` on Laragon MySQL 8.4.3, port 3306. Applied all three pending migrations with `php artisan migrate --force`; existing Laravel tables and rows were not reset.
+- Verified all 22 source SQL tables, 11 stored procedures, one function, one trigger, 57 products, and 20 class records are present. `php artisan migrate:status` reports all migrations as ran.
+- `php artisan test --no-coverage` — **170 passed, 1 skipped, 1,167 assertions**. The skipped test deliberately creates and locks a MySQL account and only runs when the dedicated isolated MySQL test server is on port 3318; it was not run against the application database.
+- Verified 131 route method/URI pairs with no duplicates. Prior public preview smoke checks loaded the home page, product search, classes, and trainer directory. Imported class dates all end in 2025 and are historical; the manager must create current classes. Source SQL PT records have no open enrollment/specialty detail, so the public PT page asks visitors to contact the front desk.
+- The app is running at `http://127.0.0.1:8002`. Codex browser policy blocked reopening that loopback URL in the final browser pass, so this verification does not claim a post-migration browser review against the application database. Earlier manager actions are covered by feature tests and the direct browser acceptance recorded above.

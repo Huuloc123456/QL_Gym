@@ -8,7 +8,7 @@
             <div class="gym-card p-6 sm:p-9">
                 <p class="text-sm font-bold uppercase tracking-[0.18em] text-gym-blue">Tài khoản của bạn</p>
                 <h1 class="gym-title mt-2">Thông tin cá nhân</h1>
-                <p class="mt-3 text-sm leading-6 text-slate-600">Mã hội viên #{{ $customer->id }} · Tên đăng nhập và email được giữ cố định để bảo vệ tài khoản.</p>
+                <p class="mt-3 text-sm leading-6 text-slate-600">Mã hội viên #{{ $customer->sql_customer_id ?? $customer->id }} · Tên đăng nhập và email được giữ cố định để bảo vệ tài khoản.</p>
                 <form class="mt-6 grid gap-4 sm:grid-cols-2" method="POST" action="{{ route('my.profile.update') }}">
                     @csrf
                     @method('PUT')
