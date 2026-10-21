@@ -200,3 +200,11 @@ Phần mở rộng chỉ dùng hai bảng phụ `gym_settings`, `gym_messages` v
 - Kiểm tra 131 cặp method/URI không trùng; trang chủ, cửa hàng, lớp học và huấn luyện viên đã được mở ở preview trước khi chuyển sang database ứng dụng.
 - Toàn bộ lịch lớp từ SQL mẫu hiện là lịch lịch sử kết thúc trong năm 2025; quản lý cần tạo lịch mới để mở đăng ký. Hồ sơ PT mẫu chưa có chuyên môn/đăng ký mở, nên trang khách hướng người dùng liên hệ quầy. Không tự dịch chuyển ngày hoặc sửa dữ liệu mẫu gốc.
 - Trình duyệt trong Codex chặn công cụ mở lại địa chỉ loopback `127.0.0.1:8002` ở lượt xác minh cuối. Laravel server đã được khởi chạy tại cổng 8002 để chủ dự án mở trực tiếp; không tuyên bố đã kiểm tra lại giao diện trên database ứng dụng bằng trình duyệt.
+
+## 15. Kiểm thử hồi quy toàn bộ và sửa chức vụ Admin — 21/10/2026
+
+- Chạy lại `php artisan test --no-coverage`: 171 test đạt, 1 test bỏ qua có chủ đích, 1.170 assertions; `vendor/bin/pint --dirty --format agent` đạt.
+- RAG: 20 unit test đạt. Dựng API local bằng cấu hình sẵn có; health sẵn sàng và chatbot trên trình duyệt trả lời câu hỏi về thời hạn gói 1 tháng, kèm nguồn tài liệu.
+- Mở trực tiếp trang chủ/gói tập, cửa hàng và lọc Protein, lớp học và lọc Yoga, danh sách PT, chatbot tại `http://127.0.0.1:8002`.
+- Tài khoản Admin mẫu trong file SQL bị gán nhầm mã chức vụ PT. Sửa seed thành mã Quản lý và thêm migration có điều kiện chỉ sửa đúng bản ghi Admin mẫu; test hồi quy xác nhận danh sách PT không có Admin. Đã áp dụng migration lên database local và kiểm tra lại trang PT.
+- Lịch lớp nhập từ dữ liệu mẫu đã kết thúc năm 2025; hồ sơ PT còn thiếu chuyên môn nên chưa mở đăng ký trực tuyến. Đây là phần dữ liệu cần quản lý cập nhật trước khi vận hành công khai.

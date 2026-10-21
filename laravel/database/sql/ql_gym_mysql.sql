@@ -941,4 +941,4 @@ DELIMITER ;
 
 -- Tài khoản quản trị mẫu
 INSERT INTO NHANVIEN (MANV, TENNV, TENDANGNHAP, MATKHAU, MACHUCVU)
-VALUES (20251219, 'Admin', 'admin', '123', 2);
+VALUES (20251219, 'Admin', 'admin', '123', 3);

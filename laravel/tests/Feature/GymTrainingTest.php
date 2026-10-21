@@ -24,6 +24,14 @@ class GymTrainingTest extends TestCase
         return ['date' => '2027-01-11', 'start' => $start, 'end' => $end];
     }
 
+    public function test_pt_directory_does_not_list_the_administrator_as_a_trainer(): void
+    {
+        $this->get(route('gym.pt.index'))
+            ->assertOk()
+            ->assertSee('PT Nguyễn Văn X')
+            ->assertDontSee('Admin');
+    }
+
     public function test_pt_booking_enforces_ownership_overlap_and_session_limit(): void
     {
         $this->travelTo('2027-01-10 08:00');

@@ -203,3 +203,13 @@ The Laravel feature tests use the dedicated MySQL test database configured in `p
 - `php artisan test --no-coverage` — **170 passed, 1 skipped, 1,167 assertions**. The skipped test deliberately creates and locks a MySQL account and only runs when the dedicated isolated MySQL test server is on port 3318; it was not run against the application database.
 - Verified 131 route method/URI pairs with no duplicates. Prior public preview smoke checks loaded the home page, product search, classes, and trainer directory. Imported class dates all end in 2025 and are historical; the manager must create current classes. Source SQL PT records have no open enrollment/specialty detail, so the public PT page asks visitors to contact the front desk.
 - The app is running at `http://127.0.0.1:8002`. Codex browser policy blocked reopening that loopback URL in the final browser pass, so this verification does not claim a post-migration browser review against the application database. Earlier manager actions are covered by feature tests and the direct browser acceptance recorded above.
+
+### Full regression and browser verification — 21 October 2026
+
+- `php artisan test --no-coverage` — **171 passed, 1 skipped, 1,170 assertions**. Tests use `qly_phonggym_test`; the skipped MySQL account-provisioning test requires the isolated MySQL test server on port 3318 and was not run against the application database.
+- `vendor/bin/pint --dirty --format agent` — passed.
+- RAG service: `python -m unittest discover -s tests -v` — **20 tests passed**.
+- Started the local RAG API with the project's existing environment configuration. Health returned ready; a live browser question about one-month membership validity received an answer with two knowledge-base sources. No credentials or OTPs were sent.
+- Browser smoke checks on `http://127.0.0.1:8002`: home and membership dates, package list, store search, class filtering, PT directory, and chatbot. Search for “Protein” returned two items; “Yoga” returned three classes. The chatbot answered from indexed sources.
+- Found and fixed imported role data that assigned sample employee `Admin` to PT. The SQL seed now assigns manager role ID 3, and migration `2026_10_21_210000_correct_admin_employee_role` corrects only that exact imported row when it still has PT role ID 2. A regression test confirms the public PT directory no longer lists `Admin`; the live page now shows only PT employees.
+- Remaining source-data limitations: imported class schedules ended in 2025, and the remaining PT profile lacks specialty and online booking details. Create current schedules and complete PT profiles before public operation.
