@@ -204,6 +204,18 @@ The Laravel feature tests use the dedicated MySQL test database configured in `p
 - Verified 131 route method/URI pairs with no duplicates. Prior public preview smoke checks loaded the home page, product search, classes, and trainer directory. Imported class dates all end in 2025 and are historical; the manager must create current classes. Source SQL PT records have no open enrollment/specialty detail, so the public PT page asks visitors to contact the front desk.
 - The app is running at `http://127.0.0.1:8002`. Codex browser policy blocked reopening that loopback URL in the final browser pass, so this verification does not claim a post-migration browser review against the application database. Earlier manager actions are covered by feature tests and the direct browser acceptance recorded above.
 
+### Direct role-based browser run — order, payment, and attendance — 21 October 2026
+
+This run used a temporary Laravel server and the isolated `qly_phonggym_test` database. A dedicated QA customer and a test invoice were created. The 399,000 VND payment was a test record only; it was not a real-world payment. The regular application database was not used.
+
+- **Passed:** manager login; guest trial submission; employee marked the trial request as contacted; QA customer registration and login; a one-month package purchase generated invoice `#183`; employee recorded the full cash amount and confirmed the invoice; the membership became active for 21 October–20 November 2026; employee check-in and check-out completed; customer attendance history showed both timestamps; manager dashboard revenue and active-member totals increased by the expected amounts.
+- **Issue — staff order discovery:** searching for invoice `#183` in `/staff/don-hang?status=all` returned no result. The invoice was available at `/hoa-don?q=183`, so invoice-backed purchases are separate from the staff membership-order list and are easy to miss from the usual navigation.
+- **Issue — customer payment history:** the confirmed invoice appeared in `/my/don-hang`, but the mirrored order showed “Đã ghi nhận 0 VNĐ” even though the employee had recorded 399,000 VND. The commerce confirmation path creates the customer-facing order/membership mirror without a matching `OrderPayment` row.
+- **Issue — manager receipt report:** the selected report showed 399,000 VND paid revenue but 0 VND actual receipts and 0 VND for both cash and bank transfer. The invoice payment is stored in `gym_receipts`, while the report's receipt totals read `order_payments`.
+- **Cleanup/status:** the temporary Laravel server was stopped. Test data is isolated in `qly_phonggym_test`; no production or regular local application data was changed. No code fix was included in this documentation update.
+
+These three invoice-flow issues are not covered by the passing membership-order report/payment tests above. Resolve them by connecting invoice-backed records to the staff order workflow, using the same payment source for customer history and report receipt totals, then repeat this exact browser scenario and verify the invoice is discoverable, its 399,000 VND receipt appears in customer history/report, and the payment method totals match.
+
 ### Full regression and browser verification — 21 October 2026
 
 - `php artisan test --no-coverage` — **171 passed, 1 skipped, 1,170 assertions**. Tests use `qly_phonggym_test`; the skipped MySQL account-provisioning test requires the isolated MySQL test server on port 3318 and was not run against the application database.

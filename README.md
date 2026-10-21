@@ -14,11 +14,11 @@
 
 - **Khách vãng lai:** xem gói đang mở bán, chi tiết giá/thời hạn và gửi yêu cầu tập thử. Yêu cầu tập thử không tạo tài khoản hoặc quyền vào tập.
 - **Khách hàng:** đăng ký, đăng nhập, khôi phục mật khẩu qua email, cập nhật hồ sơ được phép, chọn gói và ngày bắt đầu, theo dõi đơn/gói/lịch sử vào ra, gửi yêu cầu hủy đơn đang chờ.
-- **Nhân viên:** lọc đơn chờ, lịch sử hoặc tất cả; tìm theo mã đơn, tên, số điện thoại, email và ngày tạo; xem lịch sử phân trang, ghi nhận nhiều khoản tiền mặt/chuyển khoản và chỉ xác nhận khi đã thu đủ. Màn check-in tìm theo mã/tên/số điện thoại, lọc ngày/trạng thái và phân trang cả lượt đang tập lẫn lịch sử.
+- **Nhân viên:** đơn gói hội viên có màn hình chờ/lịch sử/tất cả, tìm kiếm và phân trang; khoản thu được ghi nhận thủ công bằng tiền mặt/chuyển khoản. Hóa đơn mua hàng, PT và lớp học được xử lý ở luồng `/hoa-don`, hiện chưa gộp vào danh sách `/staff/don-hang`. Màn check-in tìm theo mã/tên/số điện thoại, lọc ngày/trạng thái và phân trang cả lượt đang tập lẫn lịch sử.
 - **Cửa hàng:** khách tìm và xem sản phẩm, quản lý giỏ hàng/địa chỉ, chọn nhận tại quầy hoặc giao hàng; giá và khuyến mãi lấy từ MySQL. Hệ thống giữ hàng trong đơn chờ, chỉ trừ tồn khi nhân viên xác nhận đã thu đủ; hủy đơn hợp lệ giải phóng phần giữ.
 - **Huấn luyện và lớp học:** khách xem/đăng ký lớp hoặc buổi PT, nhân viên/quản lý quản lý lịch và hồ sơ chuyên môn; hệ thống chặn lịch trùng, kiểm tra chỗ còn và tạo hóa đơn cùng luồng thanh toán chung.
-- **Khách hàng:** xem đơn theo trạng thái và phân trang; xem riêng gói đang dùng, sắp bắt đầu và đã hết hạn; lịch sử vẫn thuộc đúng tài khoản.
-- **Quản lý:** xem bảng điều khiển và báo cáo theo khoảng ngày. Báo cáo tách đơn tạo trong kỳ, giá trị đơn được xác nhận theo `paid_at`, và tiền thực nhận theo `received_at`; có số tiền mặt/chuyển khoản và tải Excel gồm tổng quan, đơn, khoản thu. Quản lý cũng quản lý gói, tài khoản/quyền nhân viên, thông tin phòng tập và banner.
+- **Khách hàng:** xem đơn theo trạng thái và phân trang; xem riêng gói đang dùng, sắp bắt đầu và đã hết hạn; lịch sử vẫn thuộc đúng tài khoản. Luồng hóa đơn cửa hàng hiện có sai lệch đã biết ở số tiền đã ghi nhận trên lịch sử khách hàng; xem [kết quả kiểm thử](laravel/docs/test-plan.md).
+- **Quản lý:** xem bảng điều khiển và báo cáo theo khoảng ngày. Báo cáo đơn gói hội viên tách đơn tạo trong kỳ, giá trị đơn được xác nhận theo `paid_at`, và khoản thu theo `received_at`; Excel gồm tổng quan, đơn và khoản thu. Luồng hóa đơn cửa hàng hiện chưa được tính đúng vào tổng tiền thực nhận và phương thức thu trong báo cáo; xem [kết quả kiểm thử](laravel/docs/test-plan.md). Quản lý cũng quản lý gói, tài khoản/quyền nhân viên, thông tin phòng tập và banner.
 - **Trợ lý The Gym (RAG):** nhận câu hỏi nghiệp vụ tối đa 500 ký tự, chuyển đến dịch vụ RAG qua API và hiển thị nguồn. Quản lý có biểu mẫu tiếng Việt để thêm/sửa câu hỏi thường gặp, chỉnh hướng dẫn dài, tìm tài liệu, tạm ngừng/bật lại/xóa và nhập tối đa 100 câu hỏi từ Excel sau bước xem trước. Nhập hàng loạt chỉ dựng chỉ mục một lần; lỗi thì khôi phục tài liệu và chỉ mục cũ. Người quản lý thử câu trả lời bằng nút nổi chatbot trên website.
 - **Tài khoản nhân viên:** quản lý có thể khóa/mở tài khoản. Tài khoản bị khóa không đăng nhập lại được và phiên đang mở sẽ bị kết thúc ở yêu cầu tiếp theo. Người dùng đang đăng nhập có thể đổi mật khẩu sau khi xác nhận mật khẩu hiện tại.
 
@@ -41,11 +41,11 @@
 
 ## Chạy trên Windows/Laragon
 
-Clone repo rồi mở PowerShell tại thư mục ứng dụng:
+Clone nhánh Laravel đang phát triển rồi mở PowerShell tại thư mục ứng dụng:
 
 ```powershell
-git clone https://github.com/tman44121/QLY_PHONGGYM.git
-Set-Location QLY_PHONGGYM\laravel
+git clone --branch preview/laravel-gym https://github.com/Huuloc123456/QL_Gym.git
+Set-Location QL_Gym\laravel
 ```
 
 Tạo file môi trường và khóa ứng dụng:
