@@ -95,11 +95,15 @@ class EmployeePermissionsTest extends TestCase
 
         $this->actingAs($employee)->get(route('staff.dashboard'))
             ->assertOk()
-            ->assertSee(route('staff.orders.index'), false)
+            ->assertSee(route('gym.invoices.index'), false)
+            ->assertSee('Đơn hàng và hóa đơn')
+            ->assertDontSee('Xử lý đơn gói')
+            ->assertDontSee(route('staff.orders.index'), false)
             ->assertDontSee(route('staff.trial-requests.index'), false)
             ->assertDontSee(route('staff.checkins.index'), false);
 
         $this->get(route('staff.orders.index'))->assertOk();
+        $this->get(route('gym.invoices.index'))->assertOk();
         $this->get(route('staff.trial-requests.index'))->assertForbidden();
         $this->get(route('staff.checkins.index'))->assertForbidden();
     }
@@ -148,6 +152,7 @@ class EmployeePermissionsTest extends TestCase
             ->assertSee('Chưa được cấp quyền nghiệp vụ')
             ->assertDontSee(route('staff.trial-requests.index'), false)
             ->assertDontSee(route('staff.orders.index'), false)
+            ->assertDontSee(route('gym.invoices.index'), false)
             ->assertDontSee(route('staff.checkins.index'), false);
     }
 

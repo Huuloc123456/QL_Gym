@@ -4,7 +4,7 @@
 
 @section('content')
     <section class="gym-container py-10 sm:py-14">
-        <a class="font-semibold text-gym-blue underline underline-offset-4 hover:text-gym-ink" href="{{ route('my.orders.index') }}">← Tất cả đơn đăng ký</a>
+        <a class="font-semibold text-gym-blue underline underline-offset-4 hover:text-gym-ink" href="{{ route('gym.invoices.index') }}">← Đơn hàng và hóa đơn</a>
         <article class="gym-card mx-auto mt-5 max-w-4xl p-6 sm:p-9">
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div><p class="text-sm font-bold uppercase tracking-[0.18em] text-gym-blue">Đơn #{{ $order->id }}</p><h1 class="gym-title mt-2">{{ $order->gymPackage->name }}</h1><p class="mt-2 text-sm text-slate-600">Tạo ngày {{ $order->created_at->format('d/m/Y H:i') }}</p></div>
@@ -23,18 +23,10 @@
                     <div class="mt-5 rounded-xl border border-sky-200 bg-sky-50 p-4 leading-6 text-sky-950"><p>Thanh toán qua VNPay. Gói chỉ được kích hoạt sau khi máy chủ nhận và xác minh thông báo IPN từ cổng thanh toán.</p>@if (config('vnpay.tmn_code') && config('vnpay.hash_secret'))<form class="mt-4" method="POST" action="{{ route('my.orders.vnpay', $order) }}">@csrf<button class="gym-btn-primary" type="submit">Thanh toán online qua VNPay</button></form>@else<p class="mt-3 font-semibold">Thanh toán online chưa được cấu hình; vui lòng liên hệ quầy để thanh toán.</p>@endif</div>
                 @elseif ($order->payment_method === 'cash')
                     <p class="mt-5 rounded-xl border border-sky-200 bg-sky-50 p-4 leading-6 text-sky-950">Bạn có thể thanh toán tiền mặt tại quầy. Nhân viên sẽ ghi nhận khoản đã nhận; lựa chọn phương thức thanh toán không tự kích hoạt gói.</p>
-                @elseif ($gymSettings?->bank_account)
-                    <div class="mt-5 rounded-xl border border-sky-200 bg-sky-50 p-4 leading-6 text-sky-950">
-                        <p>Chuyển khoản đến tài khoản của phòng tập. Nhân viên cần xác nhận khoản tiền đã nhận trước khi gói được kích hoạt.</p>
-                        <dl class="mt-3 grid gap-2 sm:grid-cols-2">
-                            @if ($gymSettings->bank_name)<div><dt class="text-sm text-sky-800">Ngân hàng</dt><dd class="font-bold">{{ $gymSettings->bank_name }}</dd></div>@endif
-                            <div><dt class="text-sm text-sky-800">Số tài khoản</dt><dd class="font-bold">{{ $gymSettings->bank_account }}</dd></div>
-                            @if ($gymSettings->bank_account_name)<div><dt class="text-sm text-sky-800">Chủ tài khoản</dt><dd class="font-bold">{{ $gymSettings->bank_account_name }}</dd></div>@endif
-                            <div><dt class="text-sm text-sky-800">Nội dung chuyển khoản</dt><dd class="font-bold">GYM-{{ $order->id }}</dd></div>
-                        </dl>
-                    </div>
+                @elseif ($order->cancellation_requested_at)
+                    <p class="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 leading-6 text-amber-950">Đơn đang chờ nhân viên xử lý yêu cầu hủy. Vui lòng đợi xác nhận trước khi thanh toán.</p>
                 @else
-                    <p class="mt-5 rounded-xl border border-sky-200 bg-sky-50 p-4 leading-6 text-sky-950">Vui lòng liên hệ quầy để nhận hướng dẫn chuyển khoản. Nhân viên cần xác nhận khoản đã nhận; chọn phương thức thanh toán không tự kích hoạt gói.</p>
+                    @include('gym.bank-transfer-qr', ['order' => $order, 'gymSettings' => $gymSettings, 'qrUrl' => $bankTransferQrUrl, 'remainingAmount' => $remainingAmount])
                 @endif
             @endif
             <h2 class="mt-6 text-lg font-bold">Các khoản đã nhận</h2>

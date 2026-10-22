@@ -44,9 +44,6 @@ class GymPortalController extends Controller
             'incompleteInvoices' => $this->portal->unreconciledInvoices()->select('h.MAHD', 'h.TRANGTHAI')->get(),
             'missingImages' => $products->filter(fn ($product) => OriginalGymSql::image($product->image, (int) $product->MASP) === asset('images/product-placeholder.svg')),
             'currentClasses' => DB::table('LOPHOC')->whereDate('NGAYKETTHUC', '>=', now()->toDateString())->count(),
-            'unreadyTrainers' => DB::table('NHANVIEN as n')->join('CHUCVU as c', 'c.MACHUCVU', '=', 'n.MACHUCVU')->leftJoin('gym_pt_rates as r', 'r.employee_id', '=', 'n.MANV')->where('c.TENCHUCVU', 'PT')->where(function ($q): void {
-                $q->whereNull('r.price')->orWhere('r.price', '<=', 0)->orWhereNotExists(fn ($specialty) => $specialty->selectRaw('1')->from('NHANVIEN_CHUYENMON as s')->whereColumn('s.MANV', 'n.MANV'));
-            })->select('n.MANV', 'n.TENNV')->get(),
         ]);
     }
 
@@ -62,6 +59,7 @@ class GymPortalController extends Controller
             'opening_hours' => ['nullable', 'string', 'max:255'],
             'introduction' => ['nullable', 'string', 'max:3000'],
             'bank_name' => ['nullable', 'string', 'max:120'],
+            'bank_code' => ['nullable', 'string', 'max:20', 'regex:/^[a-zA-Z0-9]+$/'],
             'bank_account' => ['nullable', 'string', 'max:80'],
             'bank_holder' => ['nullable', 'string', 'max:160'],
             'bank_account_name' => ['nullable', 'string', 'max:160'],
@@ -81,6 +79,7 @@ class GymPortalController extends Controller
             'email' => $data['email'] ?? null,
             'opening_hours' => $data['opening_hours'] ?? $data['hours'] ?? null,
             'bank_name' => $data['bank_name'] ?? null,
+            'bank_code' => $data['bank_code'] ?? null,
             'bank_account' => $data['bank_account'] ?? null,
             'bank_account_name' => $data['bank_account_name'] ?? $data['bank_holder'] ?? null,
         ];

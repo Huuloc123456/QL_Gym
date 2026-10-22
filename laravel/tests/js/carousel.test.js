@@ -52,17 +52,6 @@ test('automatically advances every five seconds and wraps to the first image', a
     assert.equal(timers.size, 1);
 });
 
-test('pause control stops rotation and can resume it', async (t) => {
-    const { pause, timers, tick, slides } = setup(t);
-    pause.dispatchEvent(new Event('click'));
-    assert.equal(timers.size, 0);
-    assert.equal(pause.attributes.get('aria-pressed'), 'true');
-    pause.dispatchEvent(new Event('click'));
-    await tick();
-    assert.equal(slides[1].hidden, false);
-    assert.equal(timers.size, 1);
-});
-
 test('rotation waits while hovered, focused or in a hidden tab', (t) => {
     const { carousel, document, timers } = setup(t);
     carousel.dispatchEvent(new Event('pointerenter'));
@@ -79,10 +68,9 @@ test('rotation waits while hovered, focused or in a hidden tab', (t) => {
     assert.equal(timers.size, 1);
 });
 
-test('reduced motion starts paused and responds to preference changes', (t) => {
-    const { timers, motion, pause } = setup(t, true);
+test('reduced motion starts paused and resumes when the preference changes', (t) => {
+    const { timers, motion } = setup(t, true);
     assert.equal(timers.size, 0);
-    assert.equal(pause.attributes.get('aria-pressed'), 'true');
     motion.matches = false;
     motion.dispatchEvent(new Event('change'));
     assert.equal(timers.size, 1);

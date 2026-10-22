@@ -45,6 +45,7 @@
             </div>
             <div class="mt-1.5 text-[0.68rem] text-slate-500">
                 <span data-chat-status aria-live="polite">Không gửi mật khẩu hoặc mã OTP.</span>
+                <span class="ml-2">Enter để gửi · Shift+Enter xuống dòng</span>
             </div>
         </form>
     </section>

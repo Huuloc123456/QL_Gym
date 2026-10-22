@@ -21,6 +21,9 @@ class GymDatabaseController extends Controller
         $database = DB::connection()->getDatabaseName();
         $counts = [];
         foreach (OriginalGymSql::TABLES as $table => $key) {
+            if (in_array($table, OriginalGymSql::ARCHIVED_TABLES, true)) {
+                continue;
+            }
             $counts[$table] = DB::table($table)->count();
         }
         $objects = DB::table('information_schema.ROUTINES')->where('ROUTINE_SCHEMA', $database)->select('ROUTINE_NAME', 'ROUTINE_TYPE')->get();
@@ -31,7 +34,7 @@ class GymDatabaseController extends Controller
 
     public function table(string $table): View
     {
-        abort_unless(isset(OriginalGymSql::TABLES[$table]), 404);
+        abort_unless(isset(OriginalGymSql::TABLES[$table]) && ! in_array($table, OriginalGymSql::ARCHIVED_TABLES, true), 404);
         $columns = array_values(array_diff(Schema::getColumnListing($table), ['MATKHAU', 'OTPCODE', 'PUBLIC_KEY_USED']));
 
         return view('gym.database-table', ['table' => $table, 'columns' => $columns, 'rows' => DB::table($table)->select($columns)->orderByDesc(OriginalGymSql::TABLES[$table])->paginate(30)]);

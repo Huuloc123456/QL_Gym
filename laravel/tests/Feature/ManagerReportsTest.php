@@ -35,6 +35,7 @@ class ManagerReportsTest extends TestCase
         $employee = User::factory()->employee()->create();
         $package = GymPackage::factory()->create();
         $customer = User::factory()->create(['name' => 'Report Member']);
+        $baseline = app(ManagerReportService::class)->report('2026-10-01', '2026-10-31');
         $confirmedThisMonth = MembershipOrder::factory()->paid()->for($customer)->for($package, 'gymPackage')->create([
             'amount' => 500000,
             'created_at' => Carbon::parse('2026-09-30 23:00:00', 'Asia/Ho_Chi_Minh'),
@@ -71,14 +72,12 @@ class ManagerReportsTest extends TestCase
         $this->actingAs($manager)
             ->get(route('manager.reports.index', ['from_date' => '2026-10-01', 'to_date' => '2026-10-31']))
             ->assertOk()
-            ->assertSee('500.000')
-            ->assertSee('350.000')
-            ->assertViewHas('report', function (array $report) use ($confirmedThisMonth, $pending): bool {
-                $this->assertSame(500000, $report['confirmed_revenue']);
-                $this->assertSame(350000, $report['receipts_total']);
-                $this->assertSame(100000, $report['receipts_by_method']['cash']);
-                $this->assertSame(250000, $report['receipts_by_method']['bank_transfer']);
-                $this->assertSame(1, $report['order_counts']['pending']);
+            ->assertViewHas('report', function (array $report) use ($confirmedThisMonth, $pending, $baseline): bool {
+                $this->assertSame($baseline['confirmed_revenue'] + 500000, $report['confirmed_revenue']);
+                $this->assertSame($baseline['receipts_total'] + 350000, $report['receipts_total']);
+                $this->assertSame($baseline['receipts_by_method']['cash'] + 100000, $report['receipts_by_method']['cash']);
+                $this->assertSame($baseline['receipts_by_method']['bank_transfer'] + 250000, $report['receipts_by_method']['bank_transfer']);
+                $this->assertSame($baseline['order_counts']['pending'] + 1, $report['order_counts']['pending']);
                 $this->assertTrue($report['orders']->contains('id', $confirmedThisMonth->id));
                 $this->assertTrue($report['orders']->contains('id', $pending->id));
 
@@ -193,5 +192,54 @@ class ManagerReportsTest extends TestCase
         $this->assertSame('Đơn gói #'.$order->id, $receipts->getCell('B2')->getValue());
         $this->assertSame('VNPay', $receipts->getCell('D3')->getValue());
         $this->assertSame('HD-'.$invoice, $receipts->getCell('B3')->getValue());
+    }
+
+    #[Test]
+    public function report_counts_legacy_and_sql_invoice_orders_once_and_exports_both(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $customer = User::factory()->create(['name' => 'Unified Order Customer']);
+        $package = GymPackage::factory()->create(['name' => 'Gói cũ']);
+        $from = now(config('app.timezone'))->toDateString();
+        $baseline = app(ManagerReportService::class)->report($from, $from);
+        MembershipOrder::factory()->paid()->for($customer)->for($package, 'gymPackage')->create([
+            'amount' => 500000,
+            'paid_at' => now(),
+        ]);
+        MembershipOrder::factory()->for($customer)->for($package, 'gymPackage')->create([
+            'amount' => 100000,
+        ]);
+        MembershipOrder::factory()->for($customer)->for($package, 'gymPackage')->create([
+            'amount' => 100000,
+            'sql_invoice_id' => 987654,
+        ]);
+
+        DB::table('SANPHAM')->insert(['MASP' => 9923, 'TENSP' => 'Hàng cho báo cáo thống nhất', 'MALOAISP' => 3, 'DONGIA' => 200000, 'SOLUONGTON' => 4]);
+        $this->actingAs($customer)->post(route('gym.cart.add'), ['kind' => 'product', 'item' => 9923, 'quantity' => 1]);
+        $this->post(route('gym.checkout'), ['token' => (string) Str::uuid(), 'mode' => 'pickup', 'payment_method' => 'cash'])->assertSessionHasNoErrors();
+        $invoice = (int) DB::table('HOADON')->where('MAKH', $customer->sql_customer_id)->max('MAHD');
+        DB::table('HOADON')->where('MAHD', $invoice)->update(['TRANGTHAI' => 'Đã thanh toán']);
+        DB::table('gym_fulfillments')->where('invoice_id', $invoice)->update(['paid_at' => now()]);
+        DB::table('membership_orders')->where('sql_invoice_id', 987654)->update(['sql_invoice_id' => $invoice]);
+
+        $report = app(ManagerReportService::class)->report($from, $from);
+
+        $this->assertSame($baseline['order_counts']['pending'] + 1, $report['order_counts']['pending']);
+        $this->assertSame($baseline['order_counts']['paid'] + 2, $report['order_counts']['paid']);
+        $this->assertSame($baseline['confirmed_revenue'] + 700000, $report['confirmed_revenue']);
+        $this->assertCount($baseline['invoice_orders']->count() + 1, $report['invoice_orders']);
+        $this->assertCount($baseline['orders']->count() + 2, $report['orders']);
+
+        $response = $this->actingAs($manager)->get(route('manager.reports.export', ['from_date' => $from, 'to_date' => $from]))->assertOk();
+        $path = tempnam(sys_get_temp_dir(), 'gym-unified-report-');
+        file_put_contents($path, $response->streamedContent());
+        $spreadsheet = IOFactory::load($path);
+        unlink($path);
+        $orders = $spreadsheet->getSheet(1);
+        $orderIds = collect(range(2, $orders->getHighestRow()))->map(fn (int $row) => $orders->getCell('A'.$row)->getValue());
+        $invoiceRow = collect(range(2, $orders->getHighestRow()))->first(fn (int $row) => $orders->getCell('A'.$row)->getValue() === 'HD-'.$invoice);
+        $this->assertTrue($orderIds->contains('HD-'.$invoice));
+        $this->assertSame('Unified Order Customer', $orders->getCell('B'.$invoiceRow)->getValue());
+        $this->assertSame($report['orders']->count() + $report['invoice_orders']->count() + 1, $orders->getHighestRow());
     }
 }

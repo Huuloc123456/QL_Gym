@@ -50,7 +50,8 @@ class PortalCoverageTest extends TestCase
             ->assertSee('data-nav-group="management"', false)
             ->assertSee(route('staff.trial-requests.index'), false)
             ->assertSee(route('staff.checkins.index'), false)
-            ->assertSee(route('staff.orders.index'), false)
+            ->assertSee(route('gym.invoices.index'), false)
+            ->assertDontSee(route('staff.orders.index'), false)
             ->assertSee(route('manager.employees.index'), false);
     }
 
@@ -81,6 +82,18 @@ class PortalCoverageTest extends TestCase
             ->assertOk()
             ->assertSee('Gói Của Tôi')
             ->assertDontSee('Gói Riêng');
+    }
+
+    public function test_empty_customer_attendance_history_explains_how_to_create_a_visit(): void
+    {
+        $customer = User::factory()->create(['role' => 'customer']);
+
+        $this->actingAs($customer)->get(route('my.attendance.index'))
+            ->assertOk()
+            ->assertSee('Chưa có lượt tập nào')
+            ->assertSee('gói hội viên đang hiệu lực')
+            ->assertSee('Nhân viên ghi nhận giờ vào và giờ ra')
+            ->assertSee(route('my.memberships.index'), false);
     }
 
     public function test_customer_membership_order_and_profile_pages_render(): void
@@ -153,7 +166,7 @@ class PortalCoverageTest extends TestCase
         OrderPayment::factory()->for($order, 'order')->for($staff, 'receiver')->create(['amount' => 50000]);
 
         $this->actingAs($customer)->post(route('my.orders.cancel-request', $order))
-            ->assertRedirect(route('my.orders.index'));
+            ->assertRedirect(route('my.orders.show', $order));
 
         $this->assertDatabaseHas('membership_orders', [
             'id' => $order->id,

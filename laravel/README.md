@@ -1,6 +1,6 @@
 # The Gym — Laravel
 
-Ứng dụng quản lý một phòng tập, viết bằng Laravel, Blade, Tailwind CSS và MySQL. Khách có thể mua gói/sản phẩm, đăng ký PT/lớp và thanh toán tại quầy hoặc VNPay sandbox. Nhân viên quản lý sản phẩm và tồn kho, xử lý hóa đơn, check-in; quản lý theo dõi hoạt động, báo cáo, nội dung website, tài khoản nhân viên và tài liệu chatbot.
+Ứng dụng quản lý một phòng tập, viết bằng Laravel, Blade, Tailwind CSS và MySQL. Khách có thể mua gói/sản phẩm, đăng ký lớp và thanh toán tại quầy hoặc VNPay sandbox. Nhân viên xử lý hóa đơn, check-in và lịch lớp học; quản lý theo dõi hoạt động, báo cáo, nội dung website, tài khoản nhân viên và tài liệu chatbot. Website không còn chức năng PT; dữ liệu PT cũ được giữ để tra cứu lịch sử.
 
 README ở thư mục gốc mô tả đầy đủ nghiệp vụ, tài khoản local, cấu hình VNPay và quy trình sao lưu. Xem thêm [kế hoạch kiểm thử, kết quả mới nhất và giới hạn kiểm tra](docs/test-plan.md).
 
@@ -46,4 +46,4 @@ vendor/bin/pint --dirty --format agent
 npm run build
 ```
 
-Kết quả test tự động và kiểm thử thao tác trên trình duyệt được ghi trong [docs/test-plan.md](docs/test-plan.md). Báo cáo hiện cộng các khoản thu hóa đơn tại quầy và VNPay; lịch sử hóa đơn của khách hiển thị số đã thu. Kiểm thử VNPay hiện dùng callback giả lập; việc thanh toán sandbox đầu-cuối cần cấu hình khóa và endpoint HTTPS công khai.
+Lần chạy đầy đủ gần nhất ngày 22/10/2026 có **198 bài đạt, 12 bài thất bại, 1 bài lỗi ngoại lệ và 1 bài bỏ qua**. Kiểm thử thao tác qua browser đã đăng nhập các vai trò quản lý, nhân viên và hội viên, nhưng chưa thực hiện giao dịch VNPay sandbox thật hoặc check-in bằng gói đang hiệu lực. Kết quả và giới hạn được ghi trong [docs/test-plan.md](docs/test-plan.md). Kiểm thử VNPay tự động dùng callback giả lập; thanh toán sandbox đầu-cuối cần khóa và endpoint HTTPS công khai.

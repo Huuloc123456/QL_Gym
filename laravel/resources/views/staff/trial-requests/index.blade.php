@@ -11,7 +11,7 @@
                 <p class="mt-2 text-slate-600">Liên hệ khách đã để lại thông tin và lưu trạng thái xử lý.</p>
             </div>
             @can('viewAny', \App\Models\MembershipOrder::class)
-                <a class="gym-btn-outline" href="{{ route('staff.orders.index') }}">Đơn hội viên</a>
+                <a class="gym-btn-outline" href="{{ route('gym.invoices.index', ['source' => 'package_order']) }}">Đơn hội viên</a>
             @endcan
         </header>
 

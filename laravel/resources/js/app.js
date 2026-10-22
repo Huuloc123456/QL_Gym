@@ -89,7 +89,7 @@ if (chatWidget) {
         }
     };
 
-    const appendMessage = (role, text, sources = []) => {
+    const appendMessage = (role, text, productCards = []) => {
         const article = document.createElement('article');
         article.className = `gym-chat-message gym-chat-message--${role} space-y-2`;
 
@@ -111,27 +111,59 @@ if (chatWidget) {
                 paragraph.textContent = block.text;
                 article.append(paragraph);
             });
+
+            if (productCards.length > 0) {
+                const cards = document.createElement('div');
+                cards.className = 'mt-3 grid gap-2';
+                cards.setAttribute('aria-label', 'Sản phẩm liên quan');
+
+                productCards.forEach((product) => {
+                    const card = document.createElement('article');
+                    card.className = 'grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-2 rounded-xl border border-slate-200 bg-white p-2.5';
+
+                    const image = document.createElement('img');
+                    image.className = 'size-[4.5rem] rounded-lg bg-slate-50 object-contain';
+                    image.src = product.image_url || product.image_placeholder_url;
+                    image.alt = `Ảnh sản phẩm ${product.name}`;
+                    image.width = 72;
+                    image.height = 72;
+                    image.loading = 'lazy';
+                    image.addEventListener('error', () => {
+                        image.src = product.image_placeholder_url;
+                    }, { once: true });
+
+                    const details = document.createElement('div');
+                    details.className = 'min-w-0 self-center';
+
+                    const name = document.createElement('p');
+                    name.className = 'text-sm font-semibold leading-5 text-gym-ink';
+                    name.textContent = product.name;
+
+                    const price = document.createElement('p');
+                    price.className = 'mt-1 text-sm font-bold text-gym-blue';
+                    price.textContent = product.price;
+
+                    const availability = document.createElement('p');
+                    availability.className = `mt-0.5 text-xs ${product.availability === 'Còn hàng' ? 'text-emerald-700' : 'text-slate-500'}`;
+                    availability.textContent = product.availability;
+
+                    details.append(name, price, availability);
+
+                    const detailLink = document.createElement('a');
+                    detailLink.className = 'col-span-2 inline-flex min-h-9 items-center justify-center rounded-lg bg-gym-blue px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-gym-blue-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gym-blue';
+                    detailLink.href = product.detail_url;
+                    detailLink.textContent = 'Chi tiết';
+
+                    card.append(image, details, detailLink);
+                    cards.append(card);
+                });
+
+                article.append(cards);
+            }
         } else {
             const paragraph = document.createElement('p');
             paragraph.textContent = text;
             article.append(paragraph);
-        }
-
-        if (sources.length > 0) {
-            const sourceList = document.createElement('div');
-            sourceList.className = 'gym-chat-sources';
-            const sourceLabel = document.createElement('span');
-            sourceLabel.textContent = 'Nguồn';
-            sourceList.append(sourceLabel);
-
-            sources.forEach((source) => {
-                const sourceChip = document.createElement('span');
-                sourceChip.className = 'gym-chat-source';
-                sourceChip.textContent = source;
-                sourceList.append(sourceChip);
-            });
-
-            article.append(sourceList);
         }
 
         messages.append(article);
@@ -161,6 +193,16 @@ if (chatWidget) {
     });
 
     input.addEventListener('input', updateForm);
+    input.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' || event.shiftKey || event.isComposing || event.keyCode === 229) {
+            return;
+        }
+
+        event.preventDefault();
+        if (!isSending) {
+            form.requestSubmit();
+        }
+    });
 
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -194,7 +236,7 @@ if (chatWidget) {
             if (!response.ok) {
                 appendMessage('assistant', result.message || 'Trợ lý đang bận. Bạn thử lại sau nhé.');
             } else {
-                appendMessage('assistant', result.answer, Array.isArray(result.sources) ? result.sources : []);
+                appendMessage('assistant', result.answer, Array.isArray(result.products) ? result.products : []);
             }
         } catch {
             pendingMessage.remove();

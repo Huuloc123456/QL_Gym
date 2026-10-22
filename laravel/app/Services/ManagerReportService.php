@@ -25,6 +25,7 @@ class ManagerReportService
      *     receipts_total: int,
      *     receipts_by_method: array<string, int>,
      *     orders: Collection<int, MembershipOrder>,
+     *     invoice_orders: Collection<int, object>,
      *     payments: Collection<int, OrderPayment>,
      *     invoice_receipts: Collection<int, object>,
      *     online_payments: Collection<int, object>
@@ -56,20 +57,46 @@ class ManagerReportService
                         ->where('paid_at', '<', $toExclusive);
                 });
             })
+            ->whereNull('sql_invoice_id')
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->get();
 
         $counts = MembershipOrder::query()
             ->selectRaw('status, COUNT(*) as total')
+            ->whereNull('sql_invoice_id')
             ->where('created_at', '>=', $from)
             ->where('created_at', '<', $toExclusive)
             ->groupBy('status')
             ->pluck('total', 'status')
             ->all();
 
+        $invoiceOrders = DB::table('HOADON as h')
+            ->join('KHACHHANG as k', 'k.MAKH', '=', 'h.MAKH')
+            ->leftJoin('gym_fulfillments as f', 'f.invoice_id', '=', 'h.MAHD')
+            ->where(function ($query) use ($from, $toExclusive): void {
+                $query->where(function ($created) use ($from, $toExclusive): void {
+                    $created->where('h.NGAYLAP', '>=', $from)->where('h.NGAYLAP', '<', $toExclusive);
+                })->orWhere(function ($confirmed) use ($from, $toExclusive): void {
+                    $confirmed->where('h.TRANGTHAI', 'Đã thanh toán')
+                        ->whereRaw('COALESCE(f.paid_at, h.NGAYLAP) >= ?', [$from])
+                        ->whereRaw('COALESCE(f.paid_at, h.NGAYLAP) < ?', [$toExclusive]);
+                });
+            })
+            ->select('h.MAHD as id', 'k.TENKH as customer_name', 'k.EMAIL as customer_email', 'k.SDT as customer_phone', 'h.NGAYLAP as created_at', 'h.TRANGTHAI as status', 'h.THANHTIEN as amount', 'f.paid_at')
+            ->selectRaw("CASE WHEN h.TRANGTHAI = 'Đã thanh toán' THEN COALESCE(f.paid_at, h.NGAYLAP) ELSE f.paid_at END as confirmed_at")
+            ->selectRaw("COALESCE((SELECT l.name FROM gym_invoice_lines l WHERE l.invoice_id = h.MAHD ORDER BY l.id LIMIT 1), 'Hóa đơn') as item_name")
+            ->selectSub(DB::table('gym_receipts')->selectRaw('COALESCE(SUM(amount), 0)')->whereColumn('invoice_id', 'h.MAHD'), 'total_received')
+            ->selectSub(DB::table('gym_online_payments')->selectRaw('COALESCE(SUM(amount), 0)')->whereColumn('target_id', 'h.MAHD')->where('target_type', 'invoice')->where('status', 'succeeded'), 'online_received')
+            ->orderByDesc('h.NGAYLAP')->orderByDesc('h.MAHD')->get();
+
+        $invoiceCounts = DB::table('HOADON')->selectRaw('TRANGTHAI as status, COUNT(*) as total')
+            ->where('NGAYLAP', '>=', $from)->where('NGAYLAP', '<', $toExclusive)
+            ->groupBy('TRANGTHAI')->pluck('total', 'status')->all();
+
         $payments = OrderPayment::query()
             ->with(['order.user', 'receiver'])
+            ->whereHas('order', fn (Builder $query) => $query->whereNull('sql_invoice_id'))
             ->where('received_at', '>=', $from)
             ->where('received_at', '<', $toExclusive)
             ->orderBy('received_at')
@@ -87,7 +114,7 @@ class ManagerReportService
         $onlineMembershipPayments = DB::table('gym_online_payments as p')
             ->join('membership_orders as o', 'o.id', '=', 'p.target_id')
             ->join('users as u', 'u.id', '=', 'o.user_id')
-            ->where('p.target_type', 'membership_order')->where('p.status', 'succeeded')
+            ->whereNull('o.sql_invoice_id')->where('p.target_type', 'membership_order')->where('p.status', 'succeeded')
             ->where('p.paid_at', '>=', $from)->where('p.paid_at', '<', $toExclusive)
             ->select('p.*', 'u.name as customer_name')
             ->get();
@@ -110,15 +137,20 @@ class ManagerReportService
             'from_date' => $from->toDateString(),
             'to_date' => $to->toDateString(),
             'order_counts' => [
-                MembershipOrder::STATUS_PENDING => (int) ($counts[MembershipOrder::STATUS_PENDING] ?? 0),
-                MembershipOrder::STATUS_PAID => (int) ($counts[MembershipOrder::STATUS_PAID] ?? 0),
-                MembershipOrder::STATUS_CANCELLED => (int) ($counts[MembershipOrder::STATUS_CANCELLED] ?? 0),
+                MembershipOrder::STATUS_PENDING => (int) ($counts[MembershipOrder::STATUS_PENDING] ?? 0) + (int) ($invoiceCounts['Chưa thanh toán'] ?? 0),
+                MembershipOrder::STATUS_PAID => (int) ($counts[MembershipOrder::STATUS_PAID] ?? 0) + (int) ($invoiceCounts['Đã thanh toán'] ?? 0),
+                MembershipOrder::STATUS_CANCELLED => (int) ($counts[MembershipOrder::STATUS_CANCELLED] ?? 0) + (int) ($invoiceCounts['Hủy'] ?? 0),
             ],
             'confirmed_revenue' => (int) MembershipOrder::query()
+                ->whereNull('sql_invoice_id')
                 ->where('status', MembershipOrder::STATUS_PAID)
                 ->where('paid_at', '>=', $from)
                 ->where('paid_at', '<', $toExclusive)
-                ->sum('amount'),
+                ->sum('amount') + (int) DB::table('HOADON as h')->leftJoin('gym_fulfillments as f', 'f.invoice_id', '=', 'h.MAHD')
+                ->where('h.TRANGTHAI', 'Đã thanh toán')
+                ->whereRaw('COALESCE(f.paid_at, h.NGAYLAP) >= ?', [$from])
+                ->whereRaw('COALESCE(f.paid_at, h.NGAYLAP) < ?', [$toExclusive])
+                ->sum('h.THANHTIEN'),
             'receipts_total' => (int) $payments->sum('amount') + (int) $invoiceReceipts->sum('amount') + (int) $onlinePayments->sum('amount'),
             'receipts_by_method' => [
                 'cash' => (int) ($receiptsByMethod['cash'] ?? 0),
@@ -126,6 +158,7 @@ class ManagerReportService
                 'vnpay' => (int) $onlinePayments->sum('amount'),
             ],
             'orders' => $orders,
+            'invoice_orders' => $invoiceOrders,
             'payments' => $payments,
             'invoice_receipts' => $invoiceReceipts,
             'online_payments' => $onlinePayments,
@@ -160,7 +193,7 @@ class ManagerReportService
         $orderSheet = $spreadsheet->createSheet();
         $orderSheet->setTitle('Đơn hàng');
         $this->writeRows($orderSheet, [[
-            'Mã đơn', 'Hội viên', 'Email', 'Số điện thoại', 'Gói tập', 'Ngày tạo', 'Ngày xác nhận',
+            'Mã đơn', 'Hội viên', 'Email', 'Số điện thoại', 'Sản phẩm/dịch vụ', 'Ngày tạo', 'Ngày xác nhận',
             'Trạng thái', 'Giá trị đơn (VNĐ)', 'Đã nhận đến nay (VNĐ)', 'Còn phải thu (VNĐ)',
         ]], 1);
         foreach ($report['orders'] as $order) {
@@ -176,6 +209,26 @@ class ManagerReportService
                 match ($order->status) {
                     MembershipOrder::STATUS_PAID => 'Đã thanh toán',
                     MembershipOrder::STATUS_CANCELLED => 'Đã hủy',
+                    default => 'Chờ thanh toán',
+                },
+                (int) $order->amount,
+                $received,
+                max(0, (int) $order->amount - $received),
+            ]]);
+        }
+        foreach ($report['invoice_orders'] as $order) {
+            $received = (int) ($order->total_received ?? 0) + (int) ($order->online_received ?? 0);
+            $this->writeRows($orderSheet, [[
+                'HD-'.$order->id,
+                $order->customer_name,
+                $order->customer_email ?? '',
+                $order->customer_phone ?? '',
+                $order->item_name,
+                Carbon::parse($order->created_at)->format('d/m/Y H:i'),
+                $order->confirmed_at ? Carbon::parse($order->confirmed_at)->format('d/m/Y H:i') : '',
+                match ($order->status) {
+                    'Đã thanh toán' => 'Đã thanh toán',
+                    'Hủy' => 'Đã hủy',
                     default => 'Chờ thanh toán',
                 },
                 (int) $order->amount,

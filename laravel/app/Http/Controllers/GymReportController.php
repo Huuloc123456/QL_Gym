@@ -45,7 +45,7 @@ class GymReportController extends Controller
         $report = $managerReports->report($from->toDateString(), $to->toDateString());
         $all = $this->invoices($from, $to);
         $paid = (clone $all)->where('h.TRANGTHAI', 'Đã thanh toán');
-        $kind = "CASE WHEN d.MASP IS NOT NULL THEN 'product' WHEN d.MADKGT IS NOT NULL THEN 'package' WHEN d.MADKLOP IS NOT NULL THEN 'class' WHEN d.MADKPT IS NOT NULL THEN 'pt' ELSE 'other' END";
+        $kind = "CASE WHEN d.MASP IS NOT NULL THEN 'product' WHEN d.MADKGT IS NOT NULL THEN 'package' WHEN d.MADKLOP IS NOT NULL THEN 'class' ELSE 'other' END";
         $lines = DB::table('CHITIETHOADON as d')->join('HOADON as h', 'h.MAHD', '=', 'd.MAHD')->whereBetween('h.NGAYLAP', [$from, $to])->where('h.TRANGTHAI', 'Đã thanh toán');
         $cash = (int) DB::table('gym_receipts')->whereBetween('created_at', [$from, $to])->sum('amount')
             + (int) DB::table('order_payments')->whereBetween('received_at', [$from, $to])->sum('amount');
@@ -63,16 +63,57 @@ class GymReportController extends Controller
         ]);
     }
 
-    public function export(Request $request): StreamedResponse
+    public function export(Request $request, ManagerReportService $managerReports): StreamedResponse
     {
         [$from, $to] = $this->range($request);
+        $report = $managerReports->report($from->toDateString(), $to->toDateString());
 
-        return response()->streamDownload(function () use ($from, $to): void {
+        return response()->streamDownload(function () use ($report): void {
             $stream = fopen('php://output', 'w');
             fwrite($stream, "\xEF\xBB\xBF");
-            fputcsv($stream, ['Mã hóa đơn', 'Ngày lập', 'Khách hàng', 'Tiền hàng/dịch vụ', 'Giảm giá', 'Phí giao', 'Thành tiền', 'Trạng thái'], ',', '"', '');
-            foreach ($this->invoices($from, $to)->join('KHACHHANG as k', 'k.MAKH', '=', 'h.MAKH')->select('h.MAHD', 'h.NGAYLAP', 'k.TENKH', 'h.TONGTIEN', 'h.GIAMGIA', 'f.shipping_fee', 'h.THANHTIEN', 'h.TRANGTHAI')->orderBy('h.MAHD')->cursor() as $row) {
-                $values = array_map(fn ($value) => is_string($value) && preg_match('/^[\s]*[=+@\-]/u', $value) ? "'".$value : $value, array_values((array) $row));
+            fputcsv($stream, ['Mã đơn', 'Ngày lập', 'Khách hàng', 'Email', 'Số điện thoại', 'Sản phẩm/dịch vụ', 'Ngày xác nhận', 'Trạng thái', 'Giá trị đơn', 'Đã nhận', 'Còn phải thu'], ',', '"', '');
+            foreach ($report['orders'] as $order) {
+                $received = (int) ($order->total_received ?? 0) + (int) ($order->online_received ?? 0);
+                $row = [
+                    'GÓI-'.$order->id,
+                    $order->created_at?->format('d/m/Y H:i'),
+                    $order->user->name,
+                    $order->user->email,
+                    $order->user->phone,
+                    $order->gymPackage->name,
+                    $order->paid_at?->format('d/m/Y H:i') ?? '',
+                    match ($order->status) {
+                        'paid' => 'Đã thanh toán',
+                        'cancelled' => 'Đã hủy',
+                        default => 'Chờ thanh toán',
+                    },
+                    (int) $order->amount,
+                    $received,
+                    max(0, (int) $order->amount - $received),
+                ];
+                $values = array_map(fn ($value) => is_string($value) && preg_match('/^[\s]*[=+@\-]/u', $value) ? "'".$value : $value, $row);
+                fputcsv($stream, $values, ',', '"', '');
+            }
+            foreach ($report['invoice_orders'] as $order) {
+                $received = (int) ($order->total_received ?? 0) + (int) ($order->online_received ?? 0);
+                $row = [
+                    'HD-'.$order->id,
+                    CarbonImmutable::parse($order->created_at)->format('d/m/Y H:i'),
+                    $order->customer_name,
+                    $order->customer_email ?? '',
+                    $order->customer_phone ?? '',
+                    $order->item_name,
+                    $order->confirmed_at ? CarbonImmutable::parse($order->confirmed_at)->format('d/m/Y H:i') : '',
+                    match ($order->status) {
+                        'Đã thanh toán' => 'Đã thanh toán',
+                        'Hủy' => 'Đã hủy',
+                        default => 'Chờ thanh toán',
+                    },
+                    (int) $order->amount,
+                    $received,
+                    max(0, (int) $order->amount - $received),
+                ];
+                $values = array_map(fn ($value) => is_string($value) && preg_match('/^[\s]*[=+@\-]/u', $value) ? "'".$value : $value, $row);
                 fputcsv($stream, $values, ',', '"', '');
             }
             fclose($stream);

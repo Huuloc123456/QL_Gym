@@ -1,7 +1,6 @@
 export function initCarousel(carousel) {
     const slides = [...carousel.querySelectorAll('[data-carousel-slide]')];
     const indicators = [...carousel.querySelectorAll('[data-carousel-go]')];
-    const pauseButton = carousel.querySelector('[data-carousel-pause]');
     const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
     let paused = motion.matches;
     let hovering = false;
@@ -35,10 +34,6 @@ export function initCarousel(carousel) {
 
     const updateTimer = () => {
         clearInterval(timer);
-        pauseButton?.setAttribute('aria-pressed', String(paused));
-        if (pauseButton) {
-            pauseButton.textContent = paused ? 'Chạy tự động' : 'Tạm dừng';
-        }
         if (!paused && !hovering && !focused && !document.hidden) {
             timer = setInterval(() => showSlide(cursor + 1), 5000);
         }
@@ -48,10 +43,6 @@ export function initCarousel(carousel) {
         showSlide(index);
         updateTimer();
     }));
-    pauseButton?.addEventListener('click', () => {
-        paused = !paused;
-        updateTimer();
-    });
     carousel.addEventListener('pointerenter', () => { hovering = true; updateTimer(); });
     carousel.addEventListener('pointerleave', () => { hovering = false; updateTimer(); });
     carousel.addEventListener('focusin', () => { focused = true; updateTimer(); });

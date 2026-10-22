@@ -6,6 +6,7 @@ use App\Models\MembershipOrder;
 use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -27,6 +28,7 @@ class VnPayService
         if ($order->cancellation_requested_at !== null) {
             $this->fail('payment', 'Đơn đang chờ xử lý yêu cầu hủy. Vui lòng liên hệ quầy trước khi thanh toán.');
         }
+        $this->assertNoPaymentReview('membership_order', $order->id);
 
         $remaining = (int) $order->amount - $order->receivedAmount();
         if ($remaining < 1) {
@@ -42,7 +44,9 @@ class VnPayService
         if ($invoice->TRANGTHAI !== 'Chưa thanh toán') {
             $this->fail('payment', 'Hóa đơn này không còn chờ thanh toán.');
         }
+        $this->assertNoPaymentReview('invoice', $invoiceId);
         $this->commerce->assertInvoiceHasDetails($invoiceId);
+        $this->commerce->assertSupportedInvoiceKinds($invoiceId);
         $fulfillment = DB::table('gym_fulfillments')->where('invoice_id', $invoiceId)->first();
         if ($fulfillment?->expires_at
             && now(config('app.timezone'))->greaterThanOrEqualTo($fulfillment->expires_at)
@@ -101,6 +105,9 @@ class VnPayService
             if ($lockedPayment->status === 'failed') {
                 return $this->ipnResponse('00', 'Confirm Success');
             }
+            if ($lockedPayment->status === 'refunded') {
+                return $this->ipnResponse('00', 'Confirm Success');
+            }
 
             $successful = (string) ($parameters['vnp_ResponseCode'] ?? '') === '00'
                 && (string) ($parameters['vnp_TransactionStatus'] ?? '') === '00';
@@ -156,6 +163,93 @@ class VnPayService
         abort_unless($payment, 404);
 
         return $payment;
+    }
+
+    public function resolveReview(int $paymentId, User $manager, string $resolution, array $data): void
+    {
+        abort_unless($manager->role === 'manager', 403);
+        if (! in_array($resolution, ['confirmed', 'refunded'], true)) {
+            $this->fail('resolution', 'Cách xử lý không hợp lệ.');
+        }
+
+        $this->sql->transaction(function () use ($paymentId, $manager, $resolution, $data): void {
+            $payment = DB::table('gym_online_payments')->where('id', $paymentId)->lockForUpdate()->first();
+            abort_unless($payment, 404);
+            if ($payment->status !== 'review' || $payment->review_resolution !== null) {
+                $this->fail('payment', 'Giao dịch này đã được xử lý hoặc không còn cần đối soát.');
+            }
+
+            $timestamp = now(config('app.timezone'));
+            if ($resolution === 'confirmed') {
+                DB::table('gym_online_payments')->where('id', $paymentId)->update([
+                    'status' => 'succeeded',
+                    'paid_at' => $timestamp,
+                    'review_resolution' => 'confirmed',
+                    'reviewed_by_user_id' => $manager->id,
+                    'reviewed_at' => $timestamp,
+                    'resolution_reference' => $data['reference'] ?? null,
+                    'resolution_note' => $data['note'],
+                    'updated_at' => $timestamp,
+                ]);
+
+                if ($payment->target_type === 'invoice') {
+                    $this->commerce->confirmOnline((int) $payment->target_id, allowExpired: true);
+                } elseif ($payment->target_type === 'membership_order') {
+                    $order = MembershipOrder::query()->findOrFail((int) $payment->target_id);
+                    $order->update(['cancellation_requested_at' => null]);
+                    $order->refresh();
+                    $this->orders->confirmOnline($order, $order->start_date->toDateString());
+                } else {
+                    $this->fail('payment', 'Loại đơn của giao dịch không được hỗ trợ.');
+                }
+            } else {
+                DB::table('gym_online_payments')->where('id', $paymentId)->update([
+                    'status' => 'refunded',
+                    'review_resolution' => 'refunded',
+                    'reviewed_by_user_id' => $manager->id,
+                    'reviewed_at' => $timestamp,
+                    'resolution_reference' => $data['reference'],
+                    'resolution_note' => $data['note'],
+                    'updated_at' => $timestamp,
+                ]);
+
+                if ($payment->target_type === 'invoice'
+                    && DB::table('gym_fulfillments')->where('invoice_id', $payment->target_id)->value('cancellation_requested')
+                    && $this->commerce->received((int) $payment->target_id) === 0) {
+                    $this->commerce->cancel((int) $payment->target_id, $manager);
+                } elseif ($payment->target_type === 'membership_order') {
+                    $order = MembershipOrder::query()->findOrFail((int) $payment->target_id);
+                    if ($order->cancellation_requested_at !== null && $order->receivedAmount() === 0) {
+                        $this->orders->cancel($order);
+                    }
+                }
+            }
+
+            $this->sql->audit(
+                $resolution === 'confirmed' ? 'Xác nhận giao dịch VNPay đối soát' : 'Ghi nhận hoàn tiền VNPay',
+                $payment->target_type.':'.$payment->target_id,
+                ['txn_ref' => $payment->txn_ref, 'resolution' => $resolution, 'reference' => $data['reference'] ?? null, 'note' => $data['note']],
+            );
+        });
+    }
+
+    public function reviewQueue(): Collection
+    {
+        return DB::table('gym_online_payments as p')
+            ->join('users as u', 'u.id', '=', 'p.user_id')
+            ->leftJoin('HOADON as h', function ($join): void {
+                $join->on('h.MAHD', '=', 'p.target_id')->where('p.target_type', '=', 'invoice');
+            })
+            ->leftJoin('membership_orders as o', function ($join): void {
+                $join->on('o.id', '=', 'p.target_id')->where('p.target_type', '=', 'membership_order');
+            })
+            ->leftJoin('gym_packages as g', 'g.id', '=', 'o.gym_package_id')
+            ->where('p.status', 'review')
+            ->select('p.*', 'u.name as customer_name', 'h.TRANGTHAI as invoice_status', 'o.status as legacy_status')
+            ->selectRaw("CASE WHEN p.target_type = 'invoice' THEN CONCAT('Hóa đơn #', p.target_id) ELSE CONCAT('Đơn gói #', p.target_id, ' · ', COALESCE(g.name, 'Gói tập')) END as order_label")
+            ->orderBy('p.created_at')
+            ->orderBy('p.id')
+            ->get();
     }
 
     /** @param array<string, mixed> $parameters */
@@ -267,6 +361,13 @@ class VnPayService
         }
 
         return null;
+    }
+
+    private function assertNoPaymentReview(string $targetType, int $targetId): void
+    {
+        if (DB::table('gym_online_payments')->where('target_type', $targetType)->where('target_id', $targetId)->where('status', 'review')->exists()) {
+            $this->fail('payment', 'Đơn đang có giao dịch VNPay chờ đối soát. Vui lòng chờ quản lý xử lý trước khi thanh toán lại.');
+        }
     }
 
     /** @return array{RspCode: string, Message: string} */

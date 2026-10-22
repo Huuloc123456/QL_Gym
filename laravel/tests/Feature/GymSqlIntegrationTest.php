@@ -24,9 +24,10 @@ class GymSqlIntegrationTest extends TestCase
         $this->assertCount(11, DB::table('information_schema.ROUTINES')->where('ROUTINE_SCHEMA', $database)->where('ROUTINE_TYPE', 'PROCEDURE')->get());
         $this->assertSame(1, DB::table('information_schema.TRIGGERS')->where('TRIGGER_SCHEMA', $database)->count());
         $this->assertSame(1, DB::table('information_schema.ROUTINES')->where('ROUTINE_SCHEMA', $database)->where('ROUTINE_TYPE', 'FUNCTION')->count());
-        foreach (['/', '/san-pham', '/san-pham/6', '/lop-hoc', '/lop-hoc/1', '/huan-luyen-vien'] as $url) {
+        foreach (['/', '/san-pham', '/san-pham/6', '/lop-hoc', '/lop-hoc/1'] as $url) {
             $this->get($url)->assertOk();
         }
+        $this->get('/huan-luyen-vien')->assertNotFound();
         $manager = User::factory()->manager()->create();
         MembershipOrder::factory()->create();
         $this->actingAs($manager);
@@ -39,8 +40,13 @@ class GymSqlIntegrationTest extends TestCase
         foreach (['gym.database.index', 'gym.database.audit', 'gym.invoices.index', 'gym.calendar'] as $route) {
             $this->get(route($route))->assertOk();
         }
-        foreach (array_keys(OriginalGymSql::TABLES) as $table) {
+        $browsableTables = array_diff_key(OriginalGymSql::TABLES, array_flip(OriginalGymSql::ARCHIVED_TABLES));
+        foreach (array_keys($browsableTables) as $table) {
             $this->get(route('gym.database.table', $table))->assertOk();
+        }
+        $this->get(route('gym.database.index'))->assertDontSee('DANGKYPT')->assertDontSee('LICHTAPPT');
+        foreach (OriginalGymSql::ARCHIVED_TABLES as $table) {
+            $this->get(route('gym.database.table', $table))->assertNotFound();
         }
         $this->get(route('gym.invoices.show', 182))->assertOk();
         $this->get(route('gym.database.table', 'users'))->assertNotFound();

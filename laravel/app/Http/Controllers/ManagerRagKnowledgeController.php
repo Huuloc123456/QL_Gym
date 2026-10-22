@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\RagDocument;
 use App\Services\RagKnowledgeService;
+use App\Services\RagProductCatalogService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -21,13 +23,20 @@ use Throwable;
 
 class ManagerRagKnowledgeController extends Controller
 {
-    public function __construct(private RagKnowledgeService $knowledge) {}
+    public function __construct(private RagKnowledgeService $knowledge, private RagProductCatalogService $productCatalog) {}
 
     public function index(Request $request): View
     {
         $documents = collect();
         $serviceError = null;
         $search = trim((string) $request->query('q', ''));
+
+        try {
+            $this->productCatalog->stage();
+            $this->knowledge->syncPending();
+        } catch (RuntimeException $exception) {
+            $serviceError = $exception->getMessage();
+        }
 
         try {
             $allDocuments = $this->knowledge->documents();
@@ -39,13 +48,14 @@ class ManagerRagKnowledgeController extends Controller
                     'id' => $document['id'],
                     'title' => $document['title'] ?? $document['id'],
                     'summary' => Str::between((string) ($document['content'] ?? ''), '**Câu hỏi:** ', "\n\n**Câu trả lời:**"),
+                    'managed' => $this->knowledge->isSystemManagedDocument((string) $document['id']),
                     'active' => (bool) ($document['active'] ?? false),
                     'updated_at' => ! empty($document['updated_at'])
                         ? Carbon::parse($document['updated_at'])->setTimezone(config('app.timezone'))->format('d/m/Y H:i')
                         : '—',
                 ])->values();
         } catch (RuntimeException $exception) {
-            $serviceError = $exception->getMessage();
+            $serviceError ??= $exception->getMessage();
         }
 
         $page = LengthAwarePaginator::resolveCurrentPage();
@@ -82,7 +92,7 @@ class ManagerRagKnowledgeController extends Controller
             return back()->withInput()->with('error', $exception->getMessage());
         }
 
-        return redirect()->route('manager.knowledge.index')->with('success', 'Đã cập nhật tài liệu và chỉ mục chatbot.');
+        return redirect()->route('manager.knowledge.index')->with('success', 'Đã lưu tài liệu vào MySQL.');
     }
 
     public function createFaq(): View
@@ -104,11 +114,13 @@ class ManagerRagKnowledgeController extends Controller
             return back()->withInput()->with('error', $exception->getMessage());
         }
 
-        return redirect()->route('manager.knowledge.index')->with('success', 'Đã thêm câu hỏi thường gặp và cập nhật chatbot.');
+        return redirect()->route('manager.knowledge.index')->with('success', 'Đã lưu câu hỏi thường gặp vào MySQL.');
     }
 
     public function edit(string $document): View|RedirectResponse
     {
+        abort_if($this->knowledge->isSystemManagedDocument($document), 403);
+
         try {
             $storedDocument = collect($this->knowledge->documents())
                 ->first(fn (array $item): bool => ($item['id'] ?? null) === $document);
@@ -135,6 +147,7 @@ class ManagerRagKnowledgeController extends Controller
 
     public function update(Request $request, string $document): RedirectResponse
     {
+        abort_if($this->knowledge->isSystemManagedDocument($document), 403);
         $data = $this->validateDocument($request);
 
         try {
@@ -143,11 +156,12 @@ class ManagerRagKnowledgeController extends Controller
             return back()->withInput()->with('error', $exception->getMessage());
         }
 
-        return redirect()->route('manager.knowledge.index')->with('success', 'Đã lưu tài liệu và cập nhật chỉ mục chatbot.');
+        return redirect()->route('manager.knowledge.index')->with('success', 'Đã lưu tài liệu vào MySQL.');
     }
 
     public function updateFaq(Request $request, string $document): RedirectResponse
     {
+        abort_if($this->knowledge->isSystemManagedDocument($document), 403);
         $data = $this->validateFaq($request);
 
         try {
@@ -156,11 +170,12 @@ class ManagerRagKnowledgeController extends Controller
             return back()->withInput()->with('error', $exception->getMessage());
         }
 
-        return redirect()->route('manager.knowledge.index')->with('success', 'Đã lưu câu hỏi và cập nhật chatbot.');
+        return redirect()->route('manager.knowledge.index')->with('success', 'Đã lưu câu hỏi vào MySQL.');
     }
 
     public function toggle(Request $request, string $document): RedirectResponse
     {
+        abort_if($this->knowledge->isSystemManagedDocument($document), 403);
         $data = $request->validate(['active' => ['required', 'boolean']]);
         try {
             $this->knowledge->setActive($document, (bool) $data['active']);
@@ -168,18 +183,20 @@ class ManagerRagKnowledgeController extends Controller
             return back()->with('error', $exception->getMessage());
         }
 
-        return back()->with('success', $data['active'] ? 'Đã bật tài liệu chatbot.' : 'Đã tạm ngừng tài liệu chatbot.');
+        return back()->with('success', $data['active'] ? 'Đã bật tài liệu trong MySQL.' : 'Đã tạm ngừng tài liệu trong MySQL.');
     }
 
     public function destroy(string $document): RedirectResponse
     {
+        abort_if($this->knowledge->isSystemManagedDocument($document), 403);
+
         try {
             $this->knowledge->delete($document);
         } catch (RuntimeException $exception) {
             return back()->with('error', $exception->getMessage());
         }
 
-        return redirect()->route('manager.knowledge.index')->with('success', 'Đã xóa tài liệu và cập nhật chỉ mục chatbot.');
+        return redirect()->route('manager.knowledge.index')->with('success', 'Đã xóa tài liệu khỏi MySQL.');
     }
 
     public function downloadTemplate(): RedirectResponse|StreamedResponse
@@ -255,11 +272,7 @@ class ManagerRagKnowledgeController extends Controller
             ]]);
         }
 
-        try {
-            $existingIds = collect($this->knowledge->documents())->pluck('id')->all();
-        } catch (RuntimeException $exception) {
-            return back()->with('error', $exception->getMessage());
-        }
+        $existingIds = RagDocument::withTrashed()->pluck('document_key')->all();
 
         $documents = [];
         $previewRows = [];
@@ -364,7 +377,7 @@ class ManagerRagKnowledgeController extends Controller
 
         $request->session()->forget('rag_import_preview');
 
-        return redirect()->route('manager.knowledge.index')->with('success', 'Đã nhập tài liệu và cập nhật chỉ mục chatbot một lần.');
+        return redirect()->route('manager.knowledge.index')->with('success', 'Đã nhập tài liệu vào MySQL.');
     }
 
     private function storeImportPreview(Request $request, array $documents, array $rows, array $errors): RedirectResponse
@@ -403,7 +416,7 @@ class ManagerRagKnowledgeController extends Controller
 
     private function documentExists(string $documentId): bool
     {
-        return collect($this->knowledge->documents())->contains(fn (array $document): bool => ($document['id'] ?? null) === $documentId);
+        return RagDocument::withTrashed()->where('document_key', $documentId)->exists();
     }
 
     private function faqMarkdown(string $topic, string $question, string $answer): string

@@ -20,7 +20,6 @@ class GymCommerceService
             'product' => ['SANPHAM', 'MASP', 'TENSP', 'DONGIA'],
             'package' => ['GOITAP', 'MAGOITAP', 'TENGOI', 'GIA'],
             'class' => ['LOPHOC', 'MALOP', 'TENLOP', 'HOCPHI'],
-            'pt' => ['NHANVIEN', 'MANV', 'TENNV', null],
             default => abort(404),
         };
         $row = DB::table($table)->where($key, $id)->first();
@@ -31,7 +30,7 @@ class GymCommerceService
         $row->item_id = $id;
         $row->kind = $kind;
         $row->item_name = $row->$name;
-        $row->unit_price = $price ? (int) $row->$price : (int) DB::table('gym_pt_rates')->where('employee_id', $id)->value('price');
+        $row->unit_price = (int) $row->$price;
         if ($kind === 'product' && $row->GIAKHUYENMAI !== null && $row->GIAKHUYENMAI < $row->DONGIA) {
             $row->unit_price = (int) $row->GIAKHUYENMAI;
         }
@@ -110,9 +109,9 @@ class GymCommerceService
         });
     }
 
-    public function checkout(User $user, array $data, ?array $pt = null): int
+    public function checkout(User $user, array $data): int
     {
-        return $this->sql->transaction(function () use ($user, $data, $pt): int {
+        return $this->sql->transaction(function () use ($user, $data): int {
             $this->portal->expireOrders();
             $customer = $this->identities->customer($user);
             $repeat = DB::table('gym_fulfillments')->where('checkout_token', $data['token'])->first();
@@ -121,7 +120,7 @@ class GymCommerceService
 
                 return (int) $repeat->invoice_id;
             }
-            $cart = $pt ? [(object) ['item' => $this->item('pt', $pt['employee']), 'SOLUONG' => $pt['sessions']]] : $this->cart($user);
+            $cart = $this->cart($user);
             if (count($cart) === 0) {
                 $this->fail('cart', 'Giỏ hàng đang trống.');
             }
@@ -143,11 +142,6 @@ class GymCommerceService
                     $details = ['start_date' => $start, 'months' => (int) $item->THOIHAN];
                 } elseif ($item->kind === 'class') {
                     $this->assertClassAvailable($customer, $item);
-                } elseif ($item->kind === 'pt') {
-                    if ($item->unit_price <= 0 || ! DB::table('NHANVIEN_CHUYENMON')->where('MANV', $item->item_id)->exists() || DB::table('CHUCVU')->where('MACHUCVU', $item->MACHUCVU)->value('TENCHUCVU') !== 'PT' || User::query()->where('sql_employee_id', $item->item_id)->where('is_active', false)->exists()) {
-                        $this->fail('employee', 'PT chưa sẵn sàng nhận đăng ký hoặc chưa được thiết lập giá/chuyên môn.');
-                    }
-                    $details = ['sessions' => $quantity];
                 }
                 $total += $item->unit_price * $quantity;
                 $lines[] = ['kind' => $item->kind, 'item_id' => $item->item_id, 'name' => $item->item_name, 'quantity' => $quantity, 'unit_price' => $item->unit_price, 'details' => json_encode($details)];
@@ -172,27 +166,27 @@ class GymCommerceService
             }
             DB::table('gym_fulfillments')->insert(['invoice_id' => $invoice, 'mode' => $mode, 'payment_method' => $data['payment_method'], 'recipient' => $data['recipient'] ?? $user->name, 'phone' => $data['phone'] ?? $user->phone, 'address' => $address ? json_encode($address, JSON_UNESCAPED_UNICODE) : null, 'checkout_token' => $data['token'], 'shipping_fee' => $shipping, 'expires_at' => $deadline, 'created_at' => now(), 'updated_at' => now()]);
             $this->portal->invoiceMessage($invoice, 'created', 'Đã tiếp nhận đơn hàng', 'Đơn #'.$invoice.' cần thanh toán '.number_format($total - $discount + $shipping, 0, ',', '.').'đ trước '.$deadline->format('H:i d/m/Y').'.');
-            if (! $pt) {
-                DB::table('CHITIETGIOHANG')->where('MAKH', $customer)->delete();
-            }
+            DB::table('CHITIETGIOHANG')->where('MAKH', $customer)->delete();
             $this->sql->audit('Đặt hàng', 'HOADON:'.$invoice);
 
             return $invoice;
         });
     }
 
-    public function receive(int $invoice, User $staff, array $data): void
+    public function receive(int $invoice, User $staff, array $data): bool
     {
         abort_unless($staff->canManageOrders(), 403);
-        $this->sql->transaction(function () use ($invoice, $staff, $data): void {
+
+        return $this->sql->transaction(function () use ($invoice, $staff, $data): bool {
             $bill = $this->invoice($invoice);
             $repeat = DB::table('gym_receipts')->where('token', $data['token'])->first();
             if ($repeat) {
                 abort_unless((int) $repeat->invoice_id === $invoice && (int) $repeat->amount === (int) $data['amount'], 422);
 
-                return;
+                return false;
             }
             $this->assertInvoiceHasDetails($invoice);
+            $this->assertSupportedInvoiceKinds($invoice);
             $this->assertBeforeDeadline($invoice);
             if ($bill->TRANGTHAI !== 'Chưa thanh toán' || (int) $data['amount'] > (int) $bill->THANHTIEN - $this->received($invoice)) {
                 $this->fail('amount', 'Khoản thu vượt số còn phải thu hoặc hóa đơn đã đóng.');
@@ -200,29 +194,35 @@ class GymCommerceService
             DB::table('gym_receipts')->insert(['invoice_id' => $invoice, 'user_id' => $staff->id, 'amount' => $data['amount'], 'method' => $data['method'], 'reference' => $data['reference'] ?? null, 'token' => $data['token'], 'created_at' => now()]);
             $this->portal->invoiceMessage($invoice, 'receipt:'.$data['token'], 'Đã ghi nhận thanh toán', 'Đơn #'.$invoice.' đã nhận thêm '.number_format($data['amount'], 0, ',', '.').'đ. Nhân viên sẽ chốt hóa đơn khi thu đủ.');
             $this->sql->audit('Thu tiền', 'HOADON:'.$invoice, ['amount' => $data['amount']]);
+
+            return true;
         });
     }
 
-    public function confirm(int $invoice, User $staff, ?string $startDate = null): void
+    public function confirm(int $invoice, User $staff, ?string $startDate = null): bool
     {
         abort_unless($staff->canManageOrders(), 403);
-        $this->confirmInvoice($invoice, $staff, $startDate);
+
+        return $this->confirmInvoice($invoice, $staff, $startDate);
     }
 
-    public function confirmOnline(int $invoice): void
+    public function confirmOnline(int $invoice, bool $allowExpired = false): void
     {
-        $this->confirmInvoice($invoice, null, null);
+        $this->confirmInvoice($invoice, null, null, $allowExpired);
     }
 
-    private function confirmInvoice(int $invoice, ?User $staff, ?string $startDate): void
+    private function confirmInvoice(int $invoice, ?User $staff, ?string $startDate, bool $allowExpired = false): bool
     {
-        $this->sql->transaction(function () use ($invoice, $staff, $startDate): void {
+        return $this->sql->transaction(function () use ($invoice, $staff, $startDate, $allowExpired): bool {
             $bill = $this->invoice($invoice);
             if ($bill->TRANGTHAI === 'Đã thanh toán') {
-                return;
+                return false;
             }
             $this->assertInvoiceHasDetails($invoice);
-            $this->assertBeforeDeadline($invoice);
+            $this->assertSupportedInvoiceKinds($invoice);
+            if (! $allowExpired) {
+                $this->assertBeforeDeadline($invoice);
+            }
             if ($bill->TRANGTHAI !== 'Chưa thanh toán' || $this->received($invoice) < (int) $bill->THANHTIEN) {
                 $this->fail('payment', 'Hóa đơn phải đang chờ và đã thu đủ tiền.');
             }
@@ -251,30 +251,34 @@ class GymCommerceService
                     $registration = $this->sql->nextId('DANGKYLOP');
                     DB::table('DANGKYLOP')->insert(['MADKLOP' => $registration, 'MAKH' => $bill->MAKH, 'MALOP' => $line->item_id, 'NGAYDANGKY' => now(), 'TRANGTHAI' => 'Còn hiệu lực']);
                     $record['MADKLOP'] = $registration;
-                } else {
-                    $registration = $this->sql->nextId('DANGKYPT');
-                    DB::table('DANGKYPT')->insert(['MADKPT' => $registration, 'MAKH' => $bill->MAKH, 'MANV' => $line->item_id, 'SOBUOI' => $line->quantity, 'GIAMOIBUOI' => $line->unit_price, 'NGAYDANGKY' => now(), 'TRANGTHAI' => 'Còn hiệu lực']);
-                    $record['MADKPT'] = $registration;
-                    $record['SOLUONG'] = $line->quantity;
                 }
                 // The original trigger alone deducts product stock here.
                 DB::table('CHITIETHOADON')->insert($record);
             }
             DB::table('HOADON')->where('MAHD', $invoice)->update(['TRANGTHAI' => 'Đã thanh toán']);
-            DB::table('gym_fulfillments')->where('invoice_id', $invoice)->update(['paid_at' => now(), 'updated_at' => now()]);
+            DB::table('gym_fulfillments')->where('invoice_id', $invoice)->update(['paid_at' => now(), 'cancellation_requested' => false, 'updated_at' => now()]);
             $this->portal->invoiceMessage($invoice, 'paid', 'Đã xác nhận hóa đơn', 'Hóa đơn #'.$invoice.' đã được xác nhận thanh toán. Xem đơn để theo dõi dịch vụ hoặc giao nhận.');
             $this->sql->audit('Xác nhận thanh toán', 'HOADON:'.$invoice);
+
+            return true;
         });
     }
 
-    public function cancel(int $invoice, User $user): void
+    public function cancel(int $invoice, User $user): bool
     {
-        $this->sql->transaction(function () use ($invoice, $user): void {
+        return $this->sql->transaction(function () use ($invoice, $user): bool {
             $bill = $this->invoice($invoice, $user);
             if ($bill->TRANGTHAI !== 'Chưa thanh toán') {
+                if ($user->canManageOrders() && $bill->TRANGTHAI === 'Hủy') {
+                    return false;
+                }
+
                 $this->fail('invoice', 'Chỉ xử lý hủy hóa đơn đang chờ.');
             }
             if ($user->role === 'customer') {
+                if (DB::table('gym_fulfillments')->where('invoice_id', $invoice)->value('cancellation_requested')) {
+                    return false;
+                }
                 DB::table('gym_fulfillments')->where('invoice_id', $invoice)->update(['cancellation_requested' => true, 'updated_at' => now()]);
             } else {
                 abort_unless($user->canManageOrders(), 403);
@@ -286,15 +290,21 @@ class GymCommerceService
                 $this->portal->invoiceMessage($invoice, 'cancelled', 'Đơn hàng đã được hủy', 'Đơn #'.$invoice.' đã được nhân viên hủy và giải phóng hàng/chỗ.');
             }
             $this->sql->audit('Xử lý yêu cầu hủy', 'HOADON:'.$invoice);
+
+            return true;
         });
     }
 
-    public function fulfill(int $invoice, User $user, string $state): void
+    public function fulfill(int $invoice, User $user, string $state): bool
     {
         abort_unless($user->canManageOrders(), 403);
-        $this->sql->transaction(function () use ($invoice, $state): void {
+
+        return $this->sql->transaction(function () use ($invoice, $state): bool {
             $bill = $this->invoice($invoice);
             $shipping = DB::table('gym_fulfillments')->where('invoice_id', $invoice)->first();
+            if ($shipping?->state === $state) {
+                return false;
+            }
             if (! DB::table('gym_invoice_lines')->where('invoice_id', $invoice)->where('kind', 'product')->exists()) {
                 $this->fail('state', 'Hóa đơn dịch vụ không có hàng cần giao nhận.');
             }
@@ -306,6 +316,8 @@ class GymCommerceService
             $label = ['ready' => 'sẵn sàng nhận tại quầy', 'collected' => 'đã được nhận tại quầy', 'shipping' => 'đang được giao', 'delivered' => 'đã được giao'][$state];
             $this->portal->invoiceMessage($invoice, 'fulfill:'.$state, 'Cập nhật giao nhận', 'Đơn #'.$invoice.' '.$label.'.');
             $this->sql->audit('Giao nhận', 'HOADON:'.$invoice, ['state' => $state]);
+
+            return true;
         });
     }
 
@@ -333,6 +345,18 @@ class GymCommerceService
     {
         if ($this->portal->unreconciledInvoices()->where('h.MAHD', $id)->exists()) {
             $this->fail('invoice', 'Hóa đơn thiếu hoặc chưa khớp chi tiết/tổng tiền. Cần đối chiếu chứng từ trước khi thu tiền, xác nhận hoặc ký.');
+        }
+    }
+
+    public function hasUnsupportedInvoiceKinds(int $id): bool
+    {
+        return DB::table('gym_invoice_lines')->where('invoice_id', $id)->whereNotIn('kind', ['product', 'package', 'class'])->exists();
+    }
+
+    public function assertSupportedInvoiceKinds(int $id): void
+    {
+        if ($this->hasUnsupportedInvoiceKinds($id)) {
+            $this->fail('line', 'Hóa đơn có dịch vụ cũ không còn được hỗ trợ. Không thể thu hoặc chốt thanh toán mới; vui lòng liên hệ quản lý để đối chiếu.');
         }
     }
 

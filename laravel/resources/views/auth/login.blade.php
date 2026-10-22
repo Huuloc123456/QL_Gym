@@ -14,9 +14,6 @@
                     @if ($packageId > 0)<input type="hidden" name="package_id" value="{{ $packageId }}">@endif
                     <x-input name="username" label="Tên đăng nhập" autocomplete="username" required autofocus />
                     <x-input name="password" label="Mật khẩu" type="password" autocomplete="current-password" required />
-                    @if (!in_array(config('mail.default'), ['log', 'array'], true))
-                        <label class="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" name="otp" value="1"> Xác minh thêm bằng mã email (khách hàng)</label>
-                    @endif
                     <p class="-mt-2 text-right text-sm"><a class="font-semibold text-gym-blue underline underline-offset-2" href="{{ route('password.request') }}">Quên mật khẩu?</a></p>
                     <button class="gym-btn-primary w-full" type="submit">Đăng nhập</button>
                 </form>

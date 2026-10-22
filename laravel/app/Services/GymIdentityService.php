@@ -145,11 +145,13 @@ class GymIdentityService
         };
     }
 
-    public function syncPackage(GymPackage $package): void
+    public function syncPackage(GymPackage $package): int
     {
-        $this->sql->transaction(function () use ($package): void {
+        return $this->sql->transaction(function () use ($package): int {
             $id = $this->package($package);
             DB::table('GOITAP')->where('MAGOITAP', $id)->update(['TENGOI' => mb_substr($package->name, 0, 100), 'THOIHAN' => $package->duration_months, 'GIA' => $package->price, 'MOTA' => $package->description]);
+
+            return $id;
         });
     }
 

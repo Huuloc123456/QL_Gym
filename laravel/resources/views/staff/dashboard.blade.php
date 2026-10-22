@@ -28,11 +28,11 @@
             @endcan
 
             @can('viewAny', \App\Models\MembershipOrder::class)
-                <a class="gym-card group block transition hover:-translate-y-0.5 hover:border-gym-blue hover:shadow-md" href="{{ route('staff.orders.index') }}">
-                    <p class="text-sm font-bold uppercase tracking-wide text-gym-blue">Hội viên</p>
-                    <h2 class="mt-3 text-xl font-extrabold text-gym-ink">Đơn hàng và thanh toán</h2>
-                    <p class="mt-2 text-sm leading-6 text-slate-600">Ghi nhận thanh toán, xác nhận gói hoặc xử lý đơn.</p>
-                    <span class="mt-5 inline-block font-semibold text-gym-blue underline underline-offset-4">Mở danh sách →</span>
+                <a class="gym-card group block transition hover:-translate-y-0.5 hover:border-gym-blue hover:shadow-md" href="{{ route('gym.invoices.index') }}">
+                    <p class="text-sm font-bold uppercase tracking-wide text-gym-blue">Đơn hàng</p>
+                    <h2 class="mt-3 text-xl font-extrabold text-gym-ink">Đơn hàng và hóa đơn</h2>
+                    <p class="mt-2 text-sm leading-6 text-slate-600">Tìm và xử lý đơn gói hội viên, hóa đơn sản phẩm và dịch vụ tại cùng một nơi.</p>
+                    <span class="mt-5 inline-block font-semibold text-gym-blue underline underline-offset-4">Mở danh sách đơn →</span>
                 </a>
             @endcan
 

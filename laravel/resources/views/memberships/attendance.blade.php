@@ -15,7 +15,11 @@
                     @forelse ($visits as $visit)
                         <tr><td class="whitespace-nowrap">{{ $visit->checked_in_at->format('d/m/Y') }}</td><td>{{ $visit->membership?->gymPackage?->name ?? 'Gói hoặc tập thử đã duyệt' }}</td><td class="whitespace-nowrap">{{ $visit->checked_in_at->format('H:i') }}</td><td class="whitespace-nowrap">{{ $visit->checked_out_at?->format('H:i') ?? 'Đang tập' }}</td><td>{{ $visit->manual_close_reason ?: '—' }}</td></tr>
                     @empty
-                        <tr><td colspan="5" class="py-10 text-center text-slate-500">Bạn chưa có lượt tập nào.</td></tr>
+                        <tr><td colspan="5" class="py-8 text-center">
+                            <p class="font-semibold text-slate-700">Chưa có lượt tập nào</p>
+                            <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600">Để thử tính năng này, bạn cần có gói hội viên đang hiệu lực. Nhân viên ghi nhận giờ vào và giờ ra ở màn Check-in; các lượt đó sẽ xuất hiện tại đây.</p>
+                            <a class="mt-3 inline-block font-semibold text-gym-blue underline underline-offset-4" href="{{ route('my.memberships.index') }}">Kiểm tra gói hội viên</a>
+                        </td></tr>
                     @endforelse
                 </tbody>
             </table>

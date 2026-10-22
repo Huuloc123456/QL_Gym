@@ -28,12 +28,15 @@ class ManagerSiteContentTest extends TestCase
             'opening_hours' => '06:00–22:00',
             'introduction' => 'Tập luyện phù hợp với mục tiêu của bạn.',
             'bank_name' => 'ACB',
+            'bank_code' => 'acb',
             'bank_account' => '123456789',
             'bank_account_name' => 'THE GYM',
             'faq_items' => [
                 ['question' => 'Gói tập tính hạn thế nào?', 'answer' => 'Theo tháng lịch kể từ ngày bắt đầu.'],
             ],
         ])->assertRedirect(route('manager.settings.edit'));
+
+        $this->assertDatabaseHas('gym_settings', ['id' => 1, 'bank_code' => 'acb']);
 
         $this->get(route('home'))
             ->assertOk()
@@ -52,6 +55,7 @@ class ManagerSiteContentTest extends TestCase
         ]);
         GymSetting::current()->update([
             'bank_name' => 'ACB',
+            'bank_code' => 'acb',
             'bank_account' => '123456789',
             'bank_account_name' => 'THE GYM',
         ]);
@@ -63,7 +67,8 @@ class ManagerSiteContentTest extends TestCase
             ->assertSee('ACB')
             ->assertSee('123456789')
             ->assertSee('THE GYM')
-            ->assertSee('GYM-'.$order->id);
+            ->assertSee('GYM-'.$order->id)
+            ->assertSee('img.vietqr.io/image/acb-123456789-compact2.png', false);
     }
 
     public function test_manager_can_upload_and_publish_a_hero_banner(): void

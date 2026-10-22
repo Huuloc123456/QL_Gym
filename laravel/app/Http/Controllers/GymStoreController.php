@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\GymPackage;
 use App\Services\GymCommerceService;
 use App\Services\GymIdentityService;
 use App\Services\GymPortalService;
@@ -43,7 +44,7 @@ class GymStoreController extends Controller
             default => $query->orderByDesc('p.MASP'),
         };
 
-        return view('gym.products', ['products' => $query->orderBy('p.MASP')->paginate(16)->withQueryString(), 'categories' => DB::table('LOAISANPHAM')->orderBy('MALOAISP')->get(), 'brands' => DB::table('SANPHAM')->whereNotNull('HANG')->distinct()->orderBy('HANG')->pluck('HANG'), 'origins' => DB::table('SANPHAM')->whereNotNull('XUATXU')->distinct()->orderBy('XUATXU')->pluck('XUATXU')]);
+        return view('gym.products', ['products' => $query->orderBy('p.MASP')->paginate(15)->withQueryString(), 'categories' => DB::table('LOAISANPHAM')->orderBy('MALOAISP')->get(), 'brands' => DB::table('SANPHAM')->whereNotNull('HANG')->distinct()->orderBy('HANG')->pluck('HANG'), 'origins' => DB::table('SANPHAM')->whereNotNull('XUATXU')->distinct()->orderBy('XUATXU')->pluck('XUATXU')]);
     }
 
     public function show(int $product): View
@@ -63,8 +64,14 @@ class GymStoreController extends Controller
 
     public function add(Request $request): RedirectResponse
     {
-        $data = $request->validate(['kind' => 'required|in:product,package,class', 'item' => 'required|integer|min:1', 'quantity' => 'required|integer|min:1|max:99']);
-        $this->shop->add($request->user(), $data['kind'], $data['item'], $data['quantity']);
+        $data = $request->validate(['kind' => 'required|in:product,package,class', 'item' => 'required_without:gym_package_id|integer|min:1', 'gym_package_id' => 'nullable|integer|exists:gym_packages,id', 'quantity' => 'required|integer|min:1|max:99']);
+        $item = $data['item'] ?? null;
+        if (isset($data['gym_package_id'])) {
+            abort_unless($data['kind'] === 'package', 422);
+            $package = GymPackage::query()->where('is_active', true)->findOrFail($data['gym_package_id']);
+            $item = $this->identities->syncPackage($package);
+        }
+        $this->shop->add($request->user(), $data['kind'], (int) $item, $data['quantity']);
 
         return redirect()->route('gym.cart')->with('success', 'Đã thêm vào giỏ hàng.');
     }

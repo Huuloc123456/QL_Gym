@@ -76,6 +76,7 @@ class ChatbotEndpointTest extends TestCase
             ->assertDontSee('The Gym · Trợ lý trực tuyến')
             ->assertDontSee('Thông tin gói tập và hội viên, ngay tại đây.')
             ->assertDontSee('RAG The Gym')
-            ->assertDontSee('/500');
+            ->assertDontSee('/500')
+            ->assertSee('Enter để gửi · Shift+Enter xuống dòng');
     }
 }

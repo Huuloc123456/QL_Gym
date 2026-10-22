@@ -29,8 +29,9 @@
             <section class="border-t border-slate-200 pt-7" aria-labelledby="gym-payment-settings">
                 <h2 class="text-lg font-bold" id="gym-payment-settings">Hướng dẫn chuyển khoản</h2>
                 <p class="mt-1 text-sm text-slate-600">Nhân viên vẫn cần đối chiếu khoản tiền đã nhận trước khi xác nhận đơn.</p>
-                <div class="mt-4 grid gap-5 sm:grid-cols-3">
-                    <div><label class="gym-label" for="bank_name">Ngân hàng</label><x-form-input id="bank_name" name="bank_name" value="{{ old('bank_name', $settings->bank_name) }}" maxlength="120" /></div>
+                <div class="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                    <div><label class="gym-label" for="bank_name">Tên ngân hàng</label><x-form-input id="bank_name" name="bank_name" value="{{ old('bank_name', $settings->bank_name) }}" maxlength="120" /></div>
+                    <div><label class="gym-label" for="bank_code">Mã ngân hàng VietQR</label><x-form-input id="bank_code" name="bank_code" value="{{ old('bank_code', $settings->bank_code) }}" maxlength="20" placeholder="vd: vietcombank" /><p class="mt-1 text-xs text-slate-500">Dùng mã VietQR như vietcombank, mbbank hoặc mã BIN.</p></div>
                     <div><label class="gym-label" for="bank_account">Số tài khoản</label><x-form-input id="bank_account" name="bank_account" value="{{ old('bank_account', $settings->bank_account) }}" maxlength="80" /></div>
                     <div><label class="gym-label" for="bank_account_name">Chủ tài khoản</label><x-form-input id="bank_account_name" name="bank_account_name" value="{{ old('bank_account_name', $settings->bank_account_name) }}" maxlength="160" /></div>
                 </div>
@@ -80,8 +81,7 @@
             <div class="mt-5 grid gap-6 md:grid-cols-2">
                 <div><h3 class="font-bold">Hóa đơn thiếu/lệch chi tiết hoặc tổng tiền</h3><ul class="mt-3 space-y-2 text-sm">@forelse ($incompleteInvoices as $row)<li><a class="text-gym-blue underline" href="{{ route('gym.invoices.show', $row->MAHD) }}">#{{ $row->MAHD }} · {{ $row->TRANGTHAI }}</a></li>@empty<li>Không phát hiện hóa đơn cần đối chiếu.</li>@endforelse</ul></div>
                 <div><h3 class="font-bold">Ảnh sản phẩm cần cập nhật</h3><ul class="mt-3 max-h-48 space-y-2 overflow-y-auto text-sm">@forelse ($missingImages as $row)<li><a class="text-gym-blue underline" href="{{ route('gym.admin.edit', ['products', $row->MASP]) }}">#{{ $row->MASP }} · {{ $row->TENSP }}</a></li>@empty<li>Ảnh đại diện đã đầy đủ.</li>@endforelse</ul></div>
-                <div><h3 class="font-bold">PT thiếu giá hoặc chuyên môn</h3><ul class="mt-3 space-y-2 text-sm">@forelse ($unreadyTrainers as $row)<li><a class="text-gym-blue underline" href="{{ route('gym.admin.edit', ['employees', $row->MANV]) }}">{{ $row->TENNV }}</a></li>@empty<li>PT đã có giá và chuyên môn.</li>@endforelse</ul></div>
-                <div><h3 class="font-bold">Lớp chưa kết thúc: {{ $currentClasses }}</h3><p class="mt-2 text-sm leading-7 text-slate-500">Lịch sử được giữ nguyên. Để nhận đăng ký mới, tạo lớp có ngày bắt đầu trong tương lai rồi phân công lịch và huấn luyện viên.</p><a class="mt-3 inline-block text-sm text-gym-blue underline" href="{{ route('gym.admin.create', 'classes') }}">Tạo lớp hiện hành</a></div>
+                <div><h3 class="font-bold">Lớp chưa kết thúc: {{ $currentClasses }}</h3><p class="mt-2 text-sm leading-7 text-slate-500">Lịch sử được giữ nguyên. Để nhận đăng ký mới, tạo lớp có ngày bắt đầu trong tương lai rồi xếp lịch và phân công nhân viên phụ trách.</p><a class="mt-3 inline-block text-sm text-gym-blue underline" href="{{ route('gym.admin.create', 'classes') }}">Tạo lớp hiện hành</a></div>
             </div>
         </section>
     </section>

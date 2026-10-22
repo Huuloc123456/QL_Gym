@@ -68,6 +68,7 @@ class GymPortalService
             $orders = DB::table('gym_fulfillments as f')->join('HOADON as h', 'h.MAHD', '=', 'f.invoice_id')
                 ->where('h.TRANGTHAI', 'Chưa thanh toán')->whereNotNull('f.expires_at')->where('f.expires_at', '<=', now())
                 ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('gym_receipts as r')->whereColumn('r.invoice_id', 'f.invoice_id'))
+                ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('gym_online_payments as p')->whereColumn('p.target_id', 'f.invoice_id')->where('p.target_type', 'invoice')->where('p.status', 'review'))
                 ->select('f.invoice_id')->get();
             foreach ($orders as $order) {
                 DB::table('HOADON')->where('MAHD', $order->invoice_id)->update(['TRANGTHAI' => 'Hủy']);
@@ -93,12 +94,6 @@ class GymPortalService
             ->whereBetween('f.expires_at', [now(), now()->addHour()])->select('f.invoice_id', 'f.expires_at')->get();
         foreach ($orders as $row) {
             $this->invoiceMessage((int) $row->invoice_id, 'due', 'Đơn hàng sắp hết hạn thanh toán', 'Đơn #'.$row->invoice_id.' có hạn thanh toán '.CarbonImmutable::parse($row->expires_at)->format('H:i d/m/Y').'. Nếu đã chuyển khoản, hãy liên hệ quầy để đối chiếu.');
-        }
-        $pt = DB::table('LICHTAPPT as s')->join('DANGKYPT as r', 'r.MADKPT', '=', 's.MADKPT')->where('r.TRANGTHAI', 'Còn hiệu lực')->where('s.TRANGTHAI', 'Chưa tập')->whereBetween('s.GIOBATDAU', [now(), now()->addDay()])->select('s.*', 'r.MAKH', 'r.MANV')->get();
-        foreach ($pt as $row) {
-            foreach (User::query()->where('sql_customer_id', $row->MAKH)->orWhere('sql_employee_id', $row->MANV)->get() as $user) {
-                $this->message($user, 'pt:'.$row->MALICHPT.':'.$row->GIOBATDAU, 'Nhắc lịch PT', 'Bạn có buổi PT lúc '.CarbonImmutable::parse($row->GIOBATDAU)->format('H:i d/m/Y').'.', route('gym.calendar', absolute: false));
-            }
         }
         $classes = DB::table('LICHLOP as s')->join('LOPHOC as l', 'l.MALOP', '=', 's.MALOP')->where('s.TRANGTHAI', 'Chưa diễn ra')->whereBetween('s.GIOBATDAU', [now(), now()->addDay()])->select('s.*', 'l.TENLOP')->get();
         foreach ($classes as $row) {

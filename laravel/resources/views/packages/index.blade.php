@@ -22,18 +22,7 @@
                     <p class="mt-4 min-h-24 border-y border-current/20 py-4 text-sm leading-6">{{ $package->description ?: 'Tập luyện không giới hạn trong thời hạn gói.' }}</p>
                     @auth
                         @if (auth()->user()->role === 'customer')
-                            @if ($package->sql_package_id)
-                                <x-package-cart-form :package="$package" :last-training-day="$lastTrainingDays[$package->id]" />
-                            @else
-                            <form class="mt-5 space-y-3" method="POST" action="{{ route('orders.store') }}" data-membership-purchase data-duration-months="{{ $package->duration_months }}">
-                                @csrf
-                                <p class="text-sm font-semibold" data-last-training-day>Ngày tập cuối dự kiến: {{ $lastTrainingDays[$package->id] }}</p>
-                                <input type="hidden" name="gym_package_id" value="{{ $package->id }}">
-                                <div><label class="gym-label {{ $isAnnual ? 'text-white' : '' }}" for="start-date-{{ $package->id }}">Ngày bắt đầu</label><x-form-input id="start-date-{{ $package->id }}" type="date" name="start_date" data-start-date autocomplete="off" min="{{ now(config('app.timezone'))->toDateString() }}" value="{{ old('start_date', $suggestedStartDate->toDateString()) }}" required /></div>
-                                <div><label class="gym-label {{ $isAnnual ? 'text-white' : '' }}" for="payment-{{ $package->id }}">Dự kiến thanh toán</label><x-form-select id="payment-{{ $package->id }}" name="payment_method" required>@if (config('vnpay.tmn_code') && config('vnpay.hash_secret'))<option value="vnpay">Thanh toán online qua VNPay</option>@endif<option value="bank_transfer">Chuyển khoản, nhân viên đối chiếu</option><option value="cash">Tiền mặt tại quầy</option></x-form-select></div>
-                                <button class="gym-btn-primary w-full" type="submit">Đăng ký gói</button>
-                            </form>
-                            @endif
+                            <x-package-cart-form :package="$package" :last-training-day="$lastTrainingDays[$package->id]" />
                         @else
                             <p class="mt-4 text-sm">Ngày tập cuối dự kiến nếu bắt đầu hôm nay: {{ $lastTrainingDays[$package->id] }}</p>
                             <a class="gym-btn-primary mt-4 w-full" href="{{ route('login', ['package_id' => $package->id]) }}">Tham gia</a>

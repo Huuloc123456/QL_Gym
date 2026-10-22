@@ -29,6 +29,9 @@
                         </div>
                         <span class="shrink-0 rounded-full px-3 py-2 text-sm font-bold {{ $order->status === 'paid' ? 'bg-emerald-100 text-emerald-900' : ($order->status === 'cancelled' ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-950') }}">{{ $order->status === 'paid' ? 'Đã xác nhận' : ($order->status === 'cancelled' ? 'Đã hủy' : 'Chờ xác nhận thanh toán') }}</span>
                     </div>
+                    @if ($order->status === 'pending' && $order->payment_method === 'bank_transfer' && ! $order->cancellation_requested_at)
+                        @include('gym.bank-transfer-qr', ['order' => $order, 'gymSettings' => $gymSettings, 'qrUrl' => $qrUrls[$order->id] ?? null, 'remainingAmount' => max(0, (int) $order->amount - $received)])
+                    @endif
                     @if ($order->status === 'pending')
                         <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
                             @if ($order->cancellation_requested_at)

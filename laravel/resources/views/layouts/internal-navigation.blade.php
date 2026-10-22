@@ -24,12 +24,11 @@
             @endcan
             @can('viewAny', \App\Models\MembershipOrder::class)
                 <a class="gym-internal-link" href="{{ route('gym.invoices.index') }}" @if (request()->routeIs('gym.invoices.*')) aria-current="page" @endif>Đơn hàng và hóa đơn</a>
-                <a class="gym-internal-link" href="{{ route('staff.orders.index') }}" @if (request()->routeIs('staff.orders.*')) aria-current="page" @endif>Đơn hội viên</a>
             @endcan
-            <a class="gym-internal-link" href="{{ route('gym.calendar') }}" @if (request()->routeIs('gym.calendar')) aria-current="page" @endif>Đăng ký và lịch tập</a>
+            <a class="gym-internal-link" href="{{ route('gym.calendar') }}" @if (request()->routeIs('gym.calendar')) aria-current="page" @endif>Lịch lớp học</a>
         </div>
         @if (auth()->user()->role === 'manager')
-            <a class="gym-internal-link mt-4" href="{{ route('manager.reports.index') }}">Báo cáo hoạt động</a><a class="gym-internal-link" href="{{ route('manager.settings.edit') }}">Cấu hình phòng gym</a><div class="mt-5" data-nav-group="management">
+            <a class="gym-internal-link mt-4" href="{{ route('manager.payment-reviews.index') }}" @if (request()->routeIs('manager.payment-reviews.*')) aria-current="page" @endif>Đối soát VNPay</a><a class="gym-internal-link" href="{{ route('manager.reports.index') }}" @if (request()->routeIs('manager.reports.*')) aria-current="page" @endif>Báo cáo hoạt động</a><a class="gym-internal-link" href="{{ route('manager.settings.edit') }}" @if (request()->routeIs('manager.settings.*')) aria-current="page" @endif>Cấu hình phòng gym</a><div class="mt-5" data-nav-group="management">
                 <p class="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Quản lý</p>
                 @foreach (['products' => 'Sản phẩm và tồn kho', 'classes' => 'Lớp học', 'customers' => 'Khách hàng', 'employees' => 'Nhân sự và chuyên môn', 'positions' => 'Chức vụ', 'tiers' => 'Hạng khách hàng', 'specialties' => 'Chuyên môn', 'categories' => 'Nhóm sản phẩm'] as $resource => $label)
                     <a class="gym-internal-link" href="{{ route('gym.admin.index', $resource) }}" @if (request()->route('resource') === $resource) aria-current="page" @endif>{{ $label }}</a>

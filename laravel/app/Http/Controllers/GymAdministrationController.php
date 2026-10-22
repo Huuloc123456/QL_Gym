@@ -2,16 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\SyncRagProductCatalog;
 use App\Models\User;
 use App\Services\GymIdentityService;
 use App\Services\OriginalGymSql;
+use App\Services\RagProductCatalogService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Throwable;
 
 class GymAdministrationController extends Controller
 {
@@ -22,7 +26,7 @@ class GymAdministrationController extends Controller
         'specialties' => ['CHUYENMON', 'MACM', 'Chuyên môn'], 'categories' => ['LOAISANPHAM', 'MALOAISP', 'Nhóm sản phẩm'],
     ];
 
-    public function __construct(private OriginalGymSql $sql, private GymIdentityService $identities) {}
+    public function __construct(private OriginalGymSql $sql, private GymIdentityService $identities, private RagProductCatalogService $productCatalog) {}
 
     private function definition(string $resource): array
     {
@@ -38,7 +42,21 @@ class GymAdministrationController extends Controller
         $names = ['SANPHAM' => 'TENSP', 'LOPHOC' => 'TENLOP', 'KHACHHANG' => 'TENKH', 'NHANVIEN' => 'TENNV', 'CHUCVU' => 'TENCHUCVU', 'LOAIKHACHHANG' => 'TENLOAI', 'CHUYENMON' => 'TENCHUYENMON', 'LOAISANPHAM' => 'TENLOAISP'];
         $name = $names[$table];
         $query = DB::table($table)->select(array_keys($this->fields($resource)));
-        $query->addSelect($key)->when($request->query('q'), fn ($q, $search) => $q->where($name, 'like', '%'.$search.'%'));
+        $query->addSelect($key);
+        if ($resource === 'customers' && $request->filled('q')) {
+            $search = trim((string) $request->query('q'));
+            $query->where(function ($customerQuery) use ($search): void {
+                $customerQuery->where('TENKH', 'like', '%'.$search.'%')
+                    ->orWhere('SDT', 'like', '%'.$search.'%')
+                    ->orWhere('EMAIL', 'like', '%'.$search.'%')
+                    ->orWhere('TENDANGNHAP', 'like', '%'.$search.'%');
+                if (ctype_digit($search)) {
+                    $customerQuery->orWhere('MAKH', (int) $search);
+                }
+            });
+        } else {
+            $query->when($request->query('q'), fn ($q, $search) => $q->where($name, 'like', '%'.$search.'%'));
+        }
         if ($resource === 'products' && $request->routeIs('staff.products.*')) {
             $query->selectSub(DB::table('gym_invoice_lines as reserved_lines')
                 ->join('HOADON as reserved_invoices', 'reserved_invoices.MAHD', '=', 'reserved_lines.invoice_id')
@@ -49,6 +67,36 @@ class GymAdministrationController extends Controller
         }
 
         return view('gym.admin.index', ['resource' => $resource, 'title' => $title, 'key' => $key, 'fields' => $this->fields($resource), 'rows' => $query->orderByDesc($key)->paginate(25)->withQueryString(), 'routePrefix' => $request->routeIs('staff.products.*') ? 'staff.products' : 'gym.admin', 'staffMode' => $request->routeIs('staff.products.*')]);
+    }
+
+    public function showCustomer(int $customer): View
+    {
+        $profile = DB::table('KHACHHANG as k')
+            ->leftJoin('LOAIKHACHHANG as t', 't.MALOAIKH', '=', 'k.MALOAIKH')
+            ->where('k.MAKH', $customer)
+            ->select('k.*', 't.TENLOAI', 't.MUCGIAM')
+            ->first();
+        abort_unless($profile, 404);
+
+        $account = User::query()->where('sql_customer_id', $customer)->first();
+        $memberships = DB::table('DANGKYGOITAP as d')
+            ->join('GOITAP as g', 'g.MAGOITAP', '=', 'd.MAGOITAP')
+            ->where('d.MAKH', $customer)
+            ->select('d.*', 'g.TENGOI')
+            ->orderByDesc('d.NGAYBATDAU')
+            ->paginate(10, ['*'], 'membership_page');
+        $invoices = DB::table('HOADON as h')->where('h.MAKH', $customer)
+            ->selectRaw("'invoice' as source, h.MAHD as record_id, h.NGAYLAP as ordered_at, h.THANHTIEN as amount, h.TRANGTHAI as status, COALESCE((SELECT l.name FROM gym_invoice_lines l WHERE l.invoice_id = h.MAHD ORDER BY l.id LIMIT 1), 'Hóa đơn') as item_name");
+        $legacyOrders = DB::table('membership_orders as o')
+            ->join('gym_packages as p', 'p.id', '=', 'o.gym_package_id')
+            ->whereNull('o.sql_invoice_id')
+            ->when($account, fn ($query) => $query->where('o.user_id', $account->id), fn ($query) => $query->whereRaw('1 = 0'))
+            ->selectRaw("'package_order' as source, o.id as record_id, o.created_at as ordered_at, o.amount as amount, CASE o.status WHEN 'paid' THEN 'Đã thanh toán' WHEN 'cancelled' THEN 'Hủy' ELSE 'Chưa thanh toán' END as status, p.name as item_name");
+        $invoices = DB::query()->fromSub($invoices->unionAll($legacyOrders), 'customer_orders')
+            ->orderByDesc('ordered_at')->orderByDesc('record_id')->paginate(10, ['*'], 'invoice_page');
+        $checkIns = DB::table('CHECKIN')->where('MAKH', $customer)->orderByDesc('THOIGIANVAO')->paginate(10, ['*'], 'checkin_page');
+
+        return view('manager.customers.show', compact('profile', 'account', 'memberships', 'invoices', 'checkIns'));
     }
 
     public function edit(Request $request, string $resource, ?int $record = null): View
@@ -67,7 +115,7 @@ class GymAdministrationController extends Controller
 
         $staffMode = $request->routeIs('staff.products.*');
 
-        return view('gym.admin.edit', ['resource' => $resource, 'title' => $title, 'key' => $key, 'row' => $row, 'fields' => $fields, 'options' => $options, 'account' => $account, 'specialties' => $resource === 'employees' && $record ? DB::table('NHANVIEN_CHUYENMON')->where('MANV', $record)->pluck('MACM')->map(fn ($v) => (int) $v)->all() : [], 'rate' => $resource === 'employees' && $record ? DB::table('gym_pt_rates')->where('employee_id', $record)->value('price') : null, 'images' => $resource === 'products' && $record ? DB::table('HINHANH')->where('MASP', $record)->orderByDesc('ISMAIN')->orderBy('MAHINH')->get() : [], 'routePrefix' => $staffMode ? 'staff.products' : 'gym.admin', 'staffMode' => $staffMode]);
+        return view('gym.admin.edit', ['resource' => $resource, 'title' => $title, 'key' => $key, 'row' => $row, 'fields' => $fields, 'options' => $options, 'account' => $account, 'specialties' => $resource === 'employees' && $record ? DB::table('NHANVIEN_CHUYENMON')->where('MANV', $record)->pluck('MACM')->map(fn ($v) => (int) $v)->all() : [], 'images' => $resource === 'products' && $record ? DB::table('HINHANH')->where('MASP', $record)->orderByDesc('ISMAIN')->orderBy('MAHINH')->get() : [], 'routePrefix' => $staffMode ? 'staff.products' : 'gym.admin', 'staffMode' => $staffMode]);
     }
 
     public function save(Request $request, string $resource, ?int $record = null): RedirectResponse
@@ -89,7 +137,6 @@ class GymAdministrationController extends Controller
         if ($resource === 'employees') {
             $rules['specialties'] = ['nullable', 'array'];
             $rules['specialties.*'] = ['integer', 'distinct', 'exists:CHUYENMON,MACM'];
-            $rules['rate'] = ['nullable', 'integer', 'min:0', 'max:1000000000000'];
         }
         $data = $request->validate($rules);
         if (in_array($resource, ['customers', 'employees'], true)) {
@@ -115,7 +162,7 @@ class GymAdministrationController extends Controller
                     if (DB::table('LICHLOP as s')->where('s.MALOP', $record)->whereNotExists(function ($q) use ($data): void {
                         $q->selectRaw('1')->from('NHANVIEN_CHUYENMON as c')->whereColumn('c.MANV', 's.MANV')->where('c.MACM', $data['MACM']);
                     })->exists()) {
-                        $this->fail('MACM', 'HLV của lịch đã xếp chưa có chuyên môn mới này.');
+                        $this->fail('MACM', 'Nhân viên phụ trách lịch đã xếp chưa có chuyên môn mới này.');
                     }
                     $used = DB::table('DANGKYLOP')->where('MALOP', $record)->where('TRANGTHAI', 'Còn hiệu lực')->count();
                     $reserved = DB::table('gym_invoice_lines as l')->join('HOADON as h', 'h.MAHD', '=', 'l.invoice_id')->where('l.kind', 'class')->where('l.item_id', $record)->where('h.TRANGTHAI', 'Chưa thanh toán')->count();
@@ -169,11 +216,6 @@ class GymAdministrationController extends Controller
                         foreach ($data['specialties'] ?? [] as $specialty) {
                             DB::table('NHANVIEN_CHUYENMON')->insert(['MANV' => $id, 'MACM' => $specialty]);
                         }
-                        if ($data['rate'] ?? 0) {
-                            DB::table('gym_pt_rates')->updateOrInsert(['employee_id' => $id], ['price' => $data['rate']]);
-                        } else {
-                            DB::table('gym_pt_rates')->where('employee_id', $id)->delete();
-                        }
                     }
                 } else {
                     $id = $record ?? $this->sql->nextId($table);
@@ -192,9 +234,20 @@ class GymAdministrationController extends Controller
             throw $exception;
         }
 
-        return $request->routeIs('staff.products.*')
-            ? redirect()->route('staff.products.index')->with('success', 'Đã lưu sản phẩm và cập nhật tồn kho.')
-            : redirect()->route('gym.admin.index', $resource)->with('success', 'Đã lưu dữ liệu.');
+        $catalogSyncQueued = ! in_array($resource, ['products', 'categories'], true) || $this->queueProductCatalogSync();
+
+        $message = $request->routeIs('staff.products.*')
+            ? 'Đã lưu sản phẩm và cập nhật tồn kho.'
+            : 'Đã lưu dữ liệu.';
+        if (in_array($resource, ['products', 'categories'], true)) {
+            $message = $catalogSyncQueued
+                ? 'Đã lưu dữ liệu. Chatbot sẽ cập nhật danh mục trong nền.'
+                : 'Đã lưu dữ liệu trong MySQL. Hãy mở Tài liệu chatbot để thử đồng bộ lại danh mục.';
+        }
+
+        return ($request->routeIs('staff.products.*')
+            ? redirect()->route('staff.products.index')
+            : redirect()->route('gym.admin.index', $resource))->with('success', $message);
     }
 
     public function destroy(string $resource, int $record): RedirectResponse
@@ -217,7 +270,12 @@ class GymAdministrationController extends Controller
             throw $exception;
         }
 
-        return back()->with('success', 'Đã xóa.');
+        $catalogSyncQueued = ! in_array($resource, ['products', 'categories'], true) || $this->queueProductCatalogSync();
+        $message = in_array($resource, ['products', 'categories'], true)
+            ? ($catalogSyncQueued ? 'Đã xóa. Chatbot sẽ cập nhật danh mục trong nền.' : 'Đã xóa trong MySQL. Hãy mở Tài liệu chatbot để thử đồng bộ lại danh mục.')
+            : 'Đã xóa.';
+
+        return back()->with('success', $message);
     }
 
     public function image(Request $request, int $product, ?int $image = null): RedirectResponse
@@ -268,5 +326,21 @@ class GymAdministrationController extends Controller
     private function fail(string $field, string $message): never
     {
         throw ValidationException::withMessages([$field => $message]);
+    }
+
+    private function queueProductCatalogSync(): bool
+    {
+        try {
+            $this->productCatalog->stage();
+            SyncRagProductCatalog::dispatch();
+
+            return true;
+        } catch (Throwable $exception) {
+            Log::warning('The Gym product catalog could not be queued for RAG synchronization.', [
+                'exception_class' => $exception::class,
+            ]);
+
+            return false;
+        }
     }
 }

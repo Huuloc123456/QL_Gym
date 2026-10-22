@@ -18,7 +18,8 @@
 
         @if ($serviceError)
             <div class="mb-6 rounded-2xl border border-amber-300 bg-amber-50 p-4 leading-6 text-amber-950" role="alert">
-                {{ $serviceError }} Danh sách chưa được tải; kiểm tra dịch vụ chatbot rồi tải lại trang.
+                <p>{{ $serviceError }} Tài liệu trong MySQL vẫn được hiển thị. Tải lại trang sau khi RAG hoạt động để thử đồng bộ tiếp.</p>
+                <a class="mt-2 inline-flex min-h-11 items-center font-semibold text-amber-950 underline underline-offset-4" href="{{ route('manager.knowledge.index', request()->only('q')) }}">Thử đồng bộ lại</a>
             </div>
         @endif
 
@@ -48,23 +49,27 @@
                     <div class="min-w-0">
                         <div class="flex flex-wrap items-center gap-3">
                             <h3 class="text-lg font-bold text-gym-ink">{{ $document['title'] }}</h3>
+                            @if ($document['managed'])<span class="rounded-full bg-sky-100 px-3 py-1 text-xs font-bold text-sky-900">Tự đồng bộ</span>@endif
                             <span class="rounded-full px-3 py-1 text-xs font-bold {{ $document['active'] ? 'bg-emerald-100 text-emerald-900' : 'bg-slate-200 text-slate-700' }}">{{ $document['active'] ? 'Đang dùng' : 'Tạm ngừng' }}</span>
                         </div>
                         @if ($document['summary'] !== '')<p class="mt-2 text-sm text-slate-600">Câu hỏi: {{ $document['summary'] }}</p>@endif
+                        @if ($document['managed'])<p class="mt-2 text-sm text-slate-600">Tự đồng bộ từ danh mục sản phẩm MySQL. Hãy sửa thông tin ở màn Quản lý sản phẩm.</p>@endif
                         <p class="mt-2 text-xs text-slate-500">Cập nhật lần cuối: {{ $document['updated_at'] }}</p>
                     </div>
-                    <div class="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 sm:justify-end">
-                        <a class="font-semibold text-gym-blue underline underline-offset-4" href="{{ route('manager.knowledge.edit', $document['id']) }}">Sửa</a>
-                        <form method="POST" action="{{ route('manager.knowledge.toggle', $document['id']) }}">
-                            @csrf @method('PATCH')
-                            <input type="hidden" name="active" value="{{ $document['active'] ? '0' : '1' }}">
-                            <button class="font-semibold underline underline-offset-4 {{ $document['active'] ? 'text-amber-700' : 'text-emerald-700' }}" type="submit">{{ $document['active'] ? 'Tạm ngừng' : 'Bật lại' }}</button>
-                        </form>
-                        <form method="POST" action="{{ route('manager.knowledge.destroy', $document['id']) }}" onsubmit="return confirm('Xóa hẳn nội dung này khỏi chatbot?')">
-                            @csrf @method('DELETE')
-                            <button class="font-semibold text-red-700 underline underline-offset-4" type="submit">Xóa</button>
-                        </form>
-                    </div>
+                    @unless ($document['managed'])
+                        <div class="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 sm:justify-end">
+                            <a class="font-semibold text-gym-blue underline underline-offset-4" href="{{ route('manager.knowledge.edit', $document['id']) }}">Sửa</a>
+                            <form method="POST" action="{{ route('manager.knowledge.toggle', $document['id']) }}">
+                                @csrf @method('PATCH')
+                                <input type="hidden" name="active" value="{{ $document['active'] ? '0' : '1' }}">
+                                <button class="font-semibold underline underline-offset-4 {{ $document['active'] ? 'text-amber-700' : 'text-emerald-700' }}" type="submit">{{ $document['active'] ? 'Tạm ngừng' : 'Bật lại' }}</button>
+                            </form>
+                            <form method="POST" action="{{ route('manager.knowledge.destroy', $document['id']) }}" onsubmit="return confirm('Xóa hẳn nội dung này khỏi chatbot?')">
+                                @csrf @method('DELETE')
+                                <button class="font-semibold text-red-700 underline underline-offset-4" type="submit">Xóa</button>
+                            </form>
+                        </div>
+                    @endunless
                 </article>
             @empty
                 @unless ($serviceError)

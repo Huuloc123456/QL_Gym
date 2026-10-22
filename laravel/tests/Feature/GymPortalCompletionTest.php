@@ -31,6 +31,43 @@ class GymPortalCompletionTest extends TestCase
         return ['name' => 'Phòng gym kiểm thử', 'address' => '10 Đường A', 'phone' => '0900001234', 'hours' => '06:00–22:00', 'bank_name' => 'Ngân hàng kiểm thử', 'bank_account' => '123456789', 'bank_holder' => 'CHU TAI KHOAN', 'payment_hours' => 24, 'reminder_days' => 3, 'shipping_fee' => 30000, 'email_enabled' => 0];
     }
 
+    public function test_invoice_does_not_render_a_qr_when_bank_vietqr_is_not_configured(): void
+    {
+        $customer = User::factory()->create();
+        $invoice = $this->order($customer, ['payment_method' => 'bank_transfer']);
+        DB::table('gym_settings')->where('id', 1)->update([
+            'bank_code' => null,
+            'bank_account' => null,
+            'bank_account_name' => null,
+        ]);
+
+        $this->actingAs($customer)
+            ->get(route('gym.invoices.show', $invoice))
+            ->assertOk()
+            ->assertDontSee('Mã QR DEMO')
+            ->assertDontSee('data-demo-qr', false)
+            ->assertDontSee('img.vietqr.io/image/', false);
+    }
+
+    public function test_bank_transfer_invoice_uses_real_vietqr_when_bank_details_are_configured(): void
+    {
+        $customer = User::factory()->create();
+        $invoice = $this->order($customer, ['payment_method' => 'bank_transfer']);
+        DB::table('gym_settings')->where('id', 1)->update([
+            'bank_code' => 'vietcombank',
+            'bank_account' => '0123456789',
+            'bank_account_name' => 'THE GYM',
+        ]);
+
+        $this->actingAs($customer)
+            ->get(route('gym.invoices.show', $invoice))
+            ->assertOk()
+            ->assertSee('https://img.vietqr.io/image/vietcombank-0123456789-compact2.png', false)
+            ->assertSee('amount=100000', false)
+            ->assertSee('addInfo=GYM%20HD'.$invoice, false)
+            ->assertDontSee('Mã QR DEMO');
+    }
+
     public function test_unpaid_order_expires_once_and_releases_reservation_without_changing_physical_stock(): void
     {
         $this->travelTo('2027-01-10 08:00');
@@ -235,7 +272,7 @@ class GymPortalCompletionTest extends TestCase
         $this->get(route('manager.reports.index', ['from' => '2027-01-11', 'to' => '2027-01-11']))->assertViewHas('revenue', 0);
     }
 
-    public function test_calendar_week_and_month_keep_other_customer_pt_sessions_private(): void
+    public function test_calendar_hides_legacy_pt_sessions_for_every_role(): void
     {
         $this->travelTo('2027-01-10 08:00');
         $customer = User::factory()->create();
@@ -244,7 +281,7 @@ class GymPortalCompletionTest extends TestCase
         DB::table('DANGKYPT')->insert(['MADKPT' => 9001, 'MAKH' => $other->sql_customer_id, 'MANV' => $trainer->sql_employee_id, 'SOBUOI' => 1, 'GIAMOIBUOI' => 100000, 'NGAYDANGKY' => now(), 'TRANGTHAI' => 'Còn hiệu lực']);
         DB::table('LICHTAPPT')->insert(['MALICHPT' => 9001, 'MADKPT' => 9001, 'NGAYTAP' => '2027-01-11', 'GIOBATDAU' => '2027-01-11 09:00:00', 'GIOKETTHUC' => '2027-01-11 10:00:00', 'TRANGTHAI' => 'Chưa tập']);
         $this->actingAs($customer)->get(route('gym.calendar', ['date' => '2027-01-11', 'view' => 'week']))->assertOk()->assertDontSee('Khách riêng bí mật')->assertViewHas('calendar', fn ($calendar) => count($calendar['days']) === 7 && $calendar['events']->isEmpty());
-        $this->actingAs($other)->get(route('gym.calendar', ['date' => '2027-01-11', 'view' => 'month']))->assertOk()->assertViewHas('calendar', fn ($calendar) => count($calendar['days']) === 35 && $calendar['events']->has('2027-01-11'));
+        $this->actingAs($other)->get(route('gym.calendar', ['date' => '2027-01-11', 'view' => 'month']))->assertOk()->assertDontSee('PT lưu lịch sử')->assertViewHas('calendar', fn ($calendar) => count($calendar['days']) === 35 && $calendar['events']->isEmpty());
         $this->get(route('gym.calendar', ['date' => 'invalid']))->assertSessionHasErrors('date');
     }
 

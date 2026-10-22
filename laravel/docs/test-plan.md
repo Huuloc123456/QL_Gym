@@ -134,6 +134,7 @@ The latest full automated run includes password-recovery tests; one environment-
 
 ## Product gaps and scope boundaries
 
+- PT đã được gỡ khỏi trang khách, giỏ hàng, thanh toán, lịch, nhắc lịch, cấu hình và báo cáo hiện hành. Các bảng và chứng từ PT cũ vẫn được giữ để tra cứu; hóa đơn cũ có dịch vụ đã ngừng không thể nhận/chốt thanh toán mới và cần quản lý đối chiếu.
 - Trial requests can be reviewed and marked contacted by employees/managers. Call outcomes and staff assignment are not tracked beyond the person who marks contact.
 - Managers can create, edit, activate, and deactivate packages; package records are retained when they have order history.
 - Password recovery uses a single-use email reset link; this local environment currently uses the `log` mailer, so real mailbox delivery requires SMTP settings.
@@ -252,3 +253,15 @@ These findings describe the build as tested on 21 October 2026. Invoice detail/c
 - Automated VNPay tests generate signed IPN requests locally, including duplicate, invalid-signature, wrong-amount, cancellation-review, membership, invoice, and stock-deduction cases. No transaction was sent to the external VNPay sandbox.
 - The local `.env` has empty `VNPAY_TMN_CODE` and `VNPAY_HASH_SECRET`, and the local site is not exposed at a public HTTPS address. Live sandbox checkout/IPN delivery therefore remains to be configured and verified. Public endpoint setup, real bank authorization, and refunds are not claimed.
 - Manual visual checks at 360px/768px/1440px, a full accessibility audit, backup restore, and a live RAG provider conversation were not repeated in this feature run; see the earlier dated acceptance entries for prior RAG checks.
+
+### Full role-based browser retest — 22 October 2026
+
+- Logged in through the ChatGPT in-app browser as the seeded manager and employee, then registered and signed in as a new QA member. The QA member remains in the local application database for follow-up testing; no test password is recorded in this repository.
+- **Manager:** opened the dashboard, customer management, reports, package and employee management, product catalog, banners, gym settings, and chatbot knowledge screens. An employee request to open `/quan-ly` returned **403 Forbidden**.
+- **Employee:** opened the operations dashboard, product inventory, unified invoice history, check-in, and trial-request screens. The product table showed reserved quantity separately from physical stock.
+- **Member — package:** registered a one-month package, opened its invoice, and verified the dynamic VietQR amount and invoice-specific transfer reference. The member submitted a cancellation request; an employee canceled unpaid invoice `#188`.
+- **Member — store:** ordered one product and opened its invoice/QR. While pending, inventory showed 1 unit held and 9 available from stock 10. After the member requested cancellation, an employee canceled unpaid invoice `#189`; inventory returned to 0 held and 10 available. No money was transferred or recorded.
+- **Chatbot:** asked “Bạn có những sản phẩm gì?” and received a catalog answer with product images and detail links. Enter submitted the next question, and an unrelated coding request received an out-of-scope refusal.
+- **Automated regression:** `php artisan test --compact` — **198 passed, 12 failed, 1 error, 1 skipped; 1,406 assertions** across 212 tests. The focused RAG/product and staff-membership subset reproduced failures around the knowledge-list content/redirect expectation, the product-catalog request/fixture, and several staff-order redirect expectations. These failures are unresolved and the suite is not green. The skipped case needs a separate MySQL account-provisioning server on port 3318.
+- **Not verified end-to-end:** a real VNPay sandbox payment/IPN (local `.env` has no VNPay keys and the site has no public HTTPS callback); check-in with an active, paid membership; standardized 360px/768px/1440px review; and a complete accessibility audit. Earlier RAG live acceptance is recorded above, but that was not repeated in this run.
+- **Local QA data:** invoices `#188` and `#189` remain as canceled test records, and the new QA member account remains available. Neither invoice was paid; inventory reservations were released.

@@ -16,7 +16,7 @@ class GlobalChromeTest extends TestCase
             ->assertOk()
             ->assertSee('family=Be+Vietnam+Pro', false)
             ->assertSee('as="font"', false)
-            ->assertSee('data-carousel-pause', false)
+            ->assertDontSee('data-carousel-pause', false)
             ->assertSee('data-carousel-go', false)
             ->assertDontSee('data-carousel-prev', false)
             ->assertDontSee('data-carousel-next', false);
@@ -37,6 +37,25 @@ class GlobalChromeTest extends TestCase
             ->assertSee(route('manager.packages.index'), false)
             ->assertSee('aria-current="page"', false)
             ->assertSee('>Quản lý gói tập</a>', false);
+    }
+
+    public function test_all_roles_use_a_consistent_account_menu_with_password_and_logout_actions(): void
+    {
+        $users = [
+            User::factory()->create(),
+            User::factory()->employee()->create(),
+            User::factory()->manager()->create(),
+        ];
+
+        foreach ($users as $user) {
+            $this->actingAs($user)
+                ->get(route('home'))
+                ->assertOk()
+                ->assertSee('data-account-menu', false)
+                ->assertSee('data-account-trigger', false)
+                ->assertSee('Đổi mật khẩu')
+                ->assertSee('Đăng xuất');
+        }
     }
 
     public function test_registration_validation_is_attached_to_the_invalid_field(): void

@@ -66,6 +66,26 @@ class GymCommerceTest extends TestCase
             ->assertSee(route('gym.products.show', $featuredProducts->first()->MASP), false);
     }
 
+    public function test_product_catalogue_paginates_in_complete_rows_of_three_cards(): void
+    {
+        foreach (range(1, 16) as $productId) {
+            DB::table('SANPHAM')->insert([
+                'MASP' => 9100 + $productId,
+                'TENSP' => 'Sản phẩm phân trang '.$productId,
+                'MALOAISP' => 3,
+                'DONGIA' => 100000,
+                'SOLUONGTON' => 10,
+            ]);
+        }
+
+        $firstPage = $this->get(route('gym.products.index'))->assertOk()->viewData('products');
+        $secondPage = $this->get(route('gym.products.index', ['page' => 2]))->assertOk()->viewData('products');
+
+        $this->assertSame(15, $firstPage->count());
+        $this->assertSame(15, $firstPage->perPage());
+        $this->assertSame(15, $secondPage->count());
+    }
+
     public function test_double_payment_submission_and_double_confirmation_do_not_duplicate_receipts_or_deduct_stock_twice(): void
     {
         $this->product();
@@ -98,6 +118,34 @@ class GymCommerceTest extends TestCase
         $this->assertDatabaseHas('HOADON', ['MAHD' => $invoice, 'TRANGTHAI' => 'Chưa thanh toán']);
         $this->assertDatabaseHas('SANPHAM', ['MASP' => 9001, 'SOLUONGTON' => 5]);
         $this->assertSame(500, (int) DB::table('gym_receipts')->where('invoice_id', $invoice)->sum('amount'));
+    }
+
+    public function test_legacy_pt_invoice_cannot_create_a_new_pt_contract(): void
+    {
+        $this->product();
+        $customer = User::factory()->create();
+        $staff = User::factory()->employee()->create();
+        $invoice = $this->order($customer);
+        $this->pay($staff, $invoice);
+        DB::table('gym_invoice_lines')->where('invoice_id', $invoice)->update([
+            'kind' => 'pt',
+            'item_id' => $staff->sql_employee_id,
+            'name' => 'Gói PT cũ',
+        ]);
+
+        $invoicePage = $this->actingAs($staff)->get(route('gym.invoices.show', $invoice))
+            ->assertOk()
+            ->assertSee('dịch vụ cũ đã ngừng hỗ trợ')
+            ->assertDontSee('Ghi nhận khoản thu')
+            ->assertDontSee('Xác nhận đã thu đủ tiền');
+        $this->assertSame(1, substr_count($invoicePage->getContent(), 'Hóa đơn này có dịch vụ cũ đã ngừng hỗ trợ.'));
+        $this->actingAs($customer)->post(route('gym.invoices.vnpay', $invoice))->assertSessionHasErrors('line');
+        $this->actingAs($staff)->post(route('gym.invoices.confirm', $invoice))->assertSessionHasErrors('line');
+
+        $this->assertDatabaseHas('HOADON', ['MAHD' => $invoice, 'TRANGTHAI' => 'Chưa thanh toán']);
+        $this->assertDatabaseMissing('DANGKYPT', ['MAKH' => $customer->sql_customer_id]);
+        $this->assertDatabaseMissing('CHITIETHOADON', ['MAHD' => $invoice]);
+        $this->assertDatabaseHas('gym_receipts', ['invoice_id' => $invoice, 'amount' => 2000]);
     }
 
     public function test_reservations_prevent_overselling_and_cancellation_releases_only_reserved_stock(): void

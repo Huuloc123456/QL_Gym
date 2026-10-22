@@ -86,21 +86,35 @@ class MembershipOrderService
 
     public function confirm(MembershipOrder $order, User $staff, string $startsOn, ?int $legacyDurationMonths = null): Membership
     {
+        return $this->confirmWithActor($order, $staff, $startsOn, $legacyDurationMonths)['membership'];
+    }
+
+    /**
+     * @return array{membership: Membership, already_confirmed: bool}
+     */
+    public function confirmForStaff(MembershipOrder $order, User $staff, string $startsOn, ?int $legacyDurationMonths = null): array
+    {
         return $this->confirmWithActor($order, $staff, $startsOn, $legacyDurationMonths);
     }
 
     public function confirmOnline(MembershipOrder $order, string $startsOn): Membership
     {
-        return $this->confirmWithActor($order, null, $startsOn);
+        return $this->confirmWithActor($order, null, $startsOn)['membership'];
     }
 
-    private function confirmWithActor(MembershipOrder $order, ?User $staff, string $startsOn, ?int $legacyDurationMonths = null): Membership
+    /**
+     * @return array{membership: Membership, already_confirmed: bool}
+     */
+    private function confirmWithActor(MembershipOrder $order, ?User $staff, string $startsOn, ?int $legacyDurationMonths = null): array
     {
-        return $this->sql->transaction(function () use ($order, $staff, $startsOn, $legacyDurationMonths): Membership {
+        return $this->sql->transaction(function () use ($order, $staff, $startsOn, $legacyDurationMonths): array {
             $lockedOrder = $this->orders->lockForUpdate($order->id);
 
             if ($lockedOrder->status === MembershipOrder::STATUS_PAID) {
-                return $lockedOrder->membership()->firstOrFail();
+                return [
+                    'membership' => $lockedOrder->membership()->firstOrFail(),
+                    'already_confirmed' => true,
+                ];
             }
 
             if ($lockedOrder->status !== MembershipOrder::STATUS_PENDING) {
@@ -148,17 +162,20 @@ class MembershipOrderService
                 $this->identities->recordMembership($membership, $lockedOrder);
             }
 
-            return $membership;
+            return [
+                'membership' => $membership,
+                'already_confirmed' => false,
+            ];
         });
     }
 
-    public function cancel(MembershipOrder $order): void
+    public function cancel(MembershipOrder $order): bool
     {
-        $this->sql->transaction(function () use ($order): void {
+        return $this->sql->transaction(function () use ($order): bool {
             $lockedOrder = $this->orders->lockForUpdate($order->id);
 
             if ($lockedOrder->status === MembershipOrder::STATUS_CANCELLED) {
-                return;
+                return false;
             }
 
             if ($lockedOrder->status !== MembershipOrder::STATUS_PENDING || $lockedOrder->receivedAmount() > 0) {
@@ -166,6 +183,8 @@ class MembershipOrderService
             }
 
             $lockedOrder->update(['status' => MembershipOrder::STATUS_CANCELLED]);
+
+            return true;
         });
     }
 

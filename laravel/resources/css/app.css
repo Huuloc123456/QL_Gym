@@ -170,13 +170,6 @@
         @apply ml-auto rounded-tr-sm bg-gym-blue text-white;
     }
 
-    .gym-chat-sources {
-        @apply mt-2 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2 text-[0.65rem] text-slate-500;
-    }
-
-    .gym-chat-source {
-        @apply rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600;
-    }
 }
 
 @media (prefers-reduced-motion: reduce) {
