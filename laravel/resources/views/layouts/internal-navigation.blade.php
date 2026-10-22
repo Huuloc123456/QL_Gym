@@ -15,6 +15,7 @@
         <a class="gym-internal-link mt-3" href="{{ route('gym.messages') }}">Thông báo @if($unreadMessages)<span class="ml-2 rounded-full bg-sky-500 px-2 py-1 text-xs">{{ $unreadMessages }}</span>@endif</a><a class="gym-internal-link" href="{{ route('gym.security') }}">Bảo mật tài khoản</a><div class="mt-5" data-nav-group="operations">
             <p class="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Vận hành</p>
             <a class="gym-internal-link" href="{{ route('staff.dashboard') }}" @if (request()->routeIs('staff.dashboard')) aria-current="page" @endif>Tổng quan vận hành</a>
+            <a class="gym-internal-link" href="{{ route('staff.products.index') }}" @if (request()->routeIs('staff.products.*')) aria-current="page" @endif>Quản lý sản phẩm</a>
             @can('viewAny', \App\Models\TrialRequest::class)
                 <a class="gym-internal-link" href="{{ route('staff.trial-requests.index') }}" @if (request()->routeIs('staff.trial-requests.*')) aria-current="page" @endif>Đăng ký tập thử</a>
             @endcan

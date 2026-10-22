@@ -7,6 +7,7 @@ use App\Models\MembershipOrder;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -97,6 +98,35 @@ class StaffOrderBrowseTest extends TestCase
             ->assertOk()
             ->assertSee('Đơn #'.$inside->id)
             ->assertDontSee('Đơn #'.$outside->id);
+    }
+
+    #[Test]
+    public function staff_order_history_includes_confirmed_vnpay_receipts_in_totals_and_transaction_history(): void
+    {
+        $staff = User::factory()->employee()->create();
+        $customer = User::factory()->create(['name' => 'VNPay History Customer']);
+        $package = GymPackage::factory()->create();
+        $order = MembershipOrder::factory()->paid()->for($customer)->for($package, 'gymPackage')->create(['amount' => 399000]);
+        DB::table('gym_online_payments')->insert([
+            'target_type' => 'membership_order',
+            'target_id' => $order->id,
+            'user_id' => $customer->id,
+            'txn_ref' => 'STAFFHISTORYVNPAY1',
+            'amount' => 399000,
+            'status' => 'succeeded',
+            'provider_transaction_no' => 'VN-STAFF-TRANS-1',
+            'expires_at' => now()->addMinutes(15),
+            'paid_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($staff)
+            ->get(route('staff.orders.index', ['status' => 'history']))
+            ->assertOk()
+            ->assertSee('399.000 VNĐ')
+            ->assertSee('VNPay')
+            ->assertSee('VN-STAFF-TRANS-1');
     }
 
     #[Test]

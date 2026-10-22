@@ -9,6 +9,7 @@ use App\Repositories\MembershipOrderRepository;
 use App\Services\MembershipOrderService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class MembershipOrderController extends Controller
@@ -31,6 +32,7 @@ class MembershipOrderController extends Controller
         return view('orders.show', [
             'order' => $order,
             'gymSettings' => GymSetting::query()->find(1),
+            'onlinePayments' => DB::table('gym_online_payments')->where('target_type', 'membership_order')->where('target_id', $order->id)->where('user_id', $request->user()->id)->orderByDesc('id')->get(),
         ]);
     }
 
@@ -39,16 +41,20 @@ class MembershipOrderController extends Controller
         $validated = $request->validate([
             'gym_package_id' => ['required', 'integer', 'exists:gym_packages,id'],
             'start_date' => ['required', 'date', 'after_or_equal:today'],
-            'payment_method' => ['required', 'in:cash,bank_transfer'],
+            'payment_method' => ['required', 'in:cash,bank_transfer,vnpay'],
         ]);
 
         $package = $packages->findActiveOrFail((int) $validated['gym_package_id']);
-        $orders->create(
+        $order = $orders->create(
             $request->user(),
             $package,
             $validated['start_date'],
             $validated['payment_method'],
         );
+
+        if ($order->payment_method === 'vnpay') {
+            return redirect()->route('my.orders.show', $order)->with('success', 'Đơn đăng ký đã được tạo. Nhấn thanh toán VNPay để tiếp tục.');
+        }
 
         return redirect()->route('my.orders.index')->with('success', 'Đơn đăng ký đã được tạo. Nhân viên sẽ xác nhận khi nhận đủ tiền.');
     }

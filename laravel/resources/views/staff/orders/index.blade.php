@@ -40,7 +40,7 @@
 
         <div class="grid gap-5">
             @forelse ($orders as $order)
-                @php($received = (int) ($order->payments_sum_amount ?? 0))
+                @php($received = (int) ($order->payments_sum_amount ?? 0) + (int) ($order->online_received ?? 0))
                 @php($remaining = max(0, $order->amount - $received))
                 <article class="gym-card p-5 sm:p-7">
                     <div class="flex flex-wrap items-start justify-between gap-3">
@@ -60,12 +60,15 @@
                         <div><dt class="text-sm text-slate-500">Còn phải thu</dt><dd class="mt-1 font-bold tabular-nums">{{ number_format($remaining, 0, ',', '.') }} VNĐ</dd></div>
                     </dl>
 
-                    @if ($order->payments->isNotEmpty())
+                    @if ($order->payments->isNotEmpty() || $order->onlinePayments->isNotEmpty())
                         <div class="mt-4">
                             <h3 class="font-bold">Lịch sử nhận tiền</h3>
                             <ul class="mt-2 space-y-1 text-sm text-slate-600">
                                 @foreach ($order->payments as $payment)
                                     <li>{{ $payment->received_at->format('d/m/Y H:i') }} · {{ number_format($payment->amount, 0, ',', '.') }} VNĐ · {{ $payment->payment_method === 'cash' ? 'Tiền mặt' : 'Chuyển khoản' }} · {{ $payment->receiver->name }} @if ($payment->reference) · {{ $payment->reference }} @endif</li>
+                                @endforeach
+                                @foreach ($order->onlinePayments as $payment)
+                                    <li>{{ $payment->paid_at ? \Illuminate\Support\Carbon::parse($payment->paid_at)->format('d/m/Y H:i') : \Illuminate\Support\Carbon::parse($payment->created_at)->format('d/m/Y H:i') }} · {{ number_format($payment->amount, 0, ',', '.') }} VNĐ · VNPay · {{ ['pending' => 'Đang chờ cổng thanh toán', 'succeeded' => 'Đã xác nhận', 'failed' => 'Không thành công', 'review' => 'Chờ nhân viên đối soát'][$payment->status] ?? $payment->status }} · Mã {{ $payment->provider_transaction_no ?: $payment->txn_ref }}@if ($payment->review_reason) · Lý do: {{ $payment->review_reason }}@endif</li>
                                 @endforeach
                             </ul>
                         </div>

@@ -24,7 +24,9 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StaffCheckInController;
 use App\Http\Controllers\StaffDashboardController;
 use App\Http\Controllers\StaffOrderController;
+use App\Http\Controllers\StaffProductController;
 use App\Http\Controllers\TrialRequestController;
+use App\Http\Controllers\VnPayController;
 use App\Models\CheckIn;
 use App\Models\GymPackage;
 use App\Models\MembershipOrder;
@@ -82,8 +84,22 @@ Route::post('/my/don-hang', [MembershipOrderController::class, 'store'])
     ->middleware(['auth', 'role:customer'])
     ->name('orders.store');
 
+Route::post('/my/don-hang/{order}/thanh-toan/vnpay', [VnPayController::class, 'membershipOrder'])
+    ->middleware(['auth', 'role:customer', 'can:view,order'])
+    ->name('my.orders.vnpay');
+
+Route::get('/thanh-toan/vnpay/ipn', [VnPayController::class, 'ipn'])->name('vnpay.ipn');
+Route::get('/thanh-toan/vnpay/ket-qua', [VnPayController::class, 'returned'])->name('vnpay.return');
+
 Route::middleware(['auth', 'role:employee,manager'])->prefix('staff')->name('staff.')->group(function (): void {
     Route::get('/', StaffDashboardController::class)->name('dashboard');
+
+    Route::get('/san-pham', [StaffProductController::class, 'index'])->name('products.index');
+    Route::get('/san-pham/them', [StaffProductController::class, 'create'])->name('products.create');
+    Route::get('/san-pham/{product}/sua', [StaffProductController::class, 'edit'])->whereNumber('product')->name('products.edit');
+    Route::post('/san-pham', [StaffProductController::class, 'store'])->name('products.store');
+    Route::post('/san-pham/{product}', [StaffProductController::class, 'update'])->whereNumber('product')->name('products.update');
+    Route::post('/san-pham/{product}/anh/{image?}', [StaffProductController::class, 'image'])->whereNumber('product')->whereNumber('image')->name('products.image');
 
     Route::get('/yeu-cau-tap-thu', [TrialRequestController::class, 'index'])
         ->middleware('can:viewAny,'.TrialRequest::class)
@@ -219,6 +235,7 @@ Route::middleware(['auth', 'role:customer'])->group(function (): void {
     Route::post('/gio-hang', [GymStoreController::class, 'add'])->name('gym.cart.add');
     Route::post('/gio-hang/{line}', [GymStoreController::class, 'change'])->whereNumber('line')->name('gym.cart.change');
     Route::post('/dat-hang', [GymStoreController::class, 'checkout'])->name('gym.checkout');
+    Route::post('/hoa-don/{invoice}/thanh-toan/vnpay', [VnPayController::class, 'invoice'])->whereNumber('invoice')->name('gym.invoices.vnpay');
     Route::get('/my/dia-chi', [GymStoreController::class, 'addresses'])->name('gym.addresses');
     Route::post('/my/dia-chi/{address?}', [GymStoreController::class, 'addressSave'])->whereNumber('address')->name('gym.addresses.save');
     Route::delete('/my/dia-chi/{address}', [GymStoreController::class, 'addressDelete'])->whereNumber('address')->name('gym.addresses.delete');

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class MembershipOrderRepository
 {
@@ -51,6 +52,8 @@ class MembershipOrderRepository
             ->with(['user', 'gymPackage', 'payments.receiver', 'membership'])
             ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('gym_fulfillments')->whereColumn('invoice_id', 'membership_orders.sql_invoice_id'))
             ->withSum('payments', 'amount')
+            ->selectSub(DB::table('gym_online_payments')->selectRaw('COALESCE(SUM(amount), 0)')
+                ->whereColumn('target_id', 'membership_orders.id')->where('target_type', 'membership_order')->where('status', 'succeeded'), 'online_received')
             ->latest();
     }
 
@@ -94,7 +97,20 @@ class MembershipOrderRepository
             $query->whereDate('created_at', '<=', $filters['to_date']);
         }
 
-        return $query->orderByDesc('id')->paginate(20)->withQueryString();
+        $orders = $query->orderByDesc('id')->paginate(20)->withQueryString();
+        $onlinePayments = DB::table('gym_online_payments')
+            ->where('target_type', 'membership_order')
+            ->whereIn('target_id', $orders->getCollection()->modelKeys())
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get()
+            ->groupBy('target_id');
+
+        $orders->getCollection()->each(function (MembershipOrder $order) use ($onlinePayments): void {
+            $order->setRelation('onlinePayments', $onlinePayments->get($order->id, collect()));
+        });
+
+        return $orders;
     }
 
     /** @return Collection<int, MembershipOrder> */

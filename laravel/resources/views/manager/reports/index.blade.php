@@ -48,6 +48,7 @@
                 <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Theo phương thức</p>
                 <p class="mt-3 text-sm font-semibold">Tiền mặt <span class="float-right tabular-nums">{{ number_format($report['receipts_by_method']['cash'], 0, ',', '.') }} VNĐ</span></p>
                 <p class="mt-3 text-sm font-semibold">Chuyển khoản <span class="float-right tabular-nums">{{ number_format($report['receipts_by_method']['bank_transfer'], 0, ',', '.') }} VNĐ</span></p>
+                <p class="mt-3 text-sm font-semibold">VNPay <span class="float-right tabular-nums">{{ number_format($report['receipts_by_method']['vnpay'], 0, ',', '.') }} VNĐ</span></p>
             </article>
         </div>
 

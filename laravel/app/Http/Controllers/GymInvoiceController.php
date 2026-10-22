@@ -46,7 +46,7 @@ class GymInvoiceController extends Controller
         $sets = $this->sql->call('sp_LayChiTietHoaDon', [$invoice]);
         $lines = DB::table('gym_invoice_lines')->where('invoice_id', $invoice)->get();
 
-        return view('gym.invoice', ['invoice' => $bill, 'lines' => $lines, 'settings' => app(GymPortalService::class)->settings(), 'needsReconciliation' => app(GymPortalService::class)->unreconciledInvoices()->where('h.MAHD', $invoice)->exists(), 'originalLines' => $sets[1] ?? [], 'fulfillment' => DB::table('gym_fulfillments')->where('invoice_id', $invoice)->first(), 'receipts' => DB::table('gym_receipts as r')->join('users as u', 'u.id', '=', 'r.user_id')->where('invoice_id', $invoice)->select('r.*', 'u.name')->orderBy('r.id')->get(), 'received' => $this->shop->received($invoice)]);
+        return view('gym.invoice', ['invoice' => $bill, 'lines' => $lines, 'settings' => app(GymPortalService::class)->settings(), 'needsReconciliation' => app(GymPortalService::class)->unreconciledInvoices()->where('h.MAHD', $invoice)->exists(), 'originalLines' => $sets[1] ?? [], 'fulfillment' => DB::table('gym_fulfillments')->where('invoice_id', $invoice)->first(), 'receipts' => DB::table('gym_receipts as r')->join('users as u', 'u.id', '=', 'r.user_id')->where('invoice_id', $invoice)->select('r.*', 'u.name')->orderBy('r.id')->get(), 'onlinePayments' => DB::table('gym_online_payments')->where('target_type', 'invoice')->where('target_id', $invoice)->where('user_id', $request->user()->id)->orderByDesc('id')->get(), 'received' => $this->shop->received($invoice)]);
     }
 
     public function receive(Request $request, int $invoice): RedirectResponse

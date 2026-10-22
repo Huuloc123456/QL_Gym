@@ -10,7 +10,14 @@
             <p class="mt-2 text-slate-600">Mở nghiệp vụ bạn được giao để tiếp tục xử lý.</p>
         </header>
 
-        <div class="grid gap-5 md:grid-cols-3">
+        <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            <a class="gym-card group block transition hover:-translate-y-0.5 hover:border-gym-blue hover:shadow-md" href="{{ route('staff.products.index') }}">
+                <p class="text-sm font-bold uppercase tracking-wide text-gym-blue">Hàng hóa</p>
+                <h2 class="mt-3 text-xl font-extrabold text-gym-ink">Quản lý sản phẩm</h2>
+                <p class="mt-2 text-sm leading-6 text-slate-600">Cập nhật thông tin, ảnh và số lượng tồn thực tế.</p>
+                <span class="mt-5 inline-block font-semibold text-gym-blue underline underline-offset-4">Mở sản phẩm →</span>
+            </a>
+
             @can('viewAny', \App\Models\TrialRequest::class)
                 <a class="gym-card group block transition hover:-translate-y-0.5 hover:border-gym-blue hover:shadow-md" href="{{ route('staff.trial-requests.index') }}">
                     <p class="text-sm font-bold uppercase tracking-wide text-gym-blue">Tiếp nhận khách hàng</p>

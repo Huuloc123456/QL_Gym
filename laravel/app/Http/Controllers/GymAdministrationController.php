@@ -39,11 +39,19 @@ class GymAdministrationController extends Controller
         $name = $names[$table];
         $query = DB::table($table)->select(array_keys($this->fields($resource)));
         $query->addSelect($key)->when($request->query('q'), fn ($q, $search) => $q->where($name, 'like', '%'.$search.'%'));
+        if ($resource === 'products' && $request->routeIs('staff.products.*')) {
+            $query->selectSub(DB::table('gym_invoice_lines as reserved_lines')
+                ->join('HOADON as reserved_invoices', 'reserved_invoices.MAHD', '=', 'reserved_lines.invoice_id')
+                ->selectRaw('COALESCE(SUM(reserved_lines.quantity), 0)')
+                ->whereColumn('reserved_lines.item_id', 'SANPHAM.MASP')
+                ->where('reserved_lines.kind', 'product')
+                ->where('reserved_invoices.TRANGTHAI', 'Chưa thanh toán'), 'reserved_quantity');
+        }
 
-        return view('gym.admin.index', ['resource' => $resource, 'title' => $title, 'key' => $key, 'fields' => $this->fields($resource), 'rows' => $query->orderByDesc($key)->paginate(25)->withQueryString()]);
+        return view('gym.admin.index', ['resource' => $resource, 'title' => $title, 'key' => $key, 'fields' => $this->fields($resource), 'rows' => $query->orderByDesc($key)->paginate(25)->withQueryString(), 'routePrefix' => $request->routeIs('staff.products.*') ? 'staff.products' : 'gym.admin', 'staffMode' => $request->routeIs('staff.products.*')]);
     }
 
-    public function edit(string $resource, ?int $record = null): View
+    public function edit(Request $request, string $resource, ?int $record = null): View
     {
         [$table, $key, $title] = $this->definition($resource);
         $row = $record ? DB::table($table)->where($key, $record)->first() : null;
@@ -57,7 +65,9 @@ class GymAdministrationController extends Controller
         }
         $account = $record && in_array($resource, ['customers', 'employees'], true) ? User::query()->where($resource === 'customers' ? 'sql_customer_id' : 'sql_employee_id', $record)->first() : null;
 
-        return view('gym.admin.edit', ['resource' => $resource, 'title' => $title, 'key' => $key, 'row' => $row, 'fields' => $fields, 'options' => $options, 'account' => $account, 'specialties' => $resource === 'employees' && $record ? DB::table('NHANVIEN_CHUYENMON')->where('MANV', $record)->pluck('MACM')->map(fn ($v) => (int) $v)->all() : [], 'rate' => $resource === 'employees' && $record ? DB::table('gym_pt_rates')->where('employee_id', $record)->value('price') : null, 'images' => $resource === 'products' && $record ? DB::table('HINHANH')->where('MASP', $record)->orderByDesc('ISMAIN')->orderBy('MAHINH')->get() : []]);
+        $staffMode = $request->routeIs('staff.products.*');
+
+        return view('gym.admin.edit', ['resource' => $resource, 'title' => $title, 'key' => $key, 'row' => $row, 'fields' => $fields, 'options' => $options, 'account' => $account, 'specialties' => $resource === 'employees' && $record ? DB::table('NHANVIEN_CHUYENMON')->where('MANV', $record)->pluck('MACM')->map(fn ($v) => (int) $v)->all() : [], 'rate' => $resource === 'employees' && $record ? DB::table('gym_pt_rates')->where('employee_id', $record)->value('price') : null, 'images' => $resource === 'products' && $record ? DB::table('HINHANH')->where('MASP', $record)->orderByDesc('ISMAIN')->orderBy('MAHINH')->get() : [], 'routePrefix' => $staffMode ? 'staff.products' : 'gym.admin', 'staffMode' => $staffMode]);
     }
 
     public function save(Request $request, string $resource, ?int $record = null): RedirectResponse
@@ -182,11 +192,14 @@ class GymAdministrationController extends Controller
             throw $exception;
         }
 
-        return redirect()->route('gym.admin.index', $resource)->with('success', 'Đã lưu dữ liệu.');
+        return $request->routeIs('staff.products.*')
+            ? redirect()->route('staff.products.index')->with('success', 'Đã lưu sản phẩm và cập nhật tồn kho.')
+            : redirect()->route('gym.admin.index', $resource)->with('success', 'Đã lưu dữ liệu.');
     }
 
     public function destroy(string $resource, int $record): RedirectResponse
     {
+        abort_unless(auth()->user()?->role === 'manager', 403);
         [$table, $key] = $this->definition($resource);
         abort_if(in_array($resource, ['customers', 'employees'], true), 403);
         try {

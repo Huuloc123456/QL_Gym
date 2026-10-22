@@ -86,6 +86,16 @@ class MembershipOrderService
 
     public function confirm(MembershipOrder $order, User $staff, string $startsOn, ?int $legacyDurationMonths = null): Membership
     {
+        return $this->confirmWithActor($order, $staff, $startsOn, $legacyDurationMonths);
+    }
+
+    public function confirmOnline(MembershipOrder $order, string $startsOn): Membership
+    {
+        return $this->confirmWithActor($order, null, $startsOn);
+    }
+
+    private function confirmWithActor(MembershipOrder $order, ?User $staff, string $startsOn, ?int $legacyDurationMonths = null): Membership
+    {
         return $this->sql->transaction(function () use ($order, $staff, $startsOn, $legacyDurationMonths): Membership {
             $lockedOrder = $this->orders->lockForUpdate($order->id);
 
@@ -124,7 +134,7 @@ class MembershipOrderService
                 'duration_months' => $durationMonths,
                 'status' => MembershipOrder::STATUS_PAID,
                 'paid_at' => now(config('app.timezone')),
-                'confirmed_by_user_id' => $staff->id,
+                'confirmed_by_user_id' => $staff?->id,
             ]);
 
             $membership = $this->memberships->create([

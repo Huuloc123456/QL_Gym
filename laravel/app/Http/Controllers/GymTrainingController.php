@@ -42,7 +42,7 @@ class GymTrainingController extends Controller
 
     public function orderPt(Request $request, int $employee): RedirectResponse
     {
-        $data = $request->validate(['sessions' => 'required|integer|min:1|max:100', 'payment_method' => 'required|in:cash,bank_transfer', 'token' => 'required|uuid']);
+        $data = $request->validate(['sessions' => 'required|integer|min:1|max:100', 'payment_method' => 'required|in:cash,bank_transfer,vnpay', 'token' => 'required|uuid']);
         $invoice = $this->shop->checkout($request->user(), $data + ['mode' => 'pickup'], ['employee' => $employee, 'sessions' => $data['sessions']]);
 
         return redirect()->route('gym.invoices.show', $invoice)->with('success', 'Đã tạo đơn đăng ký PT.');

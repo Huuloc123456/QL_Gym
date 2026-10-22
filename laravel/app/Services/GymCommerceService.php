@@ -206,6 +206,16 @@ class GymCommerceService
     public function confirm(int $invoice, User $staff, ?string $startDate = null): void
     {
         abort_unless($staff->canManageOrders(), 403);
+        $this->confirmInvoice($invoice, $staff, $startDate);
+    }
+
+    public function confirmOnline(int $invoice): void
+    {
+        $this->confirmInvoice($invoice, null, null);
+    }
+
+    private function confirmInvoice(int $invoice, ?User $staff, ?string $startDate): void
+    {
         $this->sql->transaction(function () use ($invoice, $staff, $startDate): void {
             $bill = $this->invoice($invoice);
             if ($bill->TRANGTHAI === 'Đã thanh toán') {
@@ -315,7 +325,8 @@ class GymCommerceService
 
     public function received(int $id): int
     {
-        return (int) DB::table('gym_receipts')->where('invoice_id', $id)->sum('amount');
+        return (int) DB::table('gym_receipts')->where('invoice_id', $id)->sum('amount')
+            + (int) DB::table('gym_online_payments')->where('target_type', 'invoice')->where('target_id', $id)->where('status', 'succeeded')->sum('amount');
     }
 
     public function assertInvoiceHasDetails(int $id): void
@@ -368,7 +379,7 @@ class GymCommerceService
         }
     }
 
-    private function cacheMembership(object $bill, object $line, int $registration, string $start, CarbonImmutable $expiry, User $staff): void
+    private function cacheMembership(object $bill, object $line, int $registration, string $start, CarbonImmutable $expiry, ?User $staff): void
     {
         $user = User::query()->where('sql_customer_id', $bill->MAKH)->first();
         $package = GymPackage::query()->where('sql_package_id', $line->item_id)->first();
@@ -376,7 +387,7 @@ class GymCommerceService
             return;
         }
         $method = DB::table('gym_fulfillments')->where('invoice_id', $bill->MAHD)->value('payment_method');
-        $order = MembershipOrder::query()->forceCreate(['user_id' => $user->id, 'gym_package_id' => $package->id, 'amount' => $line->unit_price, 'duration_months' => json_decode($line->details, true)['months'], 'start_date' => $start, 'payment_method' => $method, 'status' => 'paid', 'paid_at' => now(), 'confirmed_by_user_id' => $staff->id, 'sql_invoice_id' => $bill->MAHD]);
+        $order = MembershipOrder::query()->forceCreate(['user_id' => $user->id, 'gym_package_id' => $package->id, 'amount' => $line->unit_price, 'duration_months' => json_decode($line->details, true)['months'], 'start_date' => $start, 'payment_method' => $method, 'status' => 'paid', 'paid_at' => now(), 'confirmed_by_user_id' => $staff?->id, 'sql_invoice_id' => $bill->MAHD]);
         Membership::query()->forceCreate(['membership_order_id' => $order->id, 'user_id' => $user->id, 'gym_package_id' => $package->id, 'starts_on' => $start, 'expires_on' => $expiry->toDateString(), 'sql_membership_id' => $registration]);
     }
 

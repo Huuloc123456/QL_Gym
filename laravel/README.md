@@ -1,8 +1,8 @@
 # The Gym — Laravel
 
-Ứng dụng quản lý một phòng tập, viết bằng Laravel, Blade, Tailwind CSS và MySQL. Khách có thể xem/mua gói và dịch vụ; nhân viên tiếp nhận khoản thu, xử lý hóa đơn và check-in; quản lý theo dõi hoạt động, nội dung website, tài khoản nhân viên và tài liệu chatbot.
+Ứng dụng quản lý một phòng tập, viết bằng Laravel, Blade, Tailwind CSS và MySQL. Khách có thể mua gói/sản phẩm, đăng ký PT/lớp và thanh toán tại quầy hoặc VNPay sandbox. Nhân viên quản lý sản phẩm và tồn kho, xử lý hóa đơn, check-in; quản lý theo dõi hoạt động, báo cáo, nội dung website, tài khoản nhân viên và tài liệu chatbot.
 
-README ở thư mục gốc mô tả đầy đủ nghiệp vụ, tài khoản local và quy trình sao lưu. Xem thêm [kế hoạch kiểm thử và các lỗi đã phát hiện](docs/test-plan.md).
+README ở thư mục gốc mô tả đầy đủ nghiệp vụ, tài khoản local, cấu hình VNPay và quy trình sao lưu. Xem thêm [kế hoạch kiểm thử, kết quả mới nhất và giới hạn kiểm tra](docs/test-plan.md).
 
 ## Yêu cầu
 
@@ -34,6 +34,8 @@ Mở `http://127.0.0.1:8000`. Tài khoản quản lý/nhân viên mẫu và các
 
 Chatbot gọi dịch vụ RAG riêng; cấu hình `RAG_API_URL` và `RAG_ADMIN_TOKEN` trong `.env` khi cần chạy dịch vụ đó. Hướng dẫn khởi chạy nằm trong [README gốc](../README.md).
 
+VNPay là tùy chọn; cấu hình `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `VNPAY_RETURN_URL` và IPN công khai qua HTTPS trước khi bật giao dịch sandbox. Thiếu khóa thì trang thanh toán không hiển thị VNPay. IPN đã xác thực mới xác nhận thanh toán; test tự động giả lập callback có chữ ký và không thay cho giao dịch thật với sandbox.
+
 ## Kiểm thử
 
 Test Laravel dùng database MySQL riêng `qly_phonggym_test`, được cấu hình trong `phpunit.xml`. Tạo database này trước khi chạy; không đổi test sang database local có dữ liệu.
@@ -44,4 +46,4 @@ vendor/bin/pint --dirty --format agent
 npm run build
 ```
 
-Kết quả test tự động và kiểm thử thao tác trên trình duyệt được ghi trong [docs/test-plan.md](docs/test-plan.md). Phần kiểm thử trực tiếp mới nhất phát hiện một số sai lệch ở luồng hóa đơn cửa hàng; hiện tài liệu ghi rõ để xử lý ở lượt sửa tiếp theo.
+Kết quả test tự động và kiểm thử thao tác trên trình duyệt được ghi trong [docs/test-plan.md](docs/test-plan.md). Báo cáo hiện cộng các khoản thu hóa đơn tại quầy và VNPay; lịch sử hóa đơn của khách hiển thị số đã thu. Kiểm thử VNPay hiện dùng callback giả lập; việc thanh toán sandbox đầu-cuối cần cấu hình khóa và endpoint HTTPS công khai.

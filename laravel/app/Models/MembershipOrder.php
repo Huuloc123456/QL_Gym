@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\DB;
 
 class MembershipOrder extends Model
 {
@@ -54,6 +55,11 @@ class MembershipOrder extends Model
 
     public function receivedAmount(): int
     {
-        return (int) $this->payments()->sum('amount');
+        return (int) $this->payments()->sum('amount')
+            + (int) DB::table('gym_online_payments')
+                ->where('target_type', 'membership_order')
+                ->where('target_id', $this->id)
+                ->where('status', 'succeeded')
+                ->sum('amount');
     }
 }

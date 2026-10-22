@@ -79,7 +79,7 @@ class GymStoreController extends Controller
 
     public function checkout(Request $request): RedirectResponse
     {
-        $data = $request->validate(['token' => 'required|uuid', 'mode' => 'required|in:pickup,delivery', 'address_id' => 'nullable|integer', 'recipient' => 'required_if:mode,delivery|nullable|string|max:150', 'phone' => 'required_if:mode,delivery|nullable|string|max:20', 'payment_method' => 'required|in:cash,bank_transfer', 'start_date' => 'nullable|date|after_or_equal:today']);
+        $data = $request->validate(['token' => 'required|uuid', 'mode' => 'required|in:pickup,delivery', 'address_id' => 'nullable|integer', 'recipient' => 'required_if:mode,delivery|nullable|string|max:150', 'phone' => 'required_if:mode,delivery|nullable|string|max:20', 'payment_method' => 'required|in:cash,bank_transfer,vnpay', 'start_date' => 'nullable|date|after_or_equal:today']);
         $invoice = $this->shop->checkout($request->user(), $data);
 
         return redirect()->route('gym.invoices.show', $invoice)->with('success', 'Đã đặt đơn. Nhân viên sẽ xác nhận sau khi nhận đủ tiền.');

@@ -130,7 +130,7 @@ npm run build
 php artisan migrate:status --no-interaction
 ```
 
-The latest automated run excludes `PasswordRecoveryTest` per the user's request. Remaining acceptance work includes standardized viewport and accessibility checks and a live RAG chat check with its service running. Password recovery and external mail delivery were outside the latest test request.
+The latest full automated run includes password-recovery tests; one environment-dependent test is skipped because it requires the isolated MySQL account-provisioning server on port 3318. Standardized viewport/accessibility review and live RAG checks remain separate acceptance tasks. Automated password-reset tests do not prove delivery to an external mailbox.
 
 ## Product gaps and scope boundaries
 
@@ -142,7 +142,8 @@ The latest automated run excludes `PasswordRecoveryTest` per the user's request.
 - Managers can edit public contact/intro/payment details and hero banners. Chatbot knowledge has a separate FAQ form, long-guide form, search, single-document actions, and Excel import preview/confirmation. The RAG process remains a separate service configured with `RAG_API_URL` and a shared `RAG_ADMIN_TOKEN`; automated tests mock expensive FAISS rebuilds, so they do not prove a live Groq answer or a real FAISS reindex on the recipient's machine.
 - Staff orders and trial requests support filtering/pagination. Staff check-in history is searchable and paginated without a latest-50 cap; customer order and attendance histories are paginated.
 - Staff check-in looks up a member by identifier or phone, then shows the member and active package for staff to compare before confirming entry.
-- Inventory/product sales, branches, PT, classes, online payment processing, and web-based refunds are outside the one-gym membership scope.
+- Staff product creation/editing, real stock adjustment, product image management, and VNPay checkout for membership orders and invoices are implemented. Managers retain product deletion rights. Automated VNPay tests use signed local callback requests; a real sandbox transaction still requires credentials and a publicly reachable HTTPS IPN endpoint.
+- Branches, automatic refunds, and multi-step account verification remain outside the one-gym project scope.
 
 ## Added capability test cases — 21 October 2026
 
@@ -214,7 +215,7 @@ This run used a temporary Laravel server and the isolated `qly_phonggym_test` da
 - **Issue — manager receipt report:** the selected report showed 399,000 VND paid revenue but 0 VND actual receipts and 0 VND for both cash and bank transfer. The invoice payment is stored in `gym_receipts`, while the report's receipt totals read `order_payments`.
 - **Cleanup/status:** the temporary Laravel server was stopped. Test data is isolated in `qly_phonggym_test`; no production or regular local application data was changed. No code fix was included in this documentation update.
 
-These three invoice-flow issues are not covered by the passing membership-order report/payment tests above. Resolve them by connecting invoice-backed records to the staff order workflow, using the same payment source for customer history and report receipt totals, then repeat this exact browser scenario and verify the invoice is discoverable, its 399,000 VND receipt appears in customer history/report, and the payment method totals match.
+These findings describe the build as tested on 21 October 2026. Invoice detail/customer history now calculate collected amounts from counter receipts and successful online payments, and manager reports aggregate invoice receipts plus successful VNPay receipts. Invoice-backed purchases continue to use `/hoa-don`, separate from the membership-only `/staff/don-hang` screen; employees can search and paginate invoice history in the invoice workflow. The newest automated tests below cover updated reporting and payment paths.
 
 ### Full regression and browser verification — 21 October 2026
 
@@ -225,3 +226,29 @@ These three invoice-flow issues are not covered by the passing membership-order 
 - Browser smoke checks on `http://127.0.0.1:8002`: home and membership dates, package list, store search, class filtering, PT directory, and chatbot. Search for “Protein” returned two items; “Yoga” returned three classes. The chatbot answered from indexed sources.
 - Found and fixed imported role data that assigned sample employee `Admin` to PT. The SQL seed now assigns manager role ID 3, and migration `2026_10_21_210000_correct_admin_employee_role` corrects only that exact imported row when it still has PT role ID 2. A regression test confirms the public PT directory no longer lists `Admin`; the live page now shows only PT employees.
 - Remaining source-data limitations: imported class schedules ended in 2025, and the remaining PT profile lacks specialty and online booking details. Create current schedules and complete PT profiles before public operation.
+
+### Staff product management and VNPay — 22 October 2026
+
+#### Test cases
+
+| ID | Role / setup | Action | Expected result |
+| --- | --- | --- | --- |
+| PROD-01 | Employee with other module permissions disabled | Open `/staff/san-pham`, create a product and edit its details/stock | Product is saved to MySQL; employee can manage products independently of trial, order, or check-in permissions |
+| PROD-02 | Employee / manager | Attempt to delete a product as employee, then manager | Employee receives 403; manager can delete |
+| PROD-03 | Employee; product has stock reserved by a pending order | Upload an allowed product image and try reducing stock below reserved quantity | Image is stored; stock validation rejects a value below reserved quantity and preserves current stock |
+| PAYV-01 | Customer; configured test signing keys | Start membership payment and send a correctly signed successful IPN twice | First valid IPN confirms payment and creates one membership; duplicate callback is idempotent |
+| PAYV-02 | Customer; pending payment | Open return URL without IPN, then send an invalid signature or wrong amount | Return page cannot confirm payment; invalid callback is rejected and order remains pending |
+| PAYV-03 | Customer requests cancellation before a successful callback | Send signed success IPN and inspect employee order screen | Payment is held for manual review with a reason; no membership is activated automatically |
+| PAYV-04 | Customer checks out a product invoice through VNPay | Send the same valid IPN twice | Invoice is paid, reserved stock is deducted once, and one set of invoice details is retained |
+| PAYV-05 | Manager; test receipts across payment methods | Open a report and export XLSX | Confirmed receipts include counter receipts and successful VNPay for memberships/invoices, grouped by method |
+| PAYV-06 | No VNPay keys / both test keys set | Open checkout in each configuration | VNPay is hidden without both keys and offered after both are configured |
+
+#### Latest verification
+
+- `php artisan test --compact` — **181 passed, 1 skipped, 1,251 assertions** (182 tests discovered). The skipped case provisions and locks a MySQL account and requires the isolated test server on port 3318.
+- `vendor/bin/pint --dirty --format agent` — passed. `git diff --check` — passed.
+- Local database connection is MySQL (`qly_phonggym_laravel`); the migrations for online payment history and review reasons report `Ran`. Automated tests use the separate `qly_phonggym_test` database.
+- Browser role checks opened the manager view and employee `/staff/san-pham`, product create/edit and image screens, verified the employee view has no delete action, and opened staff invoice history. These checks did not submit a real product mutation or payment.
+- Automated VNPay tests generate signed IPN requests locally, including duplicate, invalid-signature, wrong-amount, cancellation-review, membership, invoice, and stock-deduction cases. No transaction was sent to the external VNPay sandbox.
+- The local `.env` has empty `VNPAY_TMN_CODE` and `VNPAY_HASH_SECRET`, and the local site is not exposed at a public HTTPS address. Live sandbox checkout/IPN delivery therefore remains to be configured and verified. Public endpoint setup, real bank authorization, and refunds are not claimed.
+- Manual visual checks at 360px/768px/1440px, a full accessibility audit, backup restore, and a live RAG provider conversation were not repeated in this feature run; see the earlier dated acceptance entries for prior RAG checks.
