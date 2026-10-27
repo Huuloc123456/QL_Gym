@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\CheckIn;
+use App\Models\TrialEntitlement;
 use App\Models\User;
 use App\Repositories\CheckInRepository;
 use App\Repositories\MembershipRepository;
@@ -27,6 +28,10 @@ class CheckInService
                 throw ValidationException::withMessages(['member' => 'Không tìm thấy hội viên theo mã hoặc số điện thoại.']);
             }
 
+            if (! $customer->is_active) {
+                throw ValidationException::withMessages(['member' => 'Tài khoản hội viên đã bị khóa.']);
+            }
+
             if ($this->checkIns->hasOpenVisit($customer)) {
                 throw ValidationException::withMessages(['member' => 'Hội viên còn lượt tập chưa ghi giờ ra.']);
             }
@@ -34,12 +39,38 @@ class CheckInService
             $today = now(config('app.timezone'))->toDateString();
             $membership = $this->memberships->activeFor($customer, $today, lockForUpdate: true);
 
-            $sourceActive = DB::table('DANGKYGOITAP')->where('MAKH', $customer->sql_customer_id)->where('TRANGTHAI', 'Còn hiệu lực')->where('NGAYBATDAU', '<=', now())->where('NGAYKETTHUC', '>=', now())->exists();
-            if (! $membership && ! $sourceActive) {
+            $trial = TrialEntitlement::query()->where('user_id', $customer->id)->whereNull('revoked_at')
+                ->where('starts_at', '<=', now())->where('ends_at', '>', now())->lockForUpdate()->first();
+
+            $sourceMembership = DB::table('DANGKYGOITAP')
+                ->select('MADKGT')
+                ->where('MAKH', $customer->sql_customer_id)
+                ->where('TRANGTHAI', 'Còn hiệu lực')
+                ->where('NGAYBATDAU', '<=', now())
+                ->where('NGAYKETTHUC', '>=', now())
+                ->orderByDesc('NGAYKETTHUC')
+                ->lockForUpdate()
+                ->first();
+            if (! $membership && ! $sourceMembership && ! $trial) {
                 throw ValidationException::withMessages(['member' => 'Hội viên chưa có gói đã thanh toán đang hiệu lực.']);
             }
 
-            $visit = $membership ? $this->checkIns->create($customer, $membership) : CheckIn::query()->create(['user_id' => $customer->id, 'membership_id' => null, 'checked_in_at' => now()]);
+            $visit = match (true) {
+                $membership !== null => $this->checkIns->create($customer, $membership),
+                $sourceMembership !== null => CheckIn::query()->create([
+                    'user_id' => $customer->id,
+                    'membership_id' => null,
+                    'trial_entitlement_id' => null,
+                    'sql_membership_id' => $sourceMembership->MADKGT,
+                    'checked_in_at' => now(),
+                ]),
+                default => CheckIn::query()->create([
+                    'user_id' => $customer->id,
+                    'membership_id' => null,
+                    'trial_entitlement_id' => $trial->id,
+                    'checked_in_at' => now(),
+                ]),
+            };
             $this->identities->syncCheckIn($visit);
 
             return $visit;

@@ -32,6 +32,8 @@ php artisan serve
 
 Mở `http://127.0.0.1:8000`. Tài khoản quản lý/nhân viên mẫu và cách cấu hình email được ghi trong [README gốc](../README.md). Chỉ dùng các tài khoản mẫu ở môi trường local.
 
+Mở thêm một cửa sổ PowerShell riêng ở `laravel/` và chạy `php artisan schedule:work` để xử lý đơn quá hạn và nhắc lịch. Khi triển khai, cấu hình hệ thống gọi `php artisan schedule:run` mỗi phút. Trang Quản lý → Cài đặt hiển thị cảnh báo nếu Scheduler chưa chạy trong hơn 3 phút.
+
 Chatbot gọi dịch vụ RAG riêng; cấu hình `RAG_API_URL` và `RAG_ADMIN_TOKEN` trong `.env` khi cần chạy dịch vụ đó. Hướng dẫn khởi chạy nằm trong [README gốc](../README.md).
 
 VNPay là tùy chọn; cấu hình `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `VNPAY_RETURN_URL` và IPN công khai qua HTTPS trước khi bật giao dịch sandbox. Thiếu khóa thì trang thanh toán không hiển thị VNPay. IPN đã xác thực mới xác nhận thanh toán; test tự động giả lập callback có chữ ký và không thay cho giao dịch thật với sandbox.
@@ -46,4 +48,4 @@ vendor/bin/pint --dirty --format agent
 npm run build
 ```
 
-Lần chạy đầy đủ gần nhất ngày 22/10/2026 có **198 bài đạt, 12 bài thất bại, 1 bài lỗi ngoại lệ và 1 bài bỏ qua**. Kiểm thử thao tác qua browser đã đăng nhập các vai trò quản lý, nhân viên và hội viên, nhưng chưa thực hiện giao dịch VNPay sandbox thật hoặc check-in bằng gói đang hiệu lực. Kết quả và giới hạn được ghi trong [docs/test-plan.md](docs/test-plan.md). Kiểm thử VNPay tự động dùng callback giả lập; thanh toán sandbox đầu-cuối cần khóa và endpoint HTTPS công khai.
+Kết quả kiểm thử mới nhất và giới hạn nghiệm thu được ghi trong [docs/test-plan.md](docs/test-plan.md). Kiểm thử VNPay tự động dùng callback có chữ ký giả lập; thanh toán sandbox đầu-cuối cần khóa và endpoint HTTPS công khai.

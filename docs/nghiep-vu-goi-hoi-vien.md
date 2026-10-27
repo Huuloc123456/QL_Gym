@@ -6,8 +6,8 @@ Tài liệu này mô tả ứng dụng Laravel đang chạy trong repository. Ph
 
 | Vai trò | Nghiệp vụ chính |
 | --- | --- |
-| Khách chưa đăng nhập | Xem gói, sản phẩm, lớp học và gửi yêu cầu tập thử; đăng ký tài khoản hội viên. |
-| Hội viên | Quản lý hồ sơ được phép, đặt gói, mua sản phẩm/lớp học, xem hóa đơn và lịch sử của mình, gửi yêu cầu hủy khi đơn còn chờ. |
+| Khách chưa đăng nhập | Xem gói, sản phẩm, lớp học và đăng ký tài khoản hội viên. |
+| Hội viên | Quản lý hồ sơ được phép, gửi yêu cầu tập thử, đặt gói/mua hàng/đăng ký lớp qua giỏ hàng, xem hóa đơn và lịch sử của mình, gửi yêu cầu hủy khi đơn còn chờ. |
 | Nhân viên | Tiếp nhận yêu cầu tập thử; xử lý hóa đơn và đơn gói; tạo/sửa sản phẩm, cập nhật ảnh/tồn kho; xác nhận khoản thu; check-in/check-out hội viên. |
 | Quản lý | Xem báo cáo; quản lý hội viên, gói, sản phẩm, nhân viên và quyền; cập nhật thông tin phòng tập, banner và tài liệu chatbot. |
 
@@ -17,17 +17,19 @@ Quyền được kiểm tra ở server theo vai trò. Nhân viên không vào đ
 
 1. Khách đăng ký bằng thông tin liên hệ, tên đăng nhập và mật khẩu hợp lệ. Hệ thống từ chối dữ liệu định danh trùng và đăng nhập hội viên ngay sau đăng ký; tài khoản khách không cần xác minh email bổ sung.
 2. Hội viên có thể cập nhật họ tên, số điện thoại, ngày sinh và giới tính. Tên đăng nhập và email được bảo vệ theo quy tắc tài khoản.
-3. Hội viên xem các gói đã đặt, trạng thái hóa đơn, gói hiện tại/tương lai/đã hết hạn và lịch sử vào tập của chính mình.
-4. Quên mật khẩu dùng liên kết đặt lại một lần qua mailer đã cấu hình. Môi trường local mặc định ghi thư vào log, không gửi email ra ngoài.
+3. Hội viên đăng ký tập thử bằng tài khoản của chính mình. Nhân viên tiếp nhận/đánh dấu đã liên hệ; quản lý đối chiếu yêu cầu cũ với tài khoản đang hoạt động bằng tên đăng nhập và số điện thoại khớp chính xác sau chuẩn hóa. Yêu cầu chưa được duyệt không tạo quyền vào tập.
+4. Hội viên xem các gói đã đặt, trạng thái hóa đơn, gói hiện tại/tương lai/đã hết hạn và lịch sử vào tập của chính mình.
+5. Quên mật khẩu dùng liên kết đặt lại một lần qua mailer đã cấu hình. Môi trường local mặc định ghi thư vào log, không gửi email ra ngoài.
 
 ## Gói hội viên và check-in
 
-1. Hội viên chọn gói đang mở bán và ngày bắt đầu dự kiến. Giá và thời hạn được lấy từ dữ liệu máy chủ; đơn lưu lại mức giá tại lúc đặt.
-2. Đơn chưa thu đủ tiền ở trạng thái chờ, chưa cấp quyền tập. Hội viên có thể gửi yêu cầu hủy; nhân viên kiểm tra khoản thu trước khi hủy.
-3. Nhân viên ghi nhận tiền mặt/chuyển khoản sau khi đối chiếu thực tế. Khi đã thu đủ và xác nhận hợp lệ, hệ thống mới tạo gói hội viên; thao tác lặp không tạo gói thứ hai.
+1. Khách chọn gói đang mở bán, sản phẩm hoặc lớp học, đưa vào giỏ và xác nhận một hóa đơn. Giá, khuyến mãi, tồn, lịch và ngày bắt đầu được kiểm tra lại từ MySQL khi đặt. Đơn gói mới không tạo thêm bản ghi đơn gói chờ riêng.
+2. Đơn chưa thu đủ tiền ở trạng thái chờ, chưa cấp quyền tập. Hội viên có thể gửi yêu cầu hủy; sau yêu cầu, hệ thống khóa thanh toán. Nhân viên trao đổi với khách rồi hủy hoặc xác nhận tiếp tục trước khi thu/chốt.
+3. Nhân viên ghi nhận tiền mặt/chuyển khoản sau khi đối chiếu thực tế. Khi đã thu đủ và xác nhận hợp lệ, hệ thống mới cấp dịch vụ, trừ tồn hoặc đăng ký lớp; thao tác lặp không tạo giao dịch thứ hai.
 4. VNPay chỉ xác nhận khi IPN hợp lệ kiểm tra đúng chữ ký, mã đơn, số tiền và trạng thái. Trang quay về của khách không tự xác nhận giao dịch. IPN lặp không tạo thêm gói.
-5. Thời hạn dùng tháng lịch theo múi giờ Việt Nam; ngày hết hạn là thời điểm bắt đầu ngày khách không còn quyền tập. Các kỳ đã thanh toán không được chồng lấn.
-6. Nhân viên tra cứu hội viên, kiểm tra gói đã thanh toán và đang hiệu lực, rồi ghi giờ vào/ra. Không cho check-in nếu gói chưa hiệu lực/hết hạn hoặc lượt trước chưa đóng. Hội viên chỉ xem lịch sử, không tự sửa lượt tập.
+5. Quản lý ghi nhận hoàn tiền sau khi đã hoàn bên ngoài website; chứng từ liên kết với khoản thu gốc, có mã chứng từ/lý do/người thao tác. Báo cáo tách tiền nhận, tiền hoàn và thu ròng.
+6. Thời hạn dùng tháng lịch theo múi giờ Việt Nam; ngày hết hạn là thời điểm bắt đầu ngày khách không còn quyền tập. Các kỳ đã thanh toán không được chồng lấn.
+7. Nhân viên tra cứu hội viên, kiểm tra quyền gói trả phí hoặc tập thử còn hạn, rồi ghi giờ vào/ra. Không cho check-in nếu quyền chưa hiệu lực/hết hạn hoặc lượt trước chưa đóng. Hội viên chỉ xem lịch sử, không tự sửa lượt tập.
 
 ## Sản phẩm và hóa đơn
 

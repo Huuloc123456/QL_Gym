@@ -1,6 +1,6 @@
 @php
     $onlinePayments = $order->onlinePayments;
-    $received = (int) $order->payments->sum('amount') + (int) $onlinePayments->where('status', 'succeeded')->sum('amount');
+    $received = $order->receivedAmount();
     $remaining = max(0, (int) $order->amount - $received);
 @endphp
 
@@ -23,6 +23,25 @@
         <p class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">Khách đã gửi yêu cầu hủy lúc {{ $order->cancellation_requested_at->format('d/m/Y H:i') }}.</p>
     @endif
 
+    @if ($refunds->isNotEmpty())
+        <div><h3 class="font-semibold">Đã hoàn tiền</h3><ul class="mt-2 space-y-1 text-sm">@foreach ($refunds as $refund)<li>{{ number_format($refund->amount, 0, ',', '.') }} VNĐ · {{ $refund->reference }} · {{ $refund->reason }}</li>@endforeach</ul></div>
+    @endif
+    @if (auth()->user()->role === 'manager' && $order->status === 'pending')
+        @foreach ($order->payments as $payment)
+            @php($refundable = (int) $payment->amount - (int) $refunds->where('source_type', 'order_payment')->where('source_id', $payment->id)->sum('amount'))
+            @if ($refundable > 0)
+                <form class="grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2" method="POST" action="{{ route('manager.refunds.store') }}">
+                    @csrf<input type="hidden" name="source_type" value="order_payment"><input type="hidden" name="source_id" value="{{ $payment->id }}"><input type="hidden" name="token" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
+                    <p class="text-sm sm:col-span-2">Hoàn khoản thu #{{ $payment->id }} sau khi đã trả tiền cho khách ngoài website.</p>
+                    <div><label class="gym-label" for="refund-order-amount-{{ $payment->id }}">Số tiền hoàn</label><input class="gym-input" id="refund-order-amount-{{ $payment->id }}" name="amount" type="number" min="1" max="{{ $refundable }}" value="{{ $refundable }}" required></div>
+                    <div><label class="gym-label" for="refund-order-reference-{{ $payment->id }}">Mã chứng từ</label><input class="gym-input" id="refund-order-reference-{{ $payment->id }}" name="reference" minlength="3" maxlength="100" required></div>
+                    <div class="sm:col-span-2"><label class="gym-label" for="refund-order-reason-{{ $payment->id }}">Lý do</label><input class="gym-input" id="refund-order-reason-{{ $payment->id }}" name="reason" minlength="5" maxlength="1000" required></div>
+                    <button class="gym-btn-outline sm:justify-self-start" type="submit">Ghi nhận hoàn tiền</button>
+                </form>
+            @endif
+        @endforeach
+    @endif
+
     @if ($order->payments->isNotEmpty() || $onlinePayments->isNotEmpty())
         <div>
             <h3 class="font-semibold">Lịch sử nhận tiền</h3>
@@ -37,7 +56,17 @@
         </div>
     @endif
 
-    @if ($order->status === 'pending')
+    @if ($order->status === 'pending' && $onlinePayments->contains('status', 'review'))
+        <p class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">Giao dịch VNPay đang chờ quản lý đối soát. Không thu hoặc thanh toán thêm trước khi xử lý xong.</p>
+    @elseif ($order->status === 'pending' && $order->cancellation_requested_at)
+        <div class="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-950">
+            <p>Khách đã yêu cầu hủy đơn. Trao đổi với khách rồi chọn hủy đơn hoặc xác nhận tiếp tục trước khi ghi nhận tiền.</p>
+            <form method="POST" action="{{ route('staff.orders.resume-cancellation', $order) }}">
+                @csrf
+                <button class="gym-btn-outline" type="submit">Xác nhận tiếp tục đơn</button>
+            </form>
+        </div>
+    @elseif ($order->status === 'pending')
         @if ($remaining > 0)
             <form class="grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2" method="POST" action="{{ route('staff.orders.payments.store', $order) }}">
                 @csrf

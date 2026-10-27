@@ -14,6 +14,27 @@ class StaffProductManagementTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_stock_change_requires_a_clear_vietnamese_reason_and_does_not_change_inventory(): void
+    {
+        DB::table('SANPHAM')->insert([
+            'MASP' => 9903,
+            'TENSP' => 'Sản phẩm kiểm kê',
+            'MALOAISP' => 3,
+            'DONGIA' => 120000,
+            'SOLUONGTON' => 7,
+        ]);
+        $employee = User::factory()->employee()->create();
+
+        $this->actingAs($employee)->post(route('staff.products.update', 9903), [
+            'TENSP' => 'Sản phẩm kiểm kê',
+            'MALOAISP' => 3,
+            'DONGIA' => 120000,
+            'SOLUONGTON' => 10,
+        ])->assertSessionHasErrors(['stock_reason' => 'Vui lòng nhập lý do thay đổi tồn kho.']);
+
+        $this->assertDatabaseHas('SANPHAM', ['MASP' => 9903, 'SOLUONGTON' => 7]);
+    }
+
     public function test_employee_without_other_module_permissions_can_manage_products_but_cannot_delete_them(): void
     {
         $employee = User::factory()->employee()->create([
@@ -106,5 +127,38 @@ class StaffProductManagementTest extends TestCase
         ])->assertSessionHasErrors('SOLUONGTON');
 
         $this->assertDatabaseHas('SANPHAM', ['MASP' => 9901, 'SOLUONGTON' => 5]);
+    }
+
+    public function test_manager_cannot_delete_a_product_reserved_by_a_pending_invoice_or_its_image(): void
+    {
+        DB::table('SANPHAM')->insert([
+            'MASP' => 9902,
+            'TENSP' => 'Sản phẩm đang chờ QA',
+            'MALOAISP' => 3,
+            'DONGIA' => 120000,
+            'SOLUONGTON' => 2,
+        ]);
+        DB::table('HINHANH')->insert([
+            'MAHINH' => (int) DB::table('HINHANH')->max('MAHINH') + 1,
+            'MASP' => 9902,
+            'URL' => 'products/qa-pending.png',
+            'ISMAIN' => 1,
+        ]);
+        $customer = User::factory()->create();
+        $manager = User::factory()->manager()->create();
+
+        $this->actingAs($customer)->post(route('gym.cart.add'), [
+            'kind' => 'product', 'item' => 9902, 'quantity' => 1,
+        ])->assertSessionHasNoErrors();
+        $this->post(route('gym.checkout'), [
+            'token' => (string) Str::uuid(), 'mode' => 'pickup', 'payment_method' => 'cash',
+        ])->assertSessionHasNoErrors();
+
+        $this->actingAs($manager)
+            ->delete(route('gym.admin.destroy', ['products', 9902]))
+            ->assertSessionHasErrors('record');
+
+        $this->assertDatabaseHas('SANPHAM', ['MASP' => 9902, 'TENSP' => 'Sản phẩm đang chờ QA']);
+        $this->assertDatabaseHas('HINHANH', ['MASP' => 9902, 'URL' => 'products/qa-pending.png']);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\AccountPasswordService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rules\Password;
@@ -14,17 +15,17 @@ class ChangePasswordController extends Controller
         return view('account.password');
     }
 
-    public function update(Request $request): RedirectResponse
+    public function update(Request $request, AccountPasswordService $passwords): RedirectResponse
     {
         $validated = $request->validate([
             'current_password' => ['required', 'current_password'],
-            'password' => ['required', 'confirmed', Password::min(8)],
+            'password' => ['required', 'confirmed', 'different:current_password', Password::min(8)],
         ]);
 
-        $request->user()->update(['password' => $validated['password']]);
+        $passwords->change($request->user(), $validated['password'], $request->session()->getId());
         $request->session()->regenerate();
 
         return redirect()->route('account.password.edit')
-            ->with('success', 'Đã đổi mật khẩu.');
+            ->with('success', 'Đã đổi mật khẩu và kết thúc các phiên đăng nhập khác.');
     }
 }

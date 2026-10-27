@@ -55,11 +55,16 @@ class MembershipOrder extends Model
 
     public function receivedAmount(): int
     {
-        return (int) $this->payments()->sum('amount')
+        $grossReceived = (int) $this->payments()->sum('amount')
             + (int) DB::table('gym_online_payments')
                 ->where('target_type', 'membership_order')
                 ->where('target_id', $this->id)
-                ->where('status', 'succeeded')
+                ->whereIn('status', ['succeeded', 'refunded'])
                 ->sum('amount');
+
+        return max(0, $grossReceived - (int) DB::table('gym_refunds')
+            ->where('target_type', 'membership_order')
+            ->where('target_id', $this->id)
+            ->sum('amount'));
     }
 }

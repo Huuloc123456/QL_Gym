@@ -17,6 +17,7 @@ use App\Http\Controllers\ManagerGymPackageController;
 use App\Http\Controllers\ManagerHeroBannerController;
 use App\Http\Controllers\ManagerPaymentReviewController;
 use App\Http\Controllers\ManagerRagKnowledgeController;
+use App\Http\Controllers\ManagerRefundController;
 use App\Http\Controllers\ManagerReportController;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\MembershipOrderController;
@@ -39,8 +40,10 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/goi-tap', [MemberController::class, 'packages'])->name('packages.index');
 Route::get('/goi-tap/{package}', [MemberController::class, 'showPackage'])->name('packages.show');
 Route::post('/dang-ky-trai-nghiem', [TrialRequestController::class, 'store'])
-    ->middleware('throttle:5,1')
+    ->middleware(['auth', 'role:customer', 'throttle:5,1'])
     ->name('trials.store');
+Route::get('/tap-thu', [TrialRequestController::class, 'create'])->middleware(['auth', 'role:customer'])->name('trials.create');
+Route::post('/tap-thu/{trialRequest}/huy', [TrialRequestController::class, 'cancel'])->middleware(['auth', 'role:customer'])->name('trials.cancel');
 Route::post('/chatbot/message', ChatbotController::class)
     ->middleware('throttle:10,1')
     ->name('chatbot.message');
@@ -68,7 +71,7 @@ Route::post('/dang-xuat', [AuthController::class, 'logout'])->middleware('auth')
 
 Route::middleware('auth')->prefix('tai-khoan')->name('account.')->group(function (): void {
     Route::get('/doi-mat-khau', [ChangePasswordController::class, 'edit'])->name('password.edit');
-    Route::put('/doi-mat-khau', [ChangePasswordController::class, 'update'])->name('password.update');
+    Route::put('/doi-mat-khau', [ChangePasswordController::class, 'update'])->middleware('throttle:5,1')->name('password.update');
 });
 
 Route::middleware(['auth', 'role:customer'])->prefix('my')->name('my.')->group(function (): void {
@@ -112,6 +115,9 @@ Route::middleware(['auth', 'role:employee,manager'])->prefix('staff')->name('sta
     Route::post('/yeu-cau-tap-thu/{trialRequest}/da-lien-he', [TrialRequestController::class, 'markContacted'])
         ->middleware('can:markContacted,trialRequest')
         ->name('trial-requests.contact');
+    Route::post('/yeu-cau-tap-thu/{trialRequest}/gan-tai-khoan', [TrialRequestController::class, 'linkLegacyAccount'])
+        ->middleware('role:manager')
+        ->name('trial-requests.link-account');
 
     Route::get('/don-hang', [StaffOrderController::class, 'index'])
         ->middleware('can:viewAny,'.MembershipOrder::class)
@@ -128,6 +134,9 @@ Route::middleware(['auth', 'role:employee,manager'])->prefix('staff')->name('sta
     Route::post('/don-hang/{order}/cancel', [StaffOrderController::class, 'cancel'])
         ->middleware('can:cancel,order')
         ->name('orders.cancel');
+    Route::post('/don-hang/{order}/tiep-tuc', [StaffOrderController::class, 'resumeCancellation'])
+        ->middleware('can:resumeCancellation,order')
+        ->name('orders.resume-cancellation');
 
     Route::get('/check-in', [StaffCheckInController::class, 'index'])
         ->middleware('can:viewAny,'.CheckIn::class)
@@ -146,6 +155,7 @@ Route::middleware(['auth', 'role:employee,manager'])->prefix('staff')->name('sta
 Route::middleware(['auth', 'role:manager'])->get('/quan-ly', [ManagerDashboardController::class, 'index'])->name('manager.dashboard');
 
 Route::middleware(['auth', 'role:manager'])->prefix('quan-ly')->name('manager.')->group(function (): void {
+    Route::post('hoan-tien', [ManagerRefundController::class, 'store'])->name('refunds.store');
     Route::get('bao-cao', [GymReportController::class, 'index'])->name('reports.index');
     Route::get('bao-cao/xuat-excel', [ManagerReportController::class, 'export'])->name('reports.export');
     Route::get('doi-soat-thanh-toan', [ManagerPaymentReviewController::class, 'index'])->name('payment-reviews.index');
@@ -162,6 +172,7 @@ Route::middleware(['auth', 'role:manager'])->prefix('quan-ly')->name('manager.')
     Route::delete('banner/{banner}', [ManagerHeroBannerController::class, 'destroy'])->name('banners.destroy');
 
     Route::get('tai-lieu-chatbot', [ManagerRagKnowledgeController::class, 'index'])->name('knowledge.index');
+    Route::post('tai-lieu-chatbot/dong-bo', [ManagerRagKnowledgeController::class, 'sync'])->name('knowledge.sync');
     Route::get('tai-lieu-chatbot/tao-moi', [ManagerRagKnowledgeController::class, 'create'])->name('knowledge.create');
     Route::get('tai-lieu-chatbot/faq/tao-moi', [ManagerRagKnowledgeController::class, 'createFaq'])->name('knowledge.faq.create');
     Route::post('tai-lieu-chatbot/faq', [ManagerRagKnowledgeController::class, 'storeFaq'])->name('knowledge.faq.store');
@@ -236,6 +247,9 @@ Route::middleware(['auth', 'role:manager'])->group(function (): void {
     Route::get('/quan-ly/bao-cao/csv', [GymReportController::class, 'export'])->name('gym.reports.export');
 });
 Route::post('/staff/yeu-cau-tap-thu/{trialRequest}/duyet', [TrialRequestController::class, 'approve'])->middleware(['auth', 'role:employee,manager', 'can:approve,trialRequest'])->name('staff.trial-requests.approve');
+Route::post('/staff/yeu-cau-tap-thu/{trialRequest}/tu-choi', [TrialRequestController::class, 'reject'])->middleware(['auth', 'role:employee,manager', 'can:approve,trialRequest'])->name('staff.trial-requests.reject');
+Route::post('/staff/yeu-cau-tap-thu/{trialRequest}/doi-lich', [TrialRequestController::class, 'reschedule'])->middleware(['auth', 'role:employee,manager', 'can:reschedule,trialRequest'])->name('staff.trial-requests.reschedule');
+Route::post('/staff/yeu-cau-tap-thu/{trialRequest}/thu-hoi', [TrialRequestController::class, 'revoke'])->middleware(['auth', 'role:employee,manager', 'can:revoke,trialRequest'])->name('staff.trial-requests.revoke');
 Route::get('/san-pham/{product}', [GymStoreController::class, 'show'])->whereNumber('product')->name('gym.products.show');
 Route::get('/lop-hoc', [GymTrainingController::class, 'classes'])->name('gym.classes.index');
 Route::get('/lop-hoc/{class}', [GymTrainingController::class, 'showClass'])->whereNumber('class')->name('gym.classes.show');
@@ -258,6 +272,7 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/hoa-don/{invoice}/thu-tien', [GymInvoiceController::class, 'receive'])->name('gym.invoices.receive');
     Route::post('/hoa-don/{invoice}/xac-nhan', [GymInvoiceController::class, 'confirm'])->name('gym.invoices.confirm');
     Route::post('/hoa-don/{invoice}/huy', [GymInvoiceController::class, 'cancel'])->name('gym.invoices.cancel');
+    Route::post('/hoa-don/{invoice}/tiep-tuc', [GymInvoiceController::class, 'resumeCancellation'])->name('gym.invoices.resume-cancellation');
     Route::post('/hoa-don/{invoice}/giao-nhan', [GymInvoiceController::class, 'fulfill'])->name('gym.invoices.fulfill');
     Route::post('/hoa-don/{invoice}/ky', [GymInvoiceController::class, 'sign'])->name('gym.invoices.sign');
     Route::post('/hoa-don/{invoice}/kiem-tra', [GymInvoiceController::class, 'verify'])->middleware('throttle:10,1')->name('gym.invoices.verify');

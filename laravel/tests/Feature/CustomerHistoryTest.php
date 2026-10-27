@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -93,6 +94,34 @@ class CustomerHistoryTest extends TestCase
                 $this->assertSame(21, $memberships->total());
                 $this->assertSame(10, $memberships->count());
                 $this->assertSame(2, $memberships->currentPage());
+
+                return true;
+            });
+    }
+
+    #[Test]
+    public function expired_sql_membership_mirror_remains_in_customer_history(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-27 12:00:00', 'Asia/Ho_Chi_Minh'));
+        $customer = User::factory()->create();
+        $package = GymPackage::factory()->create();
+        $membership = $this->createMembership($customer, $package, '2026-08-01', '2026-09-01');
+        $membership->forceFill(['sql_membership_id' => 9908])->saveQuietly();
+        DB::table('DANGKYGOITAP')->insert([
+            'MADKGT' => 9908,
+            'MAKH' => $customer->sql_customer_id,
+            'MAGOITAP' => DB::table('GOITAP')->value('MAGOITAP'),
+            'NGAYDANGKY' => '2026-08-01 00:00:00',
+            'NGAYBATDAU' => '2026-08-01 00:00:00',
+            'NGAYKETTHUC' => '2026-08-31 23:59:59',
+            'TRANGTHAI' => 'Hết hạn',
+        ]);
+
+        $this->actingAs($customer)
+            ->get(route('my.memberships.index'))
+            ->assertOk()
+            ->assertViewHas('expiredMemberships', function ($memberships) use ($membership): bool {
+                $this->assertTrue($memberships->getCollection()->contains('id', $membership->id));
 
                 return true;
             });

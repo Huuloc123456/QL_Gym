@@ -12,7 +12,7 @@ class CheckIn extends Model
     /** @use HasFactory<CheckInFactory> */
     use HasFactory;
 
-    protected $fillable = ['user_id', 'membership_id', 'checked_in_at', 'checked_out_at', 'manual_close_reason', 'closed_by_user_id'];
+    protected $fillable = ['user_id', 'membership_id', 'trial_entitlement_id', 'sql_membership_id', 'checked_in_at', 'checked_out_at', 'manual_close_reason', 'closed_by_user_id'];
 
     protected function casts(): array
     {

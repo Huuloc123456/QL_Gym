@@ -9,10 +9,10 @@ class RagDocument extends Model
 {
     use SoftDeletes;
 
-    protected $fillable = ['document_key', 'title', 'content', 'is_active', 'synced_at'];
+    protected $fillable = ['document_key', 'title', 'content', 'is_active', 'synced_at', 'revision', 'sync_error'];
 
     protected function casts(): array
     {
-        return ['is_active' => 'boolean', 'synced_at' => 'datetime'];
+        return ['is_active' => 'boolean', 'synced_at' => 'datetime', 'revision' => 'integer'];
     }
 }

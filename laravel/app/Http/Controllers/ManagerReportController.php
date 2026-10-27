@@ -25,7 +25,7 @@ class ManagerReportController extends Controller
             return back()->withErrors(['to_date' => 'Ngày kết thúc phải bằng hoặc sau ngày bắt đầu.']);
         }
 
-        $report = $reports->report($validated['from_date'] ?? null, $validated['to_date'] ?? null);
+        $report = $reports->summary($validated['from_date'] ?? null, $validated['to_date'] ?? null);
 
         return view('manager.reports.index', compact('report'));
     }

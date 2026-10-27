@@ -7,8 +7,6 @@ use App\Services\RagKnowledgeService;
 use App\Services\RagProductCatalogService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -27,47 +25,38 @@ class ManagerRagKnowledgeController extends Controller
 
     public function index(Request $request): View
     {
-        $documents = collect();
-        $serviceError = null;
         $search = trim((string) $request->query('q', ''));
+        $query = RagDocument::query()->select(['document_key', 'title', 'content', 'is_active', 'updated_at']);
+        if ($search !== '') {
+            $query->where(fn ($builder) => $builder
+                ->where('title', 'like', '%'.$search.'%')
+                ->orWhere('content', 'like', '%'.$search.'%'));
+        }
 
+        $documents = $query->orderBy('document_key')->paginate(20)->withQueryString();
+        $documents->setCollection($documents->getCollection()->map(fn (RagDocument $document): array => [
+            'id' => $document->document_key,
+            'title' => $document->title ?: $document->document_key,
+            'summary' => $this->summary($document->content, $document->title ?: $document->document_key),
+            'managed' => $this->knowledge->isSystemManagedDocument($document->document_key),
+            'active' => $document->is_active,
+            'updated_at' => $document->updated_at?->setTimezone(config('app.timezone'))->format('d/m/Y H:i') ?? '—',
+        ]));
+        $pendingSyncCount = RagDocument::withTrashed()->whereNull('synced_at')->count();
+
+        return view('manager.knowledge.index', compact('documents', 'pendingSyncCount', 'search'));
+    }
+
+    public function sync(): RedirectResponse
+    {
         try {
             $this->productCatalog->stage();
             $this->knowledge->syncPending();
         } catch (RuntimeException $exception) {
-            $serviceError = $exception->getMessage();
+            return redirect()->route('manager.knowledge.index')->with('error', 'Tài liệu vẫn được giữ trong MySQL nhưng chatbot chưa đồng bộ. '.$exception->getMessage());
         }
 
-        try {
-            $allDocuments = $this->knowledge->documents();
-            $documents = collect($allDocuments)
-                ->filter(fn (array $document): bool => $search === ''
-                    || Str::contains(Str::lower((string) ($document['title'] ?? '')), Str::lower($search))
-                    || Str::contains(Str::lower((string) ($document['content'] ?? '')), Str::lower($search)))
-                ->map(fn (array $document): array => [
-                    'id' => $document['id'],
-                    'title' => $document['title'] ?? $document['id'],
-                    'summary' => Str::between((string) ($document['content'] ?? ''), '**Câu hỏi:** ', "\n\n**Câu trả lời:**"),
-                    'managed' => $this->knowledge->isSystemManagedDocument((string) $document['id']),
-                    'active' => (bool) ($document['active'] ?? false),
-                    'updated_at' => ! empty($document['updated_at'])
-                        ? Carbon::parse($document['updated_at'])->setTimezone(config('app.timezone'))->format('d/m/Y H:i')
-                        : '—',
-                ])->values();
-        } catch (RuntimeException $exception) {
-            $serviceError ??= $exception->getMessage();
-        }
-
-        $page = LengthAwarePaginator::resolveCurrentPage();
-        $documents = new LengthAwarePaginator(
-            $documents->forPage($page, 20)->values(),
-            $documents->count(),
-            20,
-            $page,
-            ['path' => $request->url(), 'query' => $request->query()]
-        );
-
-        return view('manager.knowledge.index', compact('documents', 'serviceError', 'search'));
+        return redirect()->route('manager.knowledge.index')->with('success', 'Đã đồng bộ các nội dung đang chờ lên chatbot.');
     }
 
     public function create(): View
@@ -92,7 +81,7 @@ class ManagerRagKnowledgeController extends Controller
             return back()->withInput()->with('error', $exception->getMessage());
         }
 
-        return redirect()->route('manager.knowledge.index')->with('success', 'Đã lưu tài liệu vào MySQL.');
+        return $this->syncAfterSave('Đã lưu tài liệu vào MySQL và đồng bộ chatbot.');
     }
 
     public function createFaq(): View
@@ -114,33 +103,27 @@ class ManagerRagKnowledgeController extends Controller
             return back()->withInput()->with('error', $exception->getMessage());
         }
 
-        return redirect()->route('manager.knowledge.index')->with('success', 'Đã lưu câu hỏi thường gặp vào MySQL.');
+        return $this->syncAfterSave('Đã lưu câu hỏi thường gặp vào MySQL và đồng bộ chatbot.');
     }
 
     public function edit(string $document): View|RedirectResponse
     {
         abort_if($this->knowledge->isSystemManagedDocument($document), 403);
 
-        try {
-            $storedDocument = collect($this->knowledge->documents())
-                ->first(fn (array $item): bool => ($item['id'] ?? null) === $document);
-        } catch (RuntimeException $exception) {
-            return redirect()->route('manager.knowledge.index')->with('error', $exception->getMessage());
-        }
-        abort_unless($storedDocument, 404);
+        $storedDocument = RagDocument::query()->where('document_key', $document)->firstOrFail();
 
-        $faq = $this->parseFaq((string) ($storedDocument['content'] ?? ''));
+        $faq = $this->parseFaq($storedDocument->content);
         if ($faq !== null) {
             return view('manager.knowledge.faq-form', [
-                'document' => ['id' => $document, ...$faq, 'active' => (bool) ($storedDocument['active'] ?? false)],
+                'document' => ['id' => $document, ...$faq, 'active' => $storedDocument->is_active],
                 'isEditing' => true,
             ]);
         }
 
-        [$title, $content] = $this->splitMarkdown((string) ($storedDocument['content'] ?? ''));
+        [$title, $content] = $this->splitMarkdown($storedDocument->content);
 
         return view('manager.knowledge.form', [
-            'document' => ['id' => $document, 'title' => $title, 'content' => $content, 'active' => (bool) ($storedDocument['active'] ?? true)],
+            'document' => ['id' => $document, 'title' => $title, 'content' => $content, 'active' => $storedDocument->is_active],
             'isEditing' => true,
         ]);
     }
@@ -156,7 +139,7 @@ class ManagerRagKnowledgeController extends Controller
             return back()->withInput()->with('error', $exception->getMessage());
         }
 
-        return redirect()->route('manager.knowledge.index')->with('success', 'Đã lưu tài liệu vào MySQL.');
+        return $this->syncAfterSave('Đã lưu tài liệu vào MySQL và đồng bộ chatbot.');
     }
 
     public function updateFaq(Request $request, string $document): RedirectResponse
@@ -170,7 +153,7 @@ class ManagerRagKnowledgeController extends Controller
             return back()->withInput()->with('error', $exception->getMessage());
         }
 
-        return redirect()->route('manager.knowledge.index')->with('success', 'Đã lưu câu hỏi vào MySQL.');
+        return $this->syncAfterSave('Đã lưu câu hỏi vào MySQL và đồng bộ chatbot.');
     }
 
     public function toggle(Request $request, string $document): RedirectResponse
@@ -183,7 +166,7 @@ class ManagerRagKnowledgeController extends Controller
             return back()->with('error', $exception->getMessage());
         }
 
-        return back()->with('success', $data['active'] ? 'Đã bật tài liệu trong MySQL.' : 'Đã tạm ngừng tài liệu trong MySQL.');
+        return $this->syncAfterSave($data['active'] ? 'Đã bật tài liệu trong chatbot.' : 'Đã tạm ngừng tài liệu trong chatbot.');
     }
 
     public function destroy(string $document): RedirectResponse
@@ -196,7 +179,7 @@ class ManagerRagKnowledgeController extends Controller
             return back()->with('error', $exception->getMessage());
         }
 
-        return redirect()->route('manager.knowledge.index')->with('success', 'Đã xóa tài liệu khỏi MySQL.');
+        return $this->syncAfterSave('Đã xóa tài liệu khỏi chatbot.');
     }
 
     public function downloadTemplate(): RedirectResponse|StreamedResponse
@@ -270,6 +253,12 @@ class ManagerRagKnowledgeController extends Controller
                 'row' => 1,
                 'message' => 'Tiêu đề cột chưa đúng. Hãy dùng file mẫu và giữ đủ 5 cột theo đúng thứ tự.',
             ]]);
+        }
+
+        try {
+            $this->knowledge->importLegacyDocumentsOnce();
+        } catch (RuntimeException $exception) {
+            return back()->with('error', 'Chưa thể đối chiếu tài liệu cũ. Hãy kiểm tra dịch vụ chatbot rồi thử lại: '.$exception->getMessage());
         }
 
         $existingIds = RagDocument::withTrashed()->pluck('document_key')->all();
@@ -371,13 +360,15 @@ class ManagerRagKnowledgeController extends Controller
 
         try {
             $this->knowledge->batchUpsert($preview['documents']);
+            $this->knowledge->syncPending();
         } catch (RuntimeException $exception) {
-            return redirect()->route('manager.knowledge.import.review')->with('error', $exception->getMessage());
+            return redirect()->route('manager.knowledge.import.review')
+                ->with('error', 'Tài liệu đã được lưu trong MySQL nhưng chatbot chưa đồng bộ. Thử xác nhận lại sau khi dịch vụ hoạt động: '.$exception->getMessage());
         }
 
         $request->session()->forget('rag_import_preview');
 
-        return redirect()->route('manager.knowledge.index')->with('success', 'Đã nhập tài liệu vào MySQL.');
+        return redirect()->route('manager.knowledge.index')->with('success', 'Đã nhập tài liệu vào MySQL và đồng bộ chatbot.');
     }
 
     private function storeImportPreview(Request $request, array $documents, array $rows, array $errors): RedirectResponse
@@ -417,6 +408,30 @@ class ManagerRagKnowledgeController extends Controller
     private function documentExists(string $documentId): bool
     {
         return RagDocument::withTrashed()->where('document_key', $documentId)->exists();
+    }
+
+    private function syncAfterSave(string $successMessage): RedirectResponse
+    {
+        try {
+            $this->knowledge->syncPending();
+        } catch (RuntimeException $exception) {
+            return redirect()->route('manager.knowledge.index')->with('error', 'Dữ liệu vẫn được giữ trong MySQL nhưng chatbot chưa đồng bộ. Tải lại trang sau khi dịch vụ hoạt động: '.$exception->getMessage());
+        }
+
+        return redirect()->route('manager.knowledge.index')->with('success', $successMessage);
+    }
+
+    private function summary(string $content, string $fallback): string
+    {
+        if (preg_match('/\*\*Câu hỏi:\*\*\s*(.+?)(?:\R+\*\*Câu trả lời:\*\*|\z)/su', $content, $matches) === 1) {
+            return Str::limit(trim(preg_replace('/\s+/u', ' ', $matches[1]) ?? $matches[1]), 180);
+        }
+
+        $body = preg_replace('/^#\s*[^\r\n]*(?:\R|$)/u', '', $content, 1) ?? $content;
+        $body = str_replace(['**Câu trả lời:**', '**'], '', $body);
+        $body = trim(preg_replace('/\s+/u', ' ', $body) ?? $body);
+
+        return Str::limit($body !== '' ? $body : $fallback, 180);
     }
 
     private function faqMarkdown(string $topic, string $question, string $answer): string

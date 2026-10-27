@@ -6,13 +6,16 @@ use App\Models\GymPackage;
 use App\Models\Membership;
 use App\Models\MembershipOrder;
 use App\Models\User;
+use App\Repositories\MembershipRepository;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class GymCommerceService
 {
-    public function __construct(private OriginalGymSql $sql, private GymIdentityService $identities, private MembershipPeriod $period, private GymTrainingService $training, private GymPortalService $portal) {}
+    public function __construct(private OriginalGymSql $sql, private GymIdentityService $identities, private MembershipPeriod $period, private GymTrainingService $training, private GymPortalService $portal, private MembershipRepository $memberships) {}
 
     public function item(string $kind, int $id): object
     {
@@ -40,10 +43,25 @@ class GymCommerceService
 
     public function available(int $product): int
     {
-        $reserved = DB::table('gym_invoice_lines as l')->join('HOADON as h', 'h.MAHD', '=', 'l.invoice_id')
-            ->where('l.kind', 'product')->where('l.item_id', $product)->where('h.TRANGTHAI', 'Chưa thanh toán')->sum('l.quantity');
+        $inventory = $this->availableProductsQuery()->where('available_products.MASP', $product)->first();
 
-        return max(0, (int) DB::table('SANPHAM')->where('MASP', $product)->value('SOLUONGTON') - (int) $reserved);
+        return (int) ($inventory?->available_quantity ?? 0);
+    }
+
+    public function availableProductsQuery(): Builder
+    {
+        $products = DB::table('SANPHAM as product')
+            ->select('product.*')
+            ->selectSub(DB::table('gym_invoice_lines as line')
+                ->join('HOADON as invoice', 'invoice.MAHD', '=', 'line.invoice_id')
+                ->selectRaw('COALESCE(SUM(line.quantity), 0)')
+                ->whereColumn('line.item_id', 'product.MASP')
+                ->where('line.kind', 'product')
+                ->where('invoice.TRANGTHAI', 'Chưa thanh toán'), 'reserved_quantity');
+
+        return DB::query()->fromSub($products, 'available_products')
+            ->select('available_products.*')
+            ->selectRaw('GREATEST(0, available_products.SOLUONGTON - available_products.reserved_quantity) AS available_quantity');
     }
 
     public function cart(User $user): array
@@ -52,7 +70,14 @@ class GymCommerceService
 
         return DB::table('CHITIETGIOHANG')->where('MAKH', $customer)->orderBy('MACHITIETGH')->get()->map(function ($line): object {
             $kind = $line->MASP ? 'product' : ($line->MAGOITAP ? 'package' : 'class');
-            $item = $this->item($kind, (int) ($line->MASP ?: $line->MAGOITAP ?: $line->MALOP));
+            $id = (int) ($line->MASP ?: $line->MAGOITAP ?: $line->MALOP);
+            try {
+                $item = $this->item($kind, $id);
+                $line->unavailable = false;
+            } catch (NotFoundHttpException) {
+                $line->unavailable = true;
+                $item = (object) ['kind' => $kind, 'item_id' => $id, 'item_name' => 'Mặt hàng #'.$id, 'unit_price' => 0];
+            }
             $line->item = $item;
             $line->total = $item->unit_price * (int) $line->SOLUONG;
 
@@ -124,6 +149,10 @@ class GymCommerceService
             if (count($cart) === 0) {
                 $this->fail('cart', 'Giỏ hàng đang trống.');
             }
+            if (collect($cart)->contains(fn ($line): bool => $line->unavailable)) {
+                $this->fail('cart', 'Có mặt hàng không còn mở bán. Hãy bỏ khỏi giỏ trước khi đặt hàng.');
+            }
+            $this->assertClassesDoNotOverlap(collect($cart)->filter(fn ($line): bool => $line->item->kind === 'class')->map(fn ($line): int => (int) $line->item->item_id)->all());
             $total = 0;
             $lines = [];
             $hasProducts = false;
@@ -185,6 +214,8 @@ class GymCommerceService
 
                 return false;
             }
+            $this->assertNoPaymentReview($invoice);
+            $this->assertCancellationResolved($invoice);
             $this->assertInvoiceHasDetails($invoice);
             $this->assertSupportedInvoiceKinds($invoice);
             $this->assertBeforeDeadline($invoice);
@@ -206,9 +237,9 @@ class GymCommerceService
         return $this->confirmInvoice($invoice, $staff, $startDate);
     }
 
-    public function confirmOnline(int $invoice, bool $allowExpired = false): void
+    public function confirmOnline(int $invoice, bool $allowExpired = false, ?string $startDate = null): void
     {
-        $this->confirmInvoice($invoice, null, null, $allowExpired);
+        $this->confirmInvoice($invoice, null, $startDate, $allowExpired);
     }
 
     private function confirmInvoice(int $invoice, ?User $staff, ?string $startDate, bool $allowExpired = false): bool
@@ -218,6 +249,8 @@ class GymCommerceService
             if ($bill->TRANGTHAI === 'Đã thanh toán') {
                 return false;
             }
+            $this->assertNoPaymentReview($invoice);
+            $this->assertCancellationResolved($invoice);
             $this->assertInvoiceHasDetails($invoice);
             $this->assertSupportedInvoiceKinds($invoice);
             if (! $allowExpired) {
@@ -227,6 +260,7 @@ class GymCommerceService
                 $this->fail('payment', 'Hóa đơn phải đang chờ và đã thu đủ tiền.');
             }
             $lines = DB::table('gym_invoice_lines')->where('invoice_id', $invoice)->orderBy('id')->get();
+            $this->assertClassesDoNotOverlap($lines->where('kind', 'class')->pluck('item_id')->map(fn ($id): int => (int) $id)->all());
             foreach ($lines as $line) {
                 $details = json_decode($line->details, true);
                 $record = ['MACTHD' => $this->sql->nextId('CHITIETHOADON'), 'MAHD' => $invoice, 'SOLUONG' => $line->quantity, 'DONGIA' => $line->unit_price];
@@ -282,6 +316,9 @@ class GymCommerceService
                 DB::table('gym_fulfillments')->where('invoice_id', $invoice)->update(['cancellation_requested' => true, 'updated_at' => now()]);
             } else {
                 abort_unless($user->canManageOrders(), 403);
+                if (DB::table('gym_online_payments')->where('target_type', 'invoice')->where('target_id', $invoice)->where('status', 'review')->exists()) {
+                    $this->fail('invoice', 'Hóa đơn có giao dịch đang đối soát; cần quản lý xử lý trước khi hủy.');
+                }
                 if ($this->received($invoice) > 0) {
                     $this->fail('invoice', 'Hóa đơn đã nhận tiền cần xử lý hoàn tiền trước, không thể hủy trực tiếp.');
                 }
@@ -290,6 +327,36 @@ class GymCommerceService
                 $this->portal->invoiceMessage($invoice, 'cancelled', 'Đơn hàng đã được hủy', 'Đơn #'.$invoice.' đã được nhân viên hủy và giải phóng hàng/chỗ.');
             }
             $this->sql->audit('Xử lý yêu cầu hủy', 'HOADON:'.$invoice);
+
+            return true;
+        });
+    }
+
+    public function resumeCancellation(int $invoice, User $staff): bool
+    {
+        abort_unless($staff->canManageOrders(), 403);
+
+        return $this->sql->transaction(function () use ($invoice): bool {
+            $bill = DB::table('HOADON')->where('MAHD', $invoice)->lockForUpdate()->first();
+            abort_unless($bill, 404);
+            $this->assertNoPaymentReview($invoice);
+
+            if ($bill->TRANGTHAI !== 'Chưa thanh toán') {
+                $this->fail('invoice', 'Chỉ có thể tiếp tục hóa đơn đang chờ thanh toán.');
+            }
+
+            $fulfillment = DB::table('gym_fulfillments')->where('invoice_id', $invoice)->lockForUpdate()->first();
+            if (! $fulfillment?->cancellation_requested) {
+                return false;
+            }
+
+            if ($fulfillment->expires_at && CarbonImmutable::parse($fulfillment->expires_at)->isPast()) {
+                $this->fail('invoice', 'Hóa đơn đã hết hạn; hãy hủy đơn và tạo đơn mới thay vì tiếp tục thanh toán.');
+            }
+
+            DB::table('gym_fulfillments')->where('invoice_id', $invoice)->update(['cancellation_requested' => false, 'updated_at' => now()]);
+            $this->portal->invoiceMessage($invoice, 'cancellation-resumed', 'Tiếp tục xử lý đơn hàng', 'Nhân viên đã trao đổi và xác nhận tiếp tục xử lý đơn #'.$invoice.'.');
+            $this->sql->audit('Tiếp tục hóa đơn sau yêu cầu hủy', 'HOADON:'.$invoice);
 
             return true;
         });
@@ -337,8 +404,29 @@ class GymCommerceService
 
     public function received(int $id): int
     {
-        return (int) DB::table('gym_receipts')->where('invoice_id', $id)->sum('amount')
-            + (int) DB::table('gym_online_payments')->where('target_type', 'invoice')->where('target_id', $id)->where('status', 'succeeded')->sum('amount');
+        $legacyOrderIds = DB::table('membership_orders')->where('sql_invoice_id', $id)->pluck('id');
+        $grossReceived = (int) DB::table('gym_receipts')->where('invoice_id', $id)->sum('amount')
+            + (int) DB::table('gym_online_payments')->where('target_type', 'invoice')->where('target_id', $id)->whereIn('status', ['succeeded', 'refunded'])->sum('amount')
+            + (int) DB::table('order_payments')->whereIn('membership_order_id', $legacyOrderIds)->sum('amount')
+            + (int) DB::table('gym_online_payments')->where('target_type', 'membership_order')->whereIn('target_id', $legacyOrderIds)->whereIn('status', ['succeeded', 'refunded'])->sum('amount');
+        $refunded = (int) DB::table('gym_refunds')->where('target_type', 'invoice')->where('target_id', $id)->sum('amount')
+            + (int) DB::table('gym_refunds')->where('target_type', 'membership_order')->whereIn('target_id', $legacyOrderIds)->sum('amount');
+
+        return max(0, $grossReceived - $refunded);
+    }
+
+    private function assertNoPaymentReview(int $invoice): void
+    {
+        if (DB::table('gym_online_payments')->where('target_type', 'invoice')->where('target_id', $invoice)->where('status', 'review')->exists()) {
+            $this->fail('payment', 'Hóa đơn có giao dịch VNPay đang đối soát; quản lý cần xử lý trước khi thu hoặc chốt.');
+        }
+    }
+
+    private function assertCancellationResolved(int $invoice): void
+    {
+        if (DB::table('gym_fulfillments')->where('invoice_id', $invoice)->value('cancellation_requested')) {
+            $this->fail('payment', 'Khách đã yêu cầu hủy; nhân viên cần hủy đơn hoặc xác nhận tiếp tục trước khi thu tiền.');
+        }
     }
 
     public function assertInvoiceHasDetails(int $id): void
@@ -375,7 +463,9 @@ class GymCommerceService
             $this->fail('start_date', 'Ngày bắt đầu đã qua; hãy chốt lại ngày với khách.');
         }
         $expiry = $this->period->expiresOn($date, $months);
-        if (DB::table('DANGKYGOITAP')->where('MAKH', $customer)->where('TRANGTHAI', 'Còn hiệu lực')->where('NGAYBATDAU', '<', $expiry)->where('NGAYKETTHUC', '>=', $date)->exists()) {
+        $user = User::query()->where('sql_customer_id', $customer)->first();
+        if (($user && $this->memberships->periodOverlaps($user, $date, $expiry))
+            || DB::table('DANGKYGOITAP')->where('MAKH', $customer)->where('TRANGTHAI', 'Còn hiệu lực')->where('NGAYBATDAU', '<', $expiry)->where('NGAYKETTHUC', '>=', $date)->exists()) {
             $this->fail('start_date', 'Thời hạn trùng với gói đang có của khách.');
         }
 
@@ -400,6 +490,26 @@ class GymCommerceService
         }
         if ($class->SISOTOIDA && $active->count() + $pending->count() >= (int) $class->SISOTOIDA) {
             $this->fail('class', 'Lớp đã đủ chỗ.');
+        }
+    }
+
+    /** @param list<int> $classIds */
+    private function assertClassesDoNotOverlap(array $classIds): void
+    {
+        if (count($classIds) < 2) {
+            return;
+        }
+        $sessions = DB::table('LICHLOP')->whereIn('MALOP', $classIds)->orderBy('GIOBATDAU')->get()->values();
+        foreach ($sessions as $index => $first) {
+            for ($next = $index + 1; $next < $sessions->count(); $next++) {
+                $second = $sessions[$next];
+                if ($second->GIOBATDAU >= $first->GIOKETTHUC) {
+                    break;
+                }
+                if ((int) $first->MALOP !== (int) $second->MALOP) {
+                    $this->fail('class', 'Các lớp trong giỏ có lịch trùng giờ. Vui lòng chọn lại trước khi đặt hàng.');
+                }
+            }
         }
     }
 

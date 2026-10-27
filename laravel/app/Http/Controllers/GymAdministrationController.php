@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\SyncRagProductCatalog;
+use App\Models\GymProduct;
+use App\Models\GymProductCategory;
 use App\Models\User;
 use App\Services\GymIdentityService;
 use App\Services\OriginalGymSql;
@@ -41,7 +43,12 @@ class GymAdministrationController extends Controller
         $request->validate(['q' => 'nullable|string|max:150']);
         $names = ['SANPHAM' => 'TENSP', 'LOPHOC' => 'TENLOP', 'KHACHHANG' => 'TENKH', 'NHANVIEN' => 'TENNV', 'CHUCVU' => 'TENCHUCVU', 'LOAIKHACHHANG' => 'TENLOAI', 'CHUYENMON' => 'TENCHUYENMON', 'LOAISANPHAM' => 'TENLOAISP'];
         $name = $names[$table];
-        $query = DB::table($table)->select(array_keys($this->fields($resource)));
+        $query = match ($resource) {
+            'products' => GymProduct::query(),
+            'categories' => GymProductCategory::query(),
+            default => DB::table($table),
+        };
+        $query->select(array_keys($this->fields($resource)));
         $query->addSelect($key);
         if ($resource === 'customers' && $request->filled('q')) {
             $search = trim((string) $request->query('q'));
@@ -102,13 +109,19 @@ class GymAdministrationController extends Controller
     public function edit(Request $request, string $resource, ?int $record = null): View
     {
         [$table, $key, $title] = $this->definition($resource);
-        $row = $record ? DB::table($table)->where($key, $record)->first() : null;
+        $row = $record ? match ($resource) {
+            'products' => GymProduct::query()->find($record),
+            'categories' => GymProductCategory::query()->find($record),
+            default => DB::table($table)->where($key, $record)->first(),
+        } : null;
         abort_if($record && ! $row, 404);
         $fields = $this->fields($resource);
         $options = [];
         foreach (['MALOAISP' => ['LOAISANPHAM', 'MALOAISP', 'TENLOAISP'], 'MACM' => ['CHUYENMON', 'MACM', 'TENCHUYENMON'], 'MALOAIKH' => ['LOAIKHACHHANG', 'MALOAIKH', 'TENLOAI'], 'MACHUCVU' => ['CHUCVU', 'MACHUCVU', 'TENCHUCVU']] as $field => [$lookup, $pk, $label]) {
             if (isset($fields[$field]) || $resource === 'employees') {
-                $options[$field] = DB::table($lookup)->orderBy($pk)->pluck($label, $pk);
+                $options[$field] = $lookup === 'LOAISANPHAM'
+                    ? GymProductCategory::query()->orderBy($pk)->pluck($label, $pk)
+                    : DB::table($lookup)->orderBy($pk)->pluck($label, $pk);
             }
         }
         $account = $record && in_array($resource, ['customers', 'employees'], true) ? User::query()->where($resource === 'customers' ? 'sql_customer_id' : 'sql_employee_id', $record)->first() : null;
@@ -144,7 +157,11 @@ class GymAdministrationController extends Controller
         }
         try {
             $this->sql->transaction(function () use ($request, $resource, $record, $table, $key, $data): void {
-                $row = $record ? DB::table($table)->where($key, $record)->first() : null;
+                $row = $record ? match ($resource) {
+                    'products' => GymProduct::query()->find($record),
+                    'categories' => GymProductCategory::query()->find($record),
+                    default => DB::table($table)->where($key, $record)->first(),
+                } : null;
                 abort_if($record && ! $row, 404);
                 if ($resource === 'products') {
                     if (isset($data['GIAKHUYENMAI']) && $data['GIAKHUYENMAI'] > $data['DONGIA']) {
@@ -155,7 +172,15 @@ class GymAdministrationController extends Controller
                         $this->fail('SOLUONGTON', 'Tồn kho không được thấp hơn số hàng đang giữ cho đơn chờ.');
                     }
                     if ($row && (int) $row->SOLUONGTON !== (int) $data['SOLUONGTON']) {
-                        $request->validate(['stock_reason' => 'required|string|min:5|max:255']);
+                        $request->validate(
+                            ['stock_reason' => 'required|string|min:5|max:255'],
+                            [
+                                'stock_reason.required' => 'Vui lòng nhập lý do thay đổi tồn kho.',
+                                'stock_reason.string' => 'Lý do thay đổi tồn kho phải là văn bản.',
+                                'stock_reason.min' => 'Lý do thay đổi tồn kho phải có ít nhất 5 ký tự.',
+                                'stock_reason.max' => 'Lý do thay đổi tồn kho không được vượt quá 255 ký tự.',
+                            ],
+                        );
                     }
                 }
                 if ($resource === 'classes' && $row) {
@@ -219,7 +244,13 @@ class GymAdministrationController extends Controller
                     }
                 } else {
                     $id = $record ?? $this->sql->nextId($table);
-                    if ($record) {
+                    if ($resource === 'products') {
+                        $product = $record ? GymProduct::query()->findOrFail($record) : new GymProduct;
+                        $product->fill([$key => $id] + $data)->save();
+                    } elseif ($resource === 'categories') {
+                        $category = $record ? GymProductCategory::query()->findOrFail($record) : new GymProductCategory;
+                        $category->fill([$key => $id] + $data)->save();
+                    } elseif ($record) {
                         DB::table($table)->where($key, $record)->update($data);
                     } else {
                         DB::table($table)->insert([$key => $id] + $data);
@@ -257,10 +288,39 @@ class GymAdministrationController extends Controller
         abort_if(in_array($resource, ['customers', 'employees'], true), 403);
         try {
             $this->sql->transaction(function () use ($table, $key, $record, $resource): void {
+                if ($resource === 'products' && DB::table('gym_invoice_lines as line')
+                    ->join('HOADON as invoice', 'invoice.MAHD', '=', 'line.invoice_id')
+                    ->where('line.kind', 'product')
+                    ->where('line.item_id', $record)
+                    ->where('invoice.TRANGTHAI', 'Chưa thanh toán')
+                    ->exists()) {
+                    $this->fail('record', 'Sản phẩm đang được giữ trong đơn chưa thanh toán nên chưa thể xóa. Hãy xử lý đơn trước.');
+                }
+
+                if ($resource === 'classes') {
+                    $hasPendingInvoice = DB::table('gym_invoice_lines as line')
+                        ->join('HOADON as invoice', 'invoice.MAHD', '=', 'line.invoice_id')
+                        ->where('line.kind', 'class')
+                        ->where('line.item_id', $record)
+                        ->where('invoice.TRANGTHAI', 'Chưa thanh toán')
+                        ->exists();
+                    $hasRegistrations = DB::table('DANGKYLOP')->where('MALOP', $record)->exists();
+                    $hasSchedules = DB::table('LICHLOP')->where('MALOP', $record)->exists();
+
+                    if ($hasPendingInvoice || $hasRegistrations || $hasSchedules) {
+                        $this->fail('record', 'Lớp đã có đơn, đăng ký hoặc lịch học liên quan nên chưa thể xóa. Hãy lưu lại để bảo toàn lịch sử.');
+                    }
+                }
+
                 if ($resource === 'products') {
                     DB::table('HINHANH')->where('MASP', $record)->delete();
                 }
-                abort_unless(DB::table($table)->where($key, $record)->delete(), 404);
+                $deleted = match ($resource) {
+                    'products' => GymProduct::query()->whereKey($record)->delete(),
+                    'categories' => GymProductCategory::query()->whereKey($record)->delete(),
+                    default => DB::table($table)->where($key, $record)->delete(),
+                };
+                abort_unless($deleted, 404);
                 $this->sql->audit('Xóa danh mục chưa sử dụng', $table.':'.$record);
             });
         } catch (QueryException $exception) {
@@ -280,7 +340,7 @@ class GymAdministrationController extends Controller
 
     public function image(Request $request, int $product, ?int $image = null): RedirectResponse
     {
-        abort_unless(DB::table('SANPHAM')->where('MASP', $product)->exists(), 404);
+        abort_unless(GymProduct::query()->whereKey($product)->exists(), 404);
         $request->validate(['image' => [$image ? 'nullable' : 'required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'], 'main' => 'nullable|boolean', 'remove' => 'nullable|boolean']);
         $path = $request->file('image')?->store('products', 'public');
         $this->sql->transaction(function () use ($request, $product, $image, $path): void {

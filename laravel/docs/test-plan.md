@@ -11,7 +11,33 @@ Verify the user-visible workflows in the agreed one-gym scope, and the added arc
 - Frontend build: `npm run build` runs Vite and compiles Tailwind CSS 4.
 - Manual responsive review: 360px phone, 768px tablet, and 1440px desktop. Check navigation, cards, tables, form labels, validation, focus visibility, and horizontal overflow.
 
-## Verification results — 14 October 2026
+### Database and browser inspection before the final code batch — 27 October 2026
+
+- `php artisan test --compact`: **236 tests, 235 passed, 1 skipped, 1,621 assertions**. The skipped test requires a separate isolated MySQL account-provisioning server on port 3318.
+- `node --test tests/js/carousel.test.js`: **4 passed**. `npm run build`, `vendor/bin/pint --dirty --format agent`, and `git diff --check`: **passed**.
+- `php artisan migrate:status --no-interaction`: every migration, including the three added on 27 October, reports `Ran`. The local MySQL database was backed up before applying them; no refresh/reset was run against it.
+- **Manager browser:** signed in through ChatGPT; dashboard, customer list, reports, gym settings, and chatbot-document management loaded. The reports page showed date filters and Excel export. Settings surfaced the scheduler warning and existing data-reconciliation items.
+- **Employee browser:** signed in through ChatGPT; operations dashboard, staff product list, trial inbox, unified invoice list, and check-in page loaded. A non-existent phone was rejected without creating a visit. Direct access to `/quan-ly` returned **403 Forbidden**.
+- **Guest browser:** public package/product content loaded; `/dang-ky?trial=1` showed account creation and the trial return path; requesting `/my/don-hang` redirected to sign-in. The registration form was not submitted, because a new password must be entered and submitted by the user in the browser. Customer registration, ownership, and order workflows are covered by automated feature tests; authenticated customer UI was not re-run in this browser pass.
+- **RAG:** manager page displayed the 18 knowledge records stored in MySQL, but reported that its configured RAG API was unavailable. Nothing was listening on port 8090; no live chat answer or index rebuild is claimed for this pass.
+- **Scheduler:** `schedule:list` shows `gym:process --mail` every minute, while Manager → Settings warns that the scheduler has not run recently. Start `php artisan schedule:work` locally or call `php artisan schedule:run` every minute on the deployment host before relying on automatic expiry/reminders.
+- No new order, paid receipt, refund, external VNPay sandbox/IPN, or test customer was created in the populated application database. The invalid check-in probe used a synthetic, nonexistent phone and was rejected. Old invoice reconciliation, missing product images, and current class setup still require verified business data.
+- Database and upload backup: `C:\Users\LeTranPhu\AppData\Local\Temp\thegym-pre-migration-20261027-190854` (outside the repository). No RAG credentials or DB secrets are recorded here.
+
+### Final role-based workflow pass — 28 October 2026
+
+- Automated: `php artisan test --compact` — **259 tests, 258 passed, 1 skipped, 1,788 assertions** on the dedicated MySQL test database. The skipped case requires an isolated MySQL account-provisioning server on port 3318. `node --test tests/js/carousel.test.js` — **4 passed**; `npm run build`, Pint, and `git diff --check` passed.
+- Manual browser checks ran against a separate QA database clone and Laravel server on port 8003. The populated application database and port 8002 server were not used for test writes.
+- **Manager:** signed in; dashboard, report summary/date filters, customer list, employee list and permission view, gym settings, banner manager, and unified order/invoice list loaded. The report workbook structure and permissions are covered by automated tests; an actual external VNPay/IPN settlement was not run.
+- **Employee:** direct access to `/quan-ly` returned 403. Created a QA product, verified a missing inventory-change reason is rejected in Vietnamese without changing stock, then saved the corrected quantity. Reviewed/approved a trial request, verified duplicate check-in is rejected, and checked out the visit.
+- **Member:** signed in, viewed an active package and training history, created a combined package/product invoice, saw the order in the unified invoice list, and used two partial cash receipts in QA. Confirming before full payment was rejected; confirming after full payment activated the package, and in-store pickup completed. The product quantity decreased by the ordered amount. Member order history showed the pending transfer QR with the invoice amount/reference; no money was transferred.
+- **Catalog:** the QA copy displayed 58 products including its QA fixture; page 4 showed results 46–58 of 58, with no extra item beyond the count.
+- **Fix during this pass:** inventory updates now show localized Vietnamese validation for a missing/invalid reason. The focused regression test and full suite passed afterward.
+- **Not verified against live services:** the RAG endpoint was unavailable on port 8090; no VNPay sandbox credentials/IPN callback or real SMTP delivery were available. RAG sync, online settlement, and real email delivery therefore remain environment-dependent, not claimed as manually passed. Registration/password-reset behavior remains covered by feature tests; browser UI password reset was not exercised on a newly created account.
+- The application database still has two pending additive migrations (`2026_10_27_224753_add_legacy_membership_source_and_trial_revocation_actor` and `2026_10_27_230000_add_revision_tracking_to_rag_documents`). They were applied only to the QA clone for this pass. Back up the application database, then run `php artisan migrate --force` before exercising these latest workflows on port 8002.
+- The QA copy and its temporary test records are local and are not included in the Git commit. No payment, email, password, or database secrets are recorded here.
+
+### Historical verification results — 14 October 2026
 
 - `php artisan test --compact --filter='^(?!.*PasswordRecoveryTest).*$'`: **passed**, 67 tests and 357 assertions. Password recovery tests were excluded at the user's request. PHPUnit uses the dedicated MySQL database `qly_phonggym_test` configured in `phpunit.xml`.
 - `npm run build`: **passed**; Vite compiled the Tailwind CSS and application assets.
@@ -33,6 +59,8 @@ Verify the user-visible workflows in the agreed one-gym scope, and the added arc
 | AUTH-07 | Employee | Sign in with a customer-only URL as the intended destination | Redirect to staff orders | Covered; passed |
 | AUTH-08 | Guest | Request reset links for known and unknown emails | Same confirmation is shown; only a known account receives a notification | Covered; passed |
 | AUTH-09 | Customer | Use a password-reset link | Password changes once; expired or reused tokens are rejected; reset does not sign the user in | Covered; passed |
+| AUTH-11 | Customer | Change password from either account menu | Current password is checked; password and legacy SQL mirror update together; other database sessions are removed and remember token rotates | Covered; passed |
+| AUTH-12 | Guest with an existing account session | Complete a valid password reset | Password changes once, every previous database session is removed, remember token rotates, and the user remains signed out | Covered; passed |
 | PROF-01 | Customer | Update allowed profile fields | Name, phone, birth date, gender persist; login/email stay fixed | Covered |
 | PROF-02 | Customer A and B | Customer A requests B's order | HTTP 404; B's data is not rendered | Covered |
 | PKG-01 | Guest | Browse package list and detail | Only active packages are visible | Covered |
@@ -65,6 +93,8 @@ Verify the user-visible workflows in the agreed one-gym scope, and the added arc
 | RPT-01 | Manager | Select a date range on reports | Created-order counts, paid-at revenue, and received-at receipts are separate and use the gym timezone | Covered; passed |
 | RPT-02 | Manager | Download report workbook | Three valid XLSX sheets contain summary, relevant orders, and receipt records; string values cannot become formulas | Covered; passed |
 | RPT-03 | Employee/customer | Open or export manager report | HTTP 403 | Covered; passed |
+| RPT-04 | Manager | Confirm a previously paid legacy package order linked to an invoice | Its original receipts remain visible exactly once in the invoice, report, and XLSX; revenue is assigned to the real confirmation date | Covered; passed |
+| RPT-05 | Manager | Review a partially received order after a full or partial refund, including a VNPay payment awaiting reconciliation | Remaining balance subtracts only retained confirmed payments; unresolved VNPay amount stays separate in reconciliation totals | Covered; passed |
 | TRIAL-01 | Guest | Submit a free trial request | Request is stored without creating an account | Covered |
 | TRIAL-02 | Employee or manager | Review a trial request and mark it contacted | Inbox renders; staff member and handling time are stored; duplicate processing is rejected | Covered; passed |
 | TRIAL-03 | Customer | Open or process the staff trial inbox | HTTP 403; guest is redirected to sign in | Covered; passed |
@@ -173,6 +203,12 @@ The Laravel feature tests use the dedicated MySQL test database configured in `p
 - Laravel manager and account route lists were checked. Tests used the dedicated test database; no migration was applied to the regular local preview database.
 - Still needs a live acceptance run on the target machine: apply migrations, run Laravel and the separate RAG service with matching `RAG_ADMIN_TOKEN`, then exercise image uploads, document reindexing/Groq responses, backup/restore, and browser layouts. No live RAG provider call or real FAISS rebuild is claimed by the test results above.
 
+### Regression fixes — 27 October 2026
+
+- Added permanent regression cases for refunded order balances, retaining legacy package receipts when they are linked to invoices, assigning legacy revenue to the confirmation date, keeping unresolved VNPay payments out of available balances, and revoking old sessions after password change/reset.
+- Red checks reproduced the old behavior before implementation. The scoped Laravel run `php artisan test --compact --filter='ManagerReportsTest|ManualRefundWorkflowTest|ManagerEmployeeAccessTest|PasswordRecoveryTest|GymPortalCompletionTest'` passed **37 tests and 298 assertions** against `qly_phonggym_test`.
+- `vendor/bin/pint --dirty --format agent` passed. The full Laravel suite and manual browser acceptance have not been rerun after these changes; do not treat this scoped run as final release verification.
+
 ### Search, reporting, customer history, and FAQ import — 21 October 2026
 
 - Laravel: `php artisan test --compact --filter='^(?!.*PasswordRecoveryTest).*$'` — **114 tests passed, 674 assertions**. The acceptance includes 101 matching orders, 55+ check-ins, manager-only reports, report period boundaries, customer ownership, valid XLSX download/import, invalid duplicate IDs, non-manager access, and the 100-row import limit. Password recovery tests remain excluded per the user's request.
@@ -265,3 +301,23 @@ These findings describe the build as tested on 21 October 2026. Invoice detail/c
 - **Automated regression:** `php artisan test --compact` — **198 passed, 12 failed, 1 error, 1 skipped; 1,406 assertions** across 212 tests. The focused RAG/product and staff-membership subset reproduced failures around the knowledge-list content/redirect expectation, the product-catalog request/fixture, and several staff-order redirect expectations. These failures are unresolved and the suite is not green. The skipped case needs a separate MySQL account-provisioning server on port 3318.
 - **Not verified end-to-end:** a real VNPay sandbox payment/IPN (local `.env` has no VNPay keys and the site has no public HTTPS callback); check-in with an active, paid membership; standardized 360px/768px/1440px review; and a complete accessibility audit. Earlier RAG live acceptance is recorded above, but that was not repeated in this run.
 - **Local QA data:** invoices `#188` and `#189` remain as canceled test records, and the new QA member account remains available. Neither invoice was paid; inventory reservations were released.
+
+### RAG and inventory regression verification — 27 October 2026
+
+- `php artisan test --compact` on the dedicated `qly_phonggym_test` MySQL database — **256 tests, 255 passed, 1 skipped, 1,755 assertions** at this checkpoint. The final result after adding Eloquent/report tests is recorded below. The skipped test requires the separate MySQL account-provisioning server on port 3318.
+- RAG/FAQ/chatbot-focused subset — **34 passed, 181 assertions**. Coverage includes MySQL-side search and pagination, GET requests making no RAG calls, explicit sync, a second sync respecting the lock, edits during an active sync staying pending, retry failure retention, package prices and estimates, public gym hours/contact settings, and keeping bank details out of public facts.
+- `python -m unittest discover -s tests -v` in the available system runtime (Python 3.14.6) — **37 passed, 3 skipped**. The skipped tests require a real Groq call. No separate virtualenv was created.
+- `vendor/bin/pint --dirty --format agent` and `git diff --check` — passed.
+- The manager knowledge page now reads and paginates MySQL only. A POST action performs RAG sync; sync writes its acknowledgment only if the document revision still matches the version sent. Failures leave the MySQL content pending and record an error for later retry.
+- Package names/prices, configured public hours/contact/address/trial duration, and product catalog questions use current website data. Bank account fields are excluded from the public settings answer path. Other gym policies still use the RAG documents.
+- The new `rag_documents` revision/error migration was exercised by test database migrations only. It was not applied to the application database.
+- **Not verified in this run:** live `/health`, a real FAISS rebuild, a Groq-backed conversation after these changes, synchronization with a temporary QA document and its cleanup, or browser layout. The PHP/Python mocks do not prove the external service accepted the current revision.
+
+### Final code regression and report alignment — 27 October 2026
+
+- `php artisan test --compact` on `qly_phonggym_test` — **258 tests, 257 passed, 1 skipped, 1,785 assertions**. The skipped test needs the isolated MySQL account-provisioning server on port 3318; it was not redirected to the application database.
+- Added Eloquent mappings and model relationship coverage for legacy `SANPHAM` and `LOAISANPHAM`, retained the current transaction/locking and trigger behavior, and moved the manager dashboard summary to aggregate queries rather than loading full report details.
+- `npm run build` — passed with Vite 8.3.5. `vendor/bin/pint --dirty --format agent` and `git diff --check` — passed.
+- Python RAG suite — **37 passed, 3 skipped** because the skipped cases require a real Groq request. The local RAG health endpoint on port 8090 refused connection; no live question, indexing rebuild, or document sync is claimed.
+- No interactive browser role walkthrough was run in this final code batch. No VNPay sandbox transaction, external email, or application-database write was performed. Existing dated browser acceptances above remain historical evidence and do not certify the final code batch's visual layout.
+- DOCX candidate now records the final test totals, technology versions, current trial/account flow, product permission boundary, and Eloquent work. Native Word pagination still requires a renderer that is not installed in this environment; the HTML preview is only a content/layout aid, not final pagination evidence.

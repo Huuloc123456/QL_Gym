@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\GymPackage;
 use App\Models\RagDocument;
 use App\Models\User;
 use App\Services\RagProductCatalogService;
@@ -36,7 +37,7 @@ class RagProductCatalogTest extends TestCase
         ]);
     }
 
-    public function test_product_questions_get_a_live_catalog_answer_and_the_catalog_is_saved_to_mysql_and_rag(): void
+    public function test_product_catalog_questions_get_a_live_database_answer_without_waiting_for_rag_sync(): void
     {
         Http::fake(['127.0.0.1:8090/admin/documents/batch' => Http::response(['updated' => 3])]);
 
@@ -53,21 +54,38 @@ class RagProductCatalogTest extends TestCase
         $this->assertStringContainsString('ZZZ Whey Protein kiểm thử', $answer);
         $this->assertStringContainsString('/san-pham', $answer);
 
-        $overview = RagDocument::query()->where('document_key', 'managed-products-overview')->firstOrFail();
-        $category = RagDocument::query()->where('document_key', 'managed-products-category-'.((int) DB::table('LOAISANPHAM')->max('MALOAISP')))->firstOrFail();
-        $this->assertStringContainsString('ZZZ Thảm Yoga kiểm thử', $category->content);
-        $this->assertStringContainsString('Tạm hết hàng', $category->content);
-        $this->assertStringNotContainsString('Tồn kho: 0', $category->content);
-        $this->assertTrue($overview->is_active);
-        $this->assertNotNull($overview->synced_at);
-
-        Http::assertSent(function ($request): bool {
-            return $request->method() === 'POST'
-                && $request->url() === 'http://127.0.0.1:8090/admin/documents/batch'
-                && $request->hasHeader('Authorization', 'Bearer test-rag-admin-token')
-                && collect($request['documents'])->contains(fn (array $document): bool => str_starts_with($document['id'], 'managed-products-category-'));
-        });
+        $this->assertDatabaseCount('rag_documents', 0);
+        Http::assertNothingSent();
         Http::assertNotSent(fn ($request): bool => str_ends_with($request->url(), '/chat'));
+    }
+
+    public function test_package_list_and_prices_are_answered_from_current_active_database_packages(): void
+    {
+        GymPackage::factory()->create(['name' => 'Gói 1 tháng', 'duration_months' => 1, 'price' => 399000, 'is_active' => true]);
+        GymPackage::factory()->create(['name' => 'Gói 12 tháng', 'duration_months' => 12, 'price' => 4389000, 'is_active' => true]);
+        GymPackage::factory()->create(['name' => 'Gói đã ngừng bán', 'duration_months' => 3, 'price' => 999000, 'is_active' => false]);
+        Http::fake();
+
+        $this->postJson('/chatbot/message', ['message' => 'The Gym có những gói tập nào và giá bao nhiêu?'])
+            ->assertOk()
+            ->assertJsonPath('sources.0', 'Gói tập hiện đang mở bán')
+            ->assertJsonPath('products', [])
+            ->assertJsonPath('answer', 'The Gym hiện đang mở bán: Gói 1 tháng — 399.000 VNĐ; Gói 12 tháng — 4.389.000 VNĐ. Bạn có thể xem và đăng ký tại /goi-tap.');
+
+        Http::assertNothingSent();
+    }
+
+    public function test_an_unlisted_two_month_package_price_is_only_given_as_a_labeled_estimate(): void
+    {
+        GymPackage::factory()->create(['name' => 'Gói 1 tháng', 'duration_months' => 1, 'price' => 399000, 'is_active' => true]);
+        Http::fake();
+
+        $this->postJson('/chatbot/message', ['message' => 'Gói 2 tháng giá bao nhiêu?'])
+            ->assertOk()
+            ->assertJsonPath('sources.0', 'Ước tính từ giá gói 1 tháng đang bán')
+            ->assertJsonPath('answer', 'The Gym chưa có gói 2 tháng đang mở bán. Nếu chỉ ước tính theo giá gói 1 tháng hiện tại (399.000 VNĐ), 2 tháng tương đương khoảng 798.000 VNĐ; đây không phải giá bán hay gói đăng ký chính thức. Xem gói đang bán tại /goi-tap.');
+
+        Http::assertNothingSent();
     }
 
     public function test_product_catalog_index_is_not_rebuilt_when_its_mysql_content_has_not_changed(): void
@@ -100,7 +118,7 @@ class RagProductCatalogTest extends TestCase
         Http::assertSentCount(2);
     }
 
-    public function test_specific_product_questions_sync_the_live_catalog_before_calling_rag(): void
+    public function test_specific_product_price_questions_use_the_current_catalog_instead_of_stale_rag_answers(): void
     {
         Http::fake([
             '127.0.0.1:8090/admin/documents/batch' => Http::response(['updated' => 3]),
@@ -112,11 +130,10 @@ class RagProductCatalogTest extends TestCase
 
         $this->postJson('/chatbot/message', ['message' => 'ZZZ Whey Protein kiểm thử giá bao nhiêu?'])
             ->assertOk()
-            ->assertJsonPath('answer', 'ZZZ Whey Protein kiểm thử đang được bán theo danh mục hiện tại.');
+            ->assertJsonPath('answer', 'ZZZ Whey Protein kiểm thử có giá 800.000đ (giá gốc 900.000đ), hiện còn hàng. Xem ảnh và thông tin chi tiết bên dưới; nhấn “Chi tiết” để mở trang sản phẩm.')
+            ->assertJsonPath('products.0.price', '800.000đ (giá gốc 900.000đ)');
 
-        Http::assertSent(fn ($request): bool => $request->url() === 'http://127.0.0.1:8090/admin/documents/batch');
-        Http::assertSent(fn ($request): bool => $request->url() === 'http://127.0.0.1:8090/chat'
-            && $request['message'] === 'ZZZ Whey Protein kiểm thử giá bao nhiêu?');
+        Http::assertNothingSent();
     }
 
     public function test_product_questions_include_a_product_image_and_internal_detail_link(): void
@@ -169,6 +186,10 @@ class RagProductCatalogTest extends TestCase
     public function test_managed_product_catalog_documents_cannot_be_manually_edited_or_disabled(): void
     {
         $manager = User::factory()->manager()->create();
+        Http::fake([
+            '127.0.0.1:8090/admin/documents' => Http::response(['documents' => []]),
+            '127.0.0.1:8090/admin/documents/batch' => Http::response(['updated' => 3]),
+        ]);
         RagDocument::query()->create([
             'document_key' => 'managed-products-overview',
             'title' => 'Danh mục sản phẩm The Gym',

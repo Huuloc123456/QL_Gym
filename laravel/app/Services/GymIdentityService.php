@@ -164,7 +164,7 @@ class GymIdentityService
             $customer = $this->customer($order->user);
             $package = $this->package($order->gymPackage);
             $invoice = $this->sql->nextId('HOADON');
-            DB::table('HOADON')->insert(['MAHD' => $invoice, 'MAKH' => $customer, 'NGAYLAP' => $order->created_at, 'TONGTIEN' => $order->amount, 'THANHTIEN' => $order->amount, 'GIAMGIA' => 0, 'TRANGTHAI' => 'Đã thanh toán']);
+            DB::table('HOADON')->insert(['MAHD' => $invoice, 'MAKH' => $customer, 'NGAYLAP' => $order->paid_at ?? now(config('app.timezone')), 'TONGTIEN' => $order->amount, 'THANHTIEN' => $order->amount, 'GIAMGIA' => 0, 'TRANGTHAI' => 'Đã thanh toán']);
             $registration = $this->sql->nextId('DANGKYGOITAP');
             DB::table('DANGKYGOITAP')->insert(['MADKGT' => $registration, 'MAKH' => $customer, 'MAGOITAP' => $package, 'NGAYDANGKY' => $membership->created_at, 'NGAYBATDAU' => $membership->starts_on, 'NGAYKETTHUC' => $membership->expires_on->copy()->subDay()->endOfDay(), 'TRANGTHAI' => $membership->expires_on->isPast() ? 'Hết hạn' : 'Còn hiệu lực']);
             DB::table('CHITIETHOADON')->insert(['MACTHD' => $this->sql->nextId('CHITIETHOADON'), 'MAHD' => $invoice, 'MADKGT' => $registration, 'SOLUONG' => 1, 'DONGIA' => $order->amount]);

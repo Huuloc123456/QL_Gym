@@ -38,8 +38,8 @@
         </section>
 
         <section aria-labelledby="expired-memberships-title">
-            <header class="mb-3 flex items-center justify-between gap-3"><h2 class="text-xl font-extrabold" id="expired-memberships-title">Đã hết hạn</h2><span class="text-sm text-slate-500">{{ number_format($expiredMemberships->total()) }} gói</span></header>
-            @include('memberships._cards', ['memberships' => $expiredMemberships, 'emptyMessage' => 'Chưa có gói hết hạn.'])
+            <header class="mb-3 flex items-center justify-between gap-3"><h2 class="text-xl font-extrabold" id="expired-memberships-title">Lịch sử gói đã kết thúc</h2><span class="text-sm text-slate-500">{{ number_format($expiredMemberships->total()) }} gói</span></header>
+            @include('memberships._cards', ['memberships' => $expiredMemberships, 'emptyMessage' => 'Chưa có gói hết hạn hoặc bị hủy.'])
         </section>
     </section>
 @endsection

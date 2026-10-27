@@ -236,6 +236,24 @@ class GymPortalCompletionTest extends TestCase
         $this->get(route('manager.reports.index', ['from' => '2020-01-01', 'to' => '2027-01-10']))->assertSessionHasErrors('to');
     }
 
+    public function test_manager_settings_warn_when_the_scheduler_has_not_run_recently(): void
+    {
+        $this->travelTo('2027-01-10 08:00');
+        $manager = User::factory()->manager()->create();
+
+        $this->actingAs($manager)->get(route('manager.settings.edit'))
+            ->assertOk()
+            ->assertSee('Scheduler chưa chạy gần đây')
+            ->assertSee('php artisan schedule:work');
+
+        DB::table('gym_settings')->where('id', 1)->update(['last_processed_at' => now()->subMinute()]);
+
+        $this->get(route('manager.settings.edit'))
+            ->assertOk()
+            ->assertSee('Scheduler đang hoạt động')
+            ->assertDontSee('Scheduler chưa chạy gần đây');
+    }
+
     public function test_portal_settings_update_preserves_the_existing_settings_column_names(): void
     {
         $manager = User::factory()->manager()->create();

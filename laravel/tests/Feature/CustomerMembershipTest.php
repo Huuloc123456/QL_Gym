@@ -7,6 +7,8 @@ use App\Models\Membership;
 use App\Models\MembershipOrder;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class CustomerMembershipTest extends TestCase
@@ -37,22 +39,14 @@ class CustomerMembershipTest extends TestCase
             'is_active' => true,
         ]);
 
-        $response = $this->actingAs($customer)->post(route('orders.store'), [
-            'gym_package_id' => $package->id,
-            'start_date' => $startDate,
-            'payment_method' => 'bank_transfer',
-            'amount' => 1,
-        ]);
-
-        $response->assertRedirect(route('my.orders.index'));
-        $this->assertDatabaseHas('membership_orders', [
-            'user_id' => $customer->id,
-            'gym_package_id' => $package->id,
-            'amount' => 399000,
-            'duration_months' => 1,
-            'status' => 'pending',
-        ]);
-        $this->assertSame($startDate, MembershipOrder::query()->firstOrFail()->start_date->toDateString());
+        $this->actingAs($customer)->post(route('gym.cart.add'), ['kind' => 'package', 'gym_package_id' => $package->id, 'quantity' => 1])->assertSessionHasNoErrors();
+        $this->post(route('gym.checkout'), ['token' => (string) Str::uuid(), 'mode' => 'pickup', 'payment_method' => 'bank_transfer', 'start_date' => $startDate, 'amount' => 1])->assertSessionHasNoErrors();
+        $invoice = DB::table('HOADON')->where('MAKH', $customer->sql_customer_id)->orderByDesc('MAHD')->first();
+        $this->assertSame('Chưa thanh toán', $invoice->TRANGTHAI);
+        $line = DB::table('gym_invoice_lines')->where('invoice_id', $invoice->MAHD)->where('kind', 'package')->first();
+        $this->assertSame(399000, (int) $line->unit_price);
+        $this->assertSame(1, json_decode($line->details, true)['months']);
+        $this->assertSame($startDate, json_decode($line->details, true)['start_date']);
         $this->assertDatabaseCount('memberships', 0);
     }
 
@@ -73,17 +67,14 @@ class CustomerMembershipTest extends TestCase
             'expires_on' => $membershipEnd->toDateString(),
         ]);
 
-        $response = $this->actingAs($customer)->from(route('packages.index'))->post(route('orders.store'), [
-            'gym_package_id' => $package->id,
-            'start_date' => $attemptedStart->toDateString(),
-            'payment_method' => 'cash',
-        ]);
+        $this->actingAs($customer)->post(route('gym.cart.add'), ['kind' => 'package', 'gym_package_id' => $package->id, 'quantity' => 1])->assertSessionHasNoErrors();
+        $response = $this->from(route('gym.cart'))->post(route('gym.checkout'), ['token' => (string) Str::uuid(), 'mode' => 'pickup', 'payment_method' => 'cash', 'start_date' => $attemptedStart->toDateString()]);
 
         $response->assertSessionHasErrors('start_date');
         $this->assertDatabaseCount('membership_orders', 1);
     }
 
-    public function test_public_trial_request_does_not_create_an_account(): void
+    public function test_guest_trial_request_requires_login_without_creating_an_account(): void
     {
         $response = $this->post(route('trials.store'), [
             'name' => 'Nguyen Van An',
@@ -91,12 +82,8 @@ class CustomerMembershipTest extends TestCase
             'email' => 'an@example.test',
         ]);
 
-        $response->assertRedirect();
-        $this->assertDatabaseHas('trial_requests', [
-            'name' => 'Nguyen Van An',
-            'phone' => '0901234567',
-            'email' => 'an@example.test',
-        ]);
+        $response->assertRedirect(route('login'));
+        $this->assertDatabaseCount('trial_requests', 0);
         $this->assertDatabaseCount('users', 0);
     }
 }

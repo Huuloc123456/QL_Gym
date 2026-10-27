@@ -54,7 +54,7 @@ class MembershipOrderController extends Controller
         ]);
     }
 
-    public function store(Request $request, MembershipOrderService $orders, GymPackageRepository $packages): RedirectResponse
+    public function store(Request $request, GymPackageRepository $packages): RedirectResponse
     {
         $validated = $request->validate([
             'gym_package_id' => ['required', 'integer', 'exists:gym_packages,id'],
@@ -63,18 +63,10 @@ class MembershipOrderController extends Controller
         ]);
 
         $package = $packages->findActiveOrFail((int) $validated['gym_package_id']);
-        $order = $orders->create(
-            $request->user(),
-            $package,
-            $validated['start_date'],
-            $validated['payment_method'],
-        );
 
-        if ($order->payment_method === 'vnpay') {
-            return redirect()->route('my.orders.show', $order)->with('success', 'Đơn đăng ký đã được tạo. Nhấn thanh toán VNPay để tiếp tục.');
-        }
-
-        return redirect()->route('my.orders.index')->with('success', 'Đơn đăng ký đã được tạo. Nhân viên sẽ xác nhận khi nhận đủ tiền.');
+        return redirect()->route('packages.show', $package)
+            ->with('success', 'Hãy thêm gói vào giỏ và kiểm tra thông tin trước khi đặt hàng.')
+            ->withInput();
     }
 
     public function requestCancellation(Request $request, MembershipOrder $order, MembershipOrderService $orders, MembershipOrderRepository $orderRepository): RedirectResponse

@@ -19,11 +19,19 @@ class AuthController extends Controller
 
     public function showLogin(Request $request): View
     {
+        if ($request->boolean('trial')) {
+            $request->session()->put('url.intended', route('trials.create'));
+        }
+
         return view('auth.login', ['packageId' => $request->integer('package_id')]);
     }
 
     public function showRegistration(Request $request): View
     {
+        if ($request->boolean('trial')) {
+            $request->session()->put('url.intended', route('trials.create'));
+        }
+
         return view('auth.register', ['packageId' => $request->integer('package_id')]);
     }
 
@@ -131,7 +139,7 @@ class AuthController extends Controller
             return redirect()->route('packages.show', ['package' => $validated['package_id']]);
         }
 
-        return redirect()->route('my.memberships.index');
+        return redirect()->intended(route('my.memberships.index'));
     }
 
     public function logout(Request $request): RedirectResponse

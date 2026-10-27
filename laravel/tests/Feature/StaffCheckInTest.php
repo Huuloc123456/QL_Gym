@@ -9,6 +9,7 @@ use App\Models\MembershipOrder;
 use App\Models\User;
 use App\Services\MembershipPeriod;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class StaffCheckInTest extends TestCase
@@ -26,6 +27,32 @@ class StaffCheckInTest extends TestCase
 
         $response->assertSessionHasErrors('member');
         $this->assertDatabaseCount('check_ins', 0);
+    }
+
+    public function test_check_in_records_the_exact_legacy_sql_membership_that_granted_access(): void
+    {
+        $this->travelTo('2026-10-27 09:00:00');
+        $staff = User::factory()->employee()->create();
+        $customer = User::factory()->create(['role' => 'customer']);
+        DB::table('DANGKYGOITAP')->insert([
+            'MADKGT' => 9911,
+            'MAKH' => $customer->sql_customer_id,
+            'MAGOITAP' => DB::table('GOITAP')->value('MAGOITAP'),
+            'NGAYDANGKY' => '2026-10-01 00:00:00',
+            'NGAYBATDAU' => '2026-10-01 00:00:00',
+            'NGAYKETTHUC' => '2026-11-01 00:00:00',
+            'TRANGTHAI' => 'Còn hiệu lực',
+        ]);
+
+        $this->actingAs($staff)->post(route('staff.checkins.store'), ['member' => $customer->phone])
+            ->assertRedirect(route('staff.checkins.index'));
+
+        $this->assertDatabaseHas('check_ins', [
+            'user_id' => $customer->id,
+            'membership_id' => null,
+            'trial_entitlement_id' => null,
+            'sql_membership_id' => 9911,
+        ]);
     }
 
     public function test_staff_cannot_check_in_before_the_membership_starts(): void

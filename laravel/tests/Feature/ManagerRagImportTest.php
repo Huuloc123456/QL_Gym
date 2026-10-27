@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\RagDocument;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -30,15 +31,15 @@ class ManagerRagImportTest extends TestCase
     public function manager_list_hides_markdown_and_technical_document_ids(): void
     {
         $manager = User::factory()->manager()->create();
-        Http::fake([
-            '127.0.0.1:8090/admin/documents' => Http::response(['documents' => [[
-                'id' => 'technical-id',
-                'title' => 'Hướng dẫn hội viên',
-                'content' => "# Hướng dẫn hội viên\n\n**Câu trả lời:** Nội dung nội bộ hiển thị ở đây.",
-                'active' => true,
-                'updated_at' => '2026-10-20T12:30:00+07:00',
-            ]]]),
+        $document = RagDocument::query()->create([
+            'document_key' => 'technical-id',
+            'title' => 'Hướng dẫn hội viên',
+            'content' => "# Hướng dẫn hội viên\n\n**Câu trả lời:** Nội dung nội bộ hiển thị ở đây.",
+            'is_active' => true,
+            'synced_at' => now(),
         ]);
+        $document->forceFill(['created_at' => '2026-10-20 12:30:00', 'updated_at' => '2026-10-20 12:30:00'])->saveQuietly();
+        Http::fake();
 
         $this->actingAs($manager)->get(route('manager.knowledge.index'))
             ->assertOk()
@@ -58,6 +59,7 @@ class ManagerRagImportTest extends TestCase
         $manager = User::factory()->manager()->create();
         Http::fake([
             '127.0.0.1:8090/admin/documents' => Http::response(['documents' => []]),
+            '127.0.0.1:8090/admin/documents/batch' => Http::response(['updated' => 1]),
         ]);
 
         $this->actingAs($manager)->post(route('manager.knowledge.faq.store'), [
@@ -66,13 +68,13 @@ class ManagerRagImportTest extends TestCase
             'answer' => 'Gói có hiệu lực theo ngày bắt đầu đã chọn.',
         ])->assertRedirect(route('manager.knowledge.index'))->assertSessionHas('success');
 
-        Http::assertSent(fn ($request): bool => $request->method() === 'POST');
-        Http::assertSent(fn ($request): bool => $request->url() === 'http://127.0.0.1:8090/admin/documents');
+        $savedFaq = RagDocument::query()->where('document_key', 'hoi-vien-goi-mot-thang-su-dung-ra-sao')->firstOrFail();
+        $this->assertStringContainsString('Gói một tháng sử dụng ra sao?', $savedFaq->content);
+        $this->assertStringContainsString('Gói có hiệu lực theo ngày bắt đầu đã chọn.', $savedFaq->content);
+        $this->assertNotNull($savedFaq->synced_at);
         Http::assertSent(fn ($request): bool => $request->method() === 'POST'
-            && $request['id'] === 'hoi-vien-goi-mot-thang-su-dung-ra-sao');
-        $savedFaq = Http::recorded(fn ($request): bool => $request->method() === 'POST')->last()[0];
-        $this->assertStringContainsString('Gói một tháng sử dụng ra sao?', $savedFaq['content']);
-        $this->assertStringContainsString('Gói có hiệu lực theo ngày bắt đầu đã chọn.', $savedFaq['content']);
+            && $request->url() === 'http://127.0.0.1:8090/admin/documents/batch'
+            && collect($request['documents'])->contains(fn (array $document): bool => $document['id'] === 'hoi-vien-goi-mot-thang-su-dung-ra-sao'));
     }
 
     #[Test]

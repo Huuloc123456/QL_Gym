@@ -25,7 +25,7 @@ class StaffMembershipTest extends TestCase
             'payment_method' => 'bank_transfer',
         ]);
 
-        $response->assertRedirect(route('gym.invoices.index', ['source' => 'package_order']));
+        $response->assertRedirect(route('staff.orders.show', $order));
         $this->assertDatabaseHas('order_payments', [
             'membership_order_id' => $order->id,
             'amount' => 100000,
@@ -60,7 +60,7 @@ class StaffMembershipTest extends TestCase
 
         $this->actingAs($staff)->post(route('staff.orders.confirm', $order), [
             'start_date' => $startDate->toDateString(),
-        ])->assertRedirect(route('gym.invoices.index', ['source' => 'package_order']));
+        ])->assertRedirect(route('staff.orders.show', $order));
 
         $this->assertDatabaseHas('membership_orders', ['id' => $order->id, 'status' => 'paid']);
         $membership = Membership::query()->where('membership_order_id', $order->id)->firstOrFail();
@@ -69,7 +69,7 @@ class StaffMembershipTest extends TestCase
 
         $this->actingAs($staff)->post(route('staff.orders.confirm', $order), [
             'start_date' => $startDate->toDateString(),
-        ])->assertRedirect(route('gym.invoices.index', ['source' => 'package_order']));
+        ])->assertRedirect(route('staff.orders.show', $order));
 
         $this->assertDatabaseCount('memberships', 1);
         $this->assertDatabaseCount('order_payments', 1);
@@ -90,7 +90,7 @@ class StaffMembershipTest extends TestCase
 
         $this->actingAs($staff)->post(route('staff.orders.confirm', $order), [
             'start_date' => '2026-01-31',
-        ])->assertRedirect(route('gym.invoices.index', ['source' => 'package_order']));
+        ])->assertRedirect(route('staff.orders.show', $order));
 
         $membership = Membership::query()->where('membership_order_id', $order->id)->firstOrFail();
         $this->assertSame('2026-01-31', $membership->starts_on->toDateString());
@@ -105,13 +105,9 @@ class StaffMembershipTest extends TestCase
         $staff = User::factory()->employee()->create();
         $package = GymPackage::factory()->create(['price' => 1200000, 'duration_months' => 12]);
 
-        $this->actingAs($customer)->post(route('orders.store'), [
-            'gym_package_id' => $package->id,
-            'start_date' => '2026-10-21',
-            'payment_method' => 'cash',
-            'duration_months' => 1,
-        ])->assertRedirect(route('my.orders.index'));
-        $order = MembershipOrder::query()->where('user_id', $customer->id)->firstOrFail();
+        $order = MembershipOrder::factory()->for($customer)->for($package, 'gymPackage')->create([
+            'amount' => 1200000, 'duration_months' => 12, 'start_date' => '2026-10-21', 'payment_method' => 'cash',
+        ]);
 
         $this->actingAs($manager)->put(route('manager.packages.update', $package), [
             'name' => $package->name,
@@ -121,11 +117,11 @@ class StaffMembershipTest extends TestCase
         $this->actingAs($staff)->post(route('staff.orders.payments.store', $order), [
             'amount' => 1200000,
             'payment_method' => 'cash',
-        ])->assertRedirect(route('gym.invoices.index', ['source' => 'package_order']));
+        ])->assertRedirect(route('staff.orders.show', $order));
         $this->post(route('staff.orders.confirm', $order), [
             'start_date' => '2026-10-21',
             'duration_months' => 1,
-        ])->assertRedirect(route('gym.invoices.index', ['source' => 'package_order']));
+        ])->assertRedirect(route('staff.orders.show', $order));
 
         $this->assertDatabaseHas('membership_orders', [
             'id' => $order->id, 'amount' => 1200000, 'duration_months' => 12, 'status' => 'paid',
@@ -171,10 +167,10 @@ class StaffMembershipTest extends TestCase
         $this->actingAs($staff)->post(route('staff.orders.confirm', $order), [
             'start_date' => '2026-10-21',
             'duration_months' => 12,
-        ])->assertRedirect(route('gym.invoices.index', ['source' => 'package_order']));
+        ])->assertRedirect(route('staff.orders.show', $order));
         $this->post(route('staff.orders.confirm', $order), [
             'start_date' => '2026-10-21', 'duration_months' => 1,
-        ])->assertRedirect(route('gym.invoices.index', ['source' => 'package_order']));
+        ])->assertRedirect(route('staff.orders.show', $order));
 
         $this->assertDatabaseHas('membership_orders', ['id' => $order->id, 'duration_months' => 12, 'status' => 'paid']);
         $this->assertDatabaseHas('memberships', [
@@ -222,7 +218,7 @@ class StaffMembershipTest extends TestCase
         $this->assertDatabaseCount('memberships', 0);
 
         $this->post(route('staff.orders.confirm', $order), ['start_date' => '2026-10-12'])
-            ->assertRedirect(route('gym.invoices.index', ['source' => 'package_order']));
+            ->assertRedirect(route('staff.orders.show', $order));
 
         $membership = Membership::query()->where('membership_order_id', $order->id)->firstOrFail();
         $this->assertSame('2026-10-12', $membership->starts_on->toDateString());

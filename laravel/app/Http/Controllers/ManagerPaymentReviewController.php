@@ -19,6 +19,7 @@ class ManagerPaymentReviewController extends Controller
         $data = $request->validate([
             'reference' => ['nullable', 'string', 'max:100'],
             'note' => ['required', 'string', 'min:8', 'max:1000'],
+            'start_date' => ['nullable', 'date', 'after_or_equal:today'],
         ]);
         $payments->resolveReview($payment, $request->user(), 'confirmed', $data);
 

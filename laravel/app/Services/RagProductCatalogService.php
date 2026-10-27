@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\GymPackage;
 use App\Models\RagDocument;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -106,6 +107,46 @@ class RagProductCatalogService
     }
 
     /**
+     * Answer current package and price questions from the website database.
+     * Historical RAG documents are not a source of current prices.
+     */
+    public function answerPackageQuestion(string $question): ?string
+    {
+        $normalizedQuestion = $this->normalize($question);
+        $hasMonthCount = preg_match('/\b(\d{1,2})\s*thang\b/u', $normalizedQuestion, $monthMatch) === 1;
+        $asksPrice = preg_match('/\b(?:gia|bao nhieu|chi phi|tien)\b/u', $normalizedQuestion) === 1;
+        $mentionsPackage = preg_match('/\bgoi\b/u', $normalizedQuestion) === 1;
+        $asksPackageList = preg_match('/\b(?:nhung|cac)\s+goi\b|\bgoi\s+(?:tap\s+)?(?:nao|gi)\b|\b(?:liet ke|danh sach)\b.{0,30}\bgoi\b/u', $normalizedQuestion) === 1;
+        if (! $asksPackageList && ! ($asksPrice && $mentionsPackage) && ! ($hasMonthCount && $asksPrice)) {
+            return null;
+        }
+
+        $packages = GymPackage::query()->where('is_active', true)->orderBy('duration_months')->get();
+        if ($packages->isEmpty()) {
+            return 'Hiện The Gym chưa có gói tập nào đang mở bán. Bạn có thể kiểm tra lại tại /goi-tap hoặc liên hệ nhân viên.';
+        }
+
+        if ($hasMonthCount) {
+            $months = (int) $monthMatch[1];
+            $match = $packages->firstWhere('duration_months', $months);
+            if ($match !== null) {
+                return $match->name.' hiện đang mở bán, thời hạn '.$match->duration_months.' tháng, giá '.number_format($match->price, 0, ',', '.').' VNĐ. Xem chi tiết tại /goi-tap.';
+            }
+
+            $monthly = $packages->firstWhere('duration_months', 1);
+            if ($asksPrice && $monthly !== null) {
+                $estimate = (int) $monthly->price * $months;
+
+                return 'The Gym chưa có gói '.$months.' tháng đang mở bán. Nếu chỉ ước tính theo giá gói 1 tháng hiện tại ('.number_format($monthly->price, 0, ',', '.').' VNĐ), '.$months.' tháng tương đương khoảng '.number_format($estimate, 0, ',', '.').' VNĐ; đây không phải giá bán hay gói đăng ký chính thức. Xem gói đang bán tại /goi-tap.';
+            }
+        }
+
+        $available = $packages->map(fn (GymPackage $package): string => $package->name.' — '.number_format($package->price, 0, ',', '.').' VNĐ')->implode('; ');
+
+        return 'The Gym hiện đang mở bán: '.$available.'. Bạn có thể xem và đăng ký tại /goi-tap.';
+    }
+
+    /**
      * Return a small set of live product cards relevant to a product question.
      *
      * @return list<array{id: int, name: string, image_url: string, image_placeholder_url: string, detail_url: string, price: string, availability: string}>
@@ -183,7 +224,22 @@ class RagProductCatalogService
      */
     public function answerProductCardQuestion(string $question, array $cards): ?string
     {
-        if ($cards === [] || ! preg_match('/\b(?:hinh|anh|xem|chi tiet|mo ta)\b/u', $this->normalize($question))) {
+        if ($cards === []) {
+            return null;
+        }
+
+        $normalizedQuestion = $this->normalize($question);
+        if (preg_match('/\b(?:gia|bao nhieu|con hang|het hang|co san|tinh trang)\b/u', $normalizedQuestion)) {
+            if (count($cards) === 1) {
+                $product = $cards[0];
+
+                return $product['name'].' có giá '.$product['price'].', hiện '.mb_strtolower($product['availability']).'. Xem ảnh và thông tin chi tiết bên dưới; nhấn “Chi tiết” để mở trang sản phẩm.';
+            }
+
+            return 'Mình tìm thấy một số sản phẩm phù hợp. Giá và tình trạng hiện tại được hiển thị bên dưới; nhấn “Chi tiết” để xem từng sản phẩm.';
+        }
+
+        if (! preg_match('/\b(?:hinh|anh|xem|chi tiet|mo ta)\b/u', $normalizedQuestion)) {
             return null;
         }
 

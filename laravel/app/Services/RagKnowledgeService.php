@@ -5,10 +5,15 @@ namespace App\Services;
 use App\Models\RagDocument;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use RuntimeException;
+use Throwable;
 
 class RagKnowledgeService
 {
@@ -18,39 +23,6 @@ class RagKnowledgeService
     public function documents(): array
     {
         $documents = RagDocument::query()->orderBy('document_key')->get();
-        $hasStoredDocuments = RagDocument::withTrashed()->exists();
-
-        if ($documents->isEmpty() && ! $hasStoredDocuments) {
-            $legacy = $this->send('GET', '/admin/documents', authenticated: true)['documents'] ?? null;
-            if (! is_array($legacy)) {
-                throw new RuntimeException('Dịch vụ chatbot trả về danh sách tài liệu không hợp lệ.');
-            }
-
-            foreach ($legacy as $document) {
-                if (! is_array($document) || ! is_string($document['id'] ?? null) || ! is_string($document['content'] ?? null)) {
-                    continue;
-                }
-                $stored = RagDocument::query()->firstOrCreate(
-                    ['document_key' => $document['id']],
-                    [
-                        'title' => is_string($document['title'] ?? null) ? $document['title'] : $document['id'],
-                        'content' => $document['content'],
-                        'is_active' => (bool) ($document['active'] ?? true),
-                        'synced_at' => now(),
-                        'created_at' => isset($document['updated_at']) ? Carbon::parse($document['updated_at']) : now(),
-                        'updated_at' => isset($document['updated_at']) ? Carbon::parse($document['updated_at']) : now(),
-                    ],
-                );
-                if (isset($document['updated_at'])) {
-                    $stored->forceFill(['updated_at' => Carbon::parse($document['updated_at'])])->saveQuietly();
-                }
-            }
-
-            $documents = RagDocument::query()->orderBy('document_key')->get();
-            if ($documents->isEmpty()) {
-                return $legacy;
-            }
-        }
         if ($documents->isNotEmpty()) {
             return $documents->map(fn (RagDocument $document): array => [
                 'id' => $document->document_key,
@@ -63,6 +35,42 @@ class RagKnowledgeService
         }
 
         return [];
+    }
+
+    public function importLegacyDocumentsOnce(): void
+    {
+        if (DB::table('rag_knowledge_import_states')->where('state_key', 'legacy-documents-imported')->exists()) {
+            return;
+        }
+
+        $legacy = $this->send('GET', '/admin/documents', authenticated: true)['documents'] ?? null;
+        if (! is_array($legacy)) {
+            throw new RuntimeException('Dịch vụ chatbot trả về danh sách tài liệu không hợp lệ.');
+        }
+
+        DB::transaction(function () use ($legacy): void {
+            foreach ($legacy as $document) {
+                if (! is_array($document) || ! is_string($document['id'] ?? null) || ! is_string($document['content'] ?? null)
+                    || RagDocument::withTrashed()->where('document_key', $document['id'])->exists()) {
+                    continue;
+                }
+
+                $updatedAt = isset($document['updated_at']) ? Carbon::parse($document['updated_at']) : now();
+                $stored = RagDocument::query()->create([
+                    'document_key' => $document['id'],
+                    'title' => is_string($document['title'] ?? null) ? $document['title'] : $document['id'],
+                    'content' => $document['content'],
+                    'is_active' => (bool) ($document['active'] ?? true),
+                    'synced_at' => now(),
+                ]);
+                $stored->forceFill(['created_at' => $updatedAt, 'updated_at' => $updatedAt])->saveQuietly();
+            }
+
+            DB::table('rag_knowledge_import_states')->insertOrIgnore([
+                'state_key' => 'legacy-documents-imported',
+                'imported_at' => now(),
+            ]);
+        });
     }
 
     public function create(string $id, string $content): void
@@ -78,19 +86,34 @@ class RagKnowledgeService
     public function update(string $id, string $content): void
     {
         $document = RagDocument::query()->where('document_key', $id)->firstOrFail();
-        $document->forceFill(['title' => $this->title($content, $id), 'content' => $content, 'synced_at' => null])->save();
+        $document->forceFill([
+            'title' => $this->title($content, $id),
+            'content' => $content,
+            'revision' => $document->revision + 1,
+            'synced_at' => null,
+            'sync_error' => null,
+        ])->save();
     }
 
     public function setActive(string $id, bool $active): void
     {
         $document = RagDocument::query()->where('document_key', $id)->firstOrFail();
-        $document->forceFill(['is_active' => $active, 'synced_at' => null])->save();
+        $document->forceFill([
+            'is_active' => $active,
+            'revision' => $document->revision + 1,
+            'synced_at' => null,
+            'sync_error' => null,
+        ])->save();
     }
 
     public function delete(string $id): void
     {
         $document = RagDocument::query()->where('document_key', $id)->firstOrFail();
-        $document->forceFill(['synced_at' => null])->save();
+        $document->forceFill([
+            'revision' => $document->revision + 1,
+            'synced_at' => null,
+            'sync_error' => null,
+        ])->save();
         $document->delete();
     }
 
@@ -99,16 +122,35 @@ class RagKnowledgeService
     public function batchUpsert(array $documents): void
     {
         foreach ($documents as $document) {
-            RagDocument::query()->withTrashed()->updateOrCreate(
-                ['document_key' => $document['id']],
-                [
-                    'title' => $this->title($document['content'], $document['id']),
+            $title = $this->title($document['content'], $document['id']);
+            $stored = RagDocument::withTrashed()->where('document_key', $document['id'])->first();
+            if ($stored === null) {
+                RagDocument::query()->create([
+                    'document_key' => $document['id'],
+                    'title' => $title,
                     'content' => $document['content'],
                     'is_active' => $document['active'],
-                    'deleted_at' => null,
-                    'synced_at' => null,
-                ],
-            );
+                ]);
+
+                continue;
+            }
+
+            if ($stored->deleted_at === null
+                && $stored->title === $title
+                && $stored->content === $document['content']
+                && $stored->is_active === $document['active']) {
+                continue;
+            }
+
+            $stored->forceFill([
+                'title' => $title,
+                'content' => $document['content'],
+                'is_active' => $document['active'],
+                'deleted_at' => null,
+                'revision' => $stored->revision + 1,
+                'synced_at' => null,
+                'sync_error' => null,
+            ])->save();
         }
     }
 
@@ -126,26 +168,53 @@ class RagKnowledgeService
 
     public function syncPending(): void
     {
-        $pending = RagDocument::withTrashed()->whereNull('synced_at')->orderBy('id')->get();
-        if ($pending->isEmpty()) {
+        $lock = Cache::lock('rag-knowledge-sync', max(15, (int) config('services.rag.admin_timeout', 180) + 30));
+        if (! $lock->get()) {
             return;
         }
 
-        $activeDocuments = $pending->whereNull('deleted_at')->values();
-        foreach ($activeDocuments->chunk(100) as $chunk) {
-            $this->send('POST', '/admin/documents/batch', [
-                'documents' => $chunk->map(fn (RagDocument $document): array => [
-                    'id' => $document->document_key,
-                    'content' => $document->content,
-                    'active' => $document->is_active,
-                ])->all(),
-            ], authenticated: true);
-            RagDocument::query()->whereIn('id', $chunk->pluck('id'))->update(['synced_at' => now()]);
-        }
+        try {
+            $pending = RagDocument::withTrashed()->whereNull('synced_at')->orderBy('id')->get();
+            if ($pending->isEmpty()) {
+                return;
+            }
 
-        foreach ($pending->whereNotNull('deleted_at') as $document) {
-            $this->send('DELETE', '/admin/documents/'.rawurlencode($document->document_key), authenticated: true);
-            $document->forceFill(['synced_at' => now()])->save();
+            try {
+                $activeDocuments = $pending->whereNull('deleted_at')->values();
+                foreach ($activeDocuments->chunk(100) as $chunk) {
+                    $this->send('POST', '/admin/documents/batch', [
+                        'documents' => $chunk->map(fn (RagDocument $document): array => [
+                            'id' => $document->document_key,
+                            'content' => $document->content,
+                            'active' => $document->is_active,
+                        ])->all(),
+                    ], authenticated: true);
+                    foreach ($chunk as $document) {
+                        RagDocument::withTrashed()->whereKey($document->id)
+                            ->where('revision', $document->revision)
+                            ->update(['synced_at' => now(), 'sync_error' => null]);
+                    }
+                }
+
+                foreach ($pending->whereNotNull('deleted_at') as $document) {
+                    $this->send('DELETE', '/admin/documents/'.rawurlencode($document->document_key), authenticated: true);
+                    RagDocument::withTrashed()->whereKey($document->id)
+                        ->where('revision', $document->revision)
+                        ->update(['synced_at' => now(), 'sync_error' => null]);
+                }
+            } catch (Throwable $exception) {
+                $message = Str::limit($exception->getMessage(), 1000);
+                foreach ($pending as $document) {
+                    RagDocument::withTrashed()->whereKey($document->id)
+                        ->where('revision', $document->revision)
+                        ->whereNull('synced_at')
+                        ->update(['sync_error' => $message]);
+                }
+
+                throw $exception;
+            }
+        } finally {
+            $lock->release();
         }
     }
 
@@ -161,7 +230,8 @@ class RagKnowledgeService
 
         $request = Http::acceptJson()
             ->connectTimeout(3)
-            ->timeout((float) config('services.rag.admin_timeout', 180));
+            ->timeout((float) config('services.rag.admin_timeout', 180))
+            ->retry(2, 250);
 
         if ($authenticated) {
             $token = (string) config('services.rag.admin_token', '');
@@ -175,6 +245,8 @@ class RagKnowledgeService
             $response = $this->dispatch($request, $method, $this->url($path), $payload);
         } catch (ConnectionException $exception) {
             throw new RuntimeException('Không kết nối được dịch vụ chatbot. Kiểm tra dịch vụ RAG rồi thử lại.', previous: $exception);
+        } catch (RequestException $exception) {
+            throw new RuntimeException('Dịch vụ chatbot chưa thể hoàn tất yêu cầu sau số lần thử lại có giới hạn.', previous: $exception);
         }
 
         if (! $response->successful()) {

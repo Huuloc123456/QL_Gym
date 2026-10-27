@@ -42,7 +42,7 @@ class GymReportController extends Controller
     public function index(Request $request, ManagerReportService $managerReports): View
     {
         [$from, $to] = $this->range($request);
-        $report = $managerReports->report($from->toDateString(), $to->toDateString());
+        $report = $managerReports->summary($from->toDateString(), $to->toDateString());
         $all = $this->invoices($from, $to);
         $paid = (clone $all)->where('h.TRANGTHAI', 'Đã thanh toán');
         $kind = "CASE WHEN d.MASP IS NOT NULL THEN 'product' WHEN d.MADKGT IS NOT NULL THEN 'package' WHEN d.MADKLOP IS NOT NULL THEN 'class' ELSE 'other' END";
@@ -71,7 +71,7 @@ class GymReportController extends Controller
         return response()->streamDownload(function () use ($report): void {
             $stream = fopen('php://output', 'w');
             fwrite($stream, "\xEF\xBB\xBF");
-            fputcsv($stream, ['Mã đơn', 'Ngày lập', 'Khách hàng', 'Email', 'Số điện thoại', 'Sản phẩm/dịch vụ', 'Ngày xác nhận', 'Trạng thái', 'Giá trị đơn', 'Đã nhận', 'Còn phải thu'], ',', '"', '');
+            fputcsv($stream, ['Mã đơn', 'Ngày lập', 'Khách hàng', 'Email', 'Số điện thoại', 'Sản phẩm/dịch vụ', 'Ngày xác nhận', 'Trạng thái', 'Giá trị đơn', 'Đã nhận gộp', 'Đã hoàn', 'Thu ròng', 'Còn phải thu'], ',', '"', '');
             foreach ($report['orders'] as $order) {
                 $received = (int) ($order->total_received ?? 0) + (int) ($order->online_received ?? 0);
                 $row = [
@@ -89,7 +89,9 @@ class GymReportController extends Controller
                     },
                     (int) $order->amount,
                     $received,
-                    max(0, (int) $order->amount - $received),
+                    (int) $order->refunded_total,
+                    (int) $order->net_received,
+                    (int) $order->remaining_amount,
                 ];
                 $values = array_map(fn ($value) => is_string($value) && preg_match('/^[\s]*[=+@\-]/u', $value) ? "'".$value : $value, $row);
                 fputcsv($stream, $values, ',', '"', '');
@@ -111,7 +113,9 @@ class GymReportController extends Controller
                     },
                     (int) $order->amount,
                     $received,
-                    max(0, (int) $order->amount - $received),
+                    (int) $order->refunded_total,
+                    (int) $order->net_received,
+                    (int) $order->remaining_amount,
                 ];
                 $values = array_map(fn ($value) => is_string($value) && preg_match('/^[\s]*[=+@\-]/u', $value) ? "'".$value : $value, $row);
                 fputcsv($stream, $values, ',', '"', '');

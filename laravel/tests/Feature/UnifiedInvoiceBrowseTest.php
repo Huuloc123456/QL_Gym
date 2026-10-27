@@ -14,6 +14,18 @@ class UnifiedInvoiceBrowseTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_old_package_purchase_endpoint_returns_to_checkout_without_creating_a_legacy_pending_order(): void
+    {
+        $customer = User::factory()->create();
+        $package = GymPackage::factory()->create(['is_active' => true]);
+        $this->actingAs($customer)->post(route('orders.store'), [
+            'gym_package_id' => $package->id, 'start_date' => today()->toDateString(), 'payment_method' => 'cash',
+        ])->assertRedirect(route('packages.show', $package));
+
+        $this->assertDatabaseCount('membership_orders', 0);
+        $this->assertDatabaseMissing('HOADON', ['MAKH' => $customer->sql_customer_id]);
+    }
+
     public function test_staff_sees_pending_package_orders_in_the_same_filtered_paginated_list_as_invoices(): void
     {
         $customer = User::factory()->create(['name' => 'Khách kiểm thử hóa đơn chung']);

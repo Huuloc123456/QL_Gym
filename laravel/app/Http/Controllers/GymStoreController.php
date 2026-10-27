@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\GymPackage;
+use App\Models\GymProductCategory;
 use App\Services\GymCommerceService;
 use App\Services\GymIdentityService;
 use App\Services\GymPortalService;
@@ -19,32 +20,33 @@ class GymStoreController extends Controller
     public function index(Request $request): View
     {
         $data = $request->validate(['q' => 'nullable|string|max:150', 'category' => 'nullable|integer|exists:LOAISANPHAM,MALOAISP', 'brand' => 'nullable|string|max:100', 'origin' => 'nullable|string|max:100', 'min' => 'nullable|integer|min:0|max:1000000000000', 'max' => 'nullable|integer|min:0|max:1000000000000', 'sort' => 'nullable|in:name,price_up,price_down,newest', 'stock' => 'nullable|in:1', 'sale' => 'nullable|in:1']);
-        $query = DB::table('SANPHAM as p')->leftJoin('LOAISANPHAM as c', 'c.MALOAISP', '=', 'p.MALOAISP')->select('p.*', 'c.TENLOAISP')
-            ->selectSub(DB::table('HINHANH')->select('URL')->whereColumn('MASP', 'p.MASP')->orderByDesc('ISMAIN')->orderBy('MAHINH')->limit(1), 'image');
+        $query = DB::query()->fromSub($this->shop->availableProductsQuery(), 'p')
+            ->leftJoin('LOAISANPHAM as c', 'c.MALOAISP', '=', 'p.MALOAISP')->select('p.*', 'c.TENLOAISP')
+            ->selectSub(DB::table('HINHANH')->select('URL')->whereColumn('HINHANH.MASP', 'p.MASP')->orderByDesc('ISMAIN')->orderBy('MAHINH')->limit(1), 'image');
         $query->when($data['q'] ?? null, fn ($q, $value) => $q->where('p.TENSP', 'like', '%'.$value.'%'))
             ->when($data['category'] ?? null, fn ($q, $value) => $q->where('p.MALOAISP', $value))
             ->when($data['brand'] ?? null, fn ($q, $value) => $q->where('p.HANG', $value))
             ->when($data['origin'] ?? null, fn ($q, $value) => $q->where('p.XUATXU', $value));
         if (isset($data['min'])) {
-            $query->whereRaw('LEAST(DONGIA, COALESCE(GIAKHUYENMAI, DONGIA)) >= ?', [$data['min']]);
+            $query->whereRaw('LEAST(p.DONGIA, COALESCE(p.GIAKHUYENMAI, p.DONGIA)) >= ?', [$data['min']]);
         }
         if (isset($data['max'])) {
-            $query->whereRaw('LEAST(DONGIA, COALESCE(GIAKHUYENMAI, DONGIA)) <= ?', [$data['max']]);
+            $query->whereRaw('LEAST(p.DONGIA, COALESCE(p.GIAKHUYENMAI, p.DONGIA)) <= ?', [$data['max']]);
         }
         if (isset($data['stock'])) {
-            $query->where('SOLUONGTON', '>', 0);
+            $query->where('p.available_quantity', '>', 0);
         }
         if (isset($data['sale'])) {
-            $query->whereColumn('GIAKHUYENMAI', '<', 'DONGIA');
+            $query->whereColumn('p.GIAKHUYENMAI', '<', 'p.DONGIA');
         }
         match ($data['sort'] ?? 'name') {
-            'name' => $query->orderBy('TENSP'),
-            'price_up' => $query->orderByRaw('LEAST(DONGIA, COALESCE(GIAKHUYENMAI, DONGIA)) ASC'),
-            'price_down' => $query->orderByRaw('LEAST(DONGIA, COALESCE(GIAKHUYENMAI, DONGIA)) DESC'),
+            'name' => $query->orderBy('p.TENSP'),
+            'price_up' => $query->orderByRaw('LEAST(p.DONGIA, COALESCE(p.GIAKHUYENMAI, p.DONGIA)) ASC'),
+            'price_down' => $query->orderByRaw('LEAST(p.DONGIA, COALESCE(p.GIAKHUYENMAI, p.DONGIA)) DESC'),
             default => $query->orderByDesc('p.MASP'),
         };
 
-        return view('gym.products', ['products' => $query->orderBy('p.MASP')->paginate(15)->withQueryString(), 'categories' => DB::table('LOAISANPHAM')->orderBy('MALOAISP')->get(), 'brands' => DB::table('SANPHAM')->whereNotNull('HANG')->distinct()->orderBy('HANG')->pluck('HANG'), 'origins' => DB::table('SANPHAM')->whereNotNull('XUATXU')->distinct()->orderBy('XUATXU')->pluck('XUATXU')]);
+        return view('gym.products', ['products' => $query->orderBy('p.MASP')->paginate(15)->withQueryString(), 'categories' => GymProductCategory::query()->orderBy('MALOAISP')->get(), 'brands' => DB::table('SANPHAM')->whereNotNull('HANG')->distinct()->orderBy('HANG')->pluck('HANG'), 'origins' => DB::table('SANPHAM')->whereNotNull('XUATXU')->distinct()->orderBy('XUATXU')->pluck('XUATXU')]);
     }
 
     public function show(int $product): View

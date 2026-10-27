@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Repositories\MembershipOrderRepository;
 use App\Repositories\MembershipRepository;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
@@ -64,6 +65,12 @@ class MembershipOrderService
         return $this->sql->transaction(function () use ($order, $staff, $amount, $paymentMethod, $reference): OrderPayment {
             $lockedOrder = $this->orders->lockForUpdate($order->id);
 
+            $this->assertNoPaymentReview($lockedOrder);
+
+            if ($lockedOrder->cancellation_requested_at !== null) {
+                throw ValidationException::withMessages(['order' => 'Khách đã yêu cầu hủy; nhân viên cần hủy đơn hoặc xác nhận tiếp tục trước khi thu tiền.']);
+            }
+
             if ($lockedOrder->status !== MembershipOrder::STATUS_PENDING) {
                 throw ValidationException::withMessages(['order' => 'Chỉ ghi nhận tiền cho đơn đang chờ thanh toán.']);
             }
@@ -115,6 +122,12 @@ class MembershipOrderService
                     'membership' => $lockedOrder->membership()->firstOrFail(),
                     'already_confirmed' => true,
                 ];
+            }
+
+            $this->assertNoPaymentReview($lockedOrder);
+
+            if ($lockedOrder->cancellation_requested_at !== null) {
+                throw ValidationException::withMessages(['order' => 'Khách đã yêu cầu hủy; nhân viên cần hủy đơn hoặc xác nhận tiếp tục trước khi chốt.']);
             }
 
             if ($lockedOrder->status !== MembershipOrder::STATUS_PENDING) {
@@ -178,6 +191,8 @@ class MembershipOrderService
                 return false;
             }
 
+            $this->assertNoPaymentReview($lockedOrder);
+
             if ($lockedOrder->status !== MembershipOrder::STATUS_PENDING || $lockedOrder->receivedAmount() > 0) {
                 throw ValidationException::withMessages(['order' => 'Không thể hủy đơn đã nhận tiền hoặc đã thanh toán.']);
             }
@@ -203,6 +218,29 @@ class MembershipOrderService
         });
     }
 
+    public function resumeCancellationRequest(MembershipOrder $order, User $staff): bool
+    {
+        abort_unless($staff->canManageOrders(), 403);
+
+        return $this->sql->transaction(function () use ($order): bool {
+            $lockedOrder = $this->orders->lockForUpdate($order->id);
+            $this->assertNoPaymentReview($lockedOrder);
+
+            if ($lockedOrder->status !== MembershipOrder::STATUS_PENDING) {
+                throw ValidationException::withMessages(['order' => 'Chỉ có thể tiếp tục đơn đang chờ thanh toán.']);
+            }
+
+            if ($lockedOrder->cancellation_requested_at === null) {
+                return false;
+            }
+
+            $lockedOrder->update(['cancellation_requested_at' => null]);
+            $this->sql->audit('Tiếp tục đơn sau yêu cầu hủy', 'MembershipOrder:'.$lockedOrder->id);
+
+            return true;
+        });
+    }
+
     public function suggestedStartDate(User $customer): CarbonImmutable
     {
         $today = CarbonImmutable::now(config('app.timezone'))->startOfDay();
@@ -223,6 +261,13 @@ class MembershipOrderService
 
         if ($hasOverlap) {
             throw ValidationException::withMessages(['start_date' => 'Khoảng tập dự kiến bị trùng với một gói đã thanh toán.']);
+        }
+    }
+
+    private function assertNoPaymentReview(MembershipOrder $order): void
+    {
+        if (DB::table('gym_online_payments')->where('target_type', 'membership_order')->where('target_id', $order->id)->where('status', 'review')->exists()) {
+            throw ValidationException::withMessages(['payment' => 'Đơn có giao dịch VNPay đang đối soát; quản lý cần xử lý trước khi thu, chốt hoặc hủy.']);
         }
     }
 }

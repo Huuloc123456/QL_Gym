@@ -102,13 +102,15 @@ class GymInvoiceController extends Controller
         $legacyPackageOrder = $fulfillment ? null : MembershipOrder::query()->where('sql_invoice_id', $invoice)->first();
         $received = $this->shop->received($invoice);
         $needsReconciliation = app(GymPortalService::class)->unreconciledInvoices()->where('h.MAHD', $invoice)->exists();
-        $remainingAmount = max(0, (int) $bill->THANHTIEN - $received);
+        $hasPaymentReview = DB::table('gym_online_payments')->where('target_type', 'invoice')->where('target_id', $invoice)->where('status', 'review')->exists();
+        $remainingAmount = $bill->TRANGTHAI === 'Hủy' ? 0 : max(0, (int) $bill->THANHTIEN - $received);
         $canShowBankTransferQr = $bill->TRANGTHAI === 'Chưa thanh toán'
             && $fulfillment !== null
             && ! in_array($fulfillment?->state, ['cancelled', 'expired'], true)
             && $remainingAmount > 0
             && ! $hasUnsupportedServices
             && ! $needsReconciliation;
+        $canShowBankTransferQr = $canShowBankTransferQr && ! $hasPaymentReview;
         $bankTransferQrUrl = $canShowBankTransferQr
             ? app(VietQrService::class)->invoiceImageUrl($settings, $invoice, $remainingAmount)
             : null;
@@ -118,10 +120,12 @@ class GymInvoiceController extends Controller
             'lines' => $lines,
             'settings' => $settings,
             'needsReconciliation' => $needsReconciliation,
+            'hasPaymentReview' => $hasPaymentReview,
             'originalLines' => $sets[1] ?? [],
             'fulfillment' => $fulfillment,
             'legacyPackageOrder' => $legacyPackageOrder,
             'receipts' => DB::table('gym_receipts as r')->join('users as u', 'u.id', '=', 'r.user_id')->where('invoice_id', $invoice)->select('r.*', 'u.name')->orderBy('r.id')->get(),
+            'refunds' => DB::table('gym_refunds')->where('target_type', 'invoice')->where('target_id', $invoice)->orderBy('id')->get(),
             'onlinePayments' => DB::table('gym_online_payments')->where('target_type', 'invoice')->where('target_id', $invoice)->orderByDesc('id')->get(),
             'received' => $received,
             'remainingAmount' => $remainingAmount,
@@ -162,6 +166,15 @@ class GymInvoiceController extends Controller
             : ($cancelled ? 'Đã hủy hóa đơn và giải phóng hàng đang giữ.' : 'Hóa đơn đã được hủy trước đó.');
 
         return redirect()->route('gym.invoices.show', $invoice)->with('success', $message);
+    }
+
+    public function resumeCancellation(Request $request, int $invoice): RedirectResponse
+    {
+        $resumed = $this->shop->resumeCancellation($invoice, $request->user());
+
+        return redirect()->route('gym.invoices.show', $invoice)->with('success', $resumed
+            ? 'Đã xác nhận tiếp tục xử lý đơn theo trao đổi với khách.'
+            : 'Yêu cầu hủy đã được xử lý trước đó; không thay đổi thêm.');
     }
 
     public function fulfill(Request $request, int $invoice): RedirectResponse

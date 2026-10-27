@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -71,6 +72,8 @@ class ManagerEmployeeAccessTest extends TestCase
     public function test_authenticated_user_can_change_password_after_confirming_current_password(): void
     {
         $customer = User::factory()->create(['password' => 'CurrentPass123!']);
+        $oldRememberToken = $customer->remember_token;
+        DB::table('sessions')->insert(['id' => 'other-customer-session', 'user_id' => $customer->id, 'payload' => '', 'last_activity' => time()]);
 
         $this->actingAs($customer)->put(route('account.password.update'), [
             'current_password' => 'CurrentPass123!',
@@ -80,6 +83,8 @@ class ManagerEmployeeAccessTest extends TestCase
 
         $this->assertTrue(Hash::check('NewSecurePass123!', $customer->fresh()->password));
         $this->assertFalse(Hash::check('CurrentPass123!', $customer->fresh()->password));
+        $this->assertNotSame($oldRememberToken, $customer->fresh()->remember_token);
+        $this->assertDatabaseMissing('sessions', ['id' => 'other-customer-session']);
     }
 
     public function test_password_change_rejects_an_incorrect_current_password(): void

@@ -53,6 +53,24 @@ class PaymentReviewWorkflowTest extends TestCase
         $this->assertDatabaseCount('memberships', 1);
     }
 
+    public function test_manager_can_choose_a_new_start_date_for_a_late_membership_payment(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $customer = User::factory()->create();
+        $package = GymPackage::factory()->create();
+        $order = MembershipOrder::factory()->for($customer)->for($package, 'gymPackage')->create([
+            'amount' => 250000, 'start_date' => today()->subDay(),
+        ]);
+        $paymentId = $this->reviewPayment($customer, 'membership_order', $order->id, 250000);
+        $newDate = today()->addDay()->toDateString();
+
+        $this->actingAs($manager)->post(route('manager.payment-reviews.confirm', $paymentId), [
+            'note' => 'Đã đối chiếu và thống nhất ngày mới.', 'start_date' => $newDate,
+        ])->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('membership_orders', ['id' => $order->id, 'status' => 'paid', 'start_date' => $newDate]);
+        $this->assertDatabaseHas('memberships', ['membership_order_id' => $order->id, 'starts_on' => $newDate]);
+    }
+
     public function test_manager_can_record_an_external_refund_and_payment_no_longer_blocks_retry(): void
     {
         $manager = User::factory()->manager()->create();
@@ -73,6 +91,11 @@ class PaymentReviewWorkflowTest extends TestCase
             'review_resolution' => 'refunded',
             'resolution_reference' => 'REFUND-12345',
             'resolution_note' => 'Đã hoàn khoản tiền qua ngân hàng.',
+        ]);
+        $this->assertDatabaseHas('gym_refunds', [
+            'source_type' => 'online_payment', 'source_id' => $paymentId,
+            'target_type' => 'membership_order', 'target_id' => $order->id,
+            'amount' => 250000, 'reference' => 'REFUND-12345',
         ]);
         $this->assertSame(MembershipOrder::STATUS_PENDING, $order->fresh()->status);
         $this->assertDatabaseCount('memberships', 0);
@@ -99,6 +122,56 @@ class PaymentReviewWorkflowTest extends TestCase
         $this->actingAs($customer)->post(route('gym.invoices.vnpay', $invoice))->assertSessionHasErrors('payment');
         $this->assertSame(0, app(GymPortalService::class)->expireOrders());
         $this->assertDatabaseHas('HOADON', ['MAHD' => $invoice, 'TRANGTHAI' => 'Chưa thanh toán']);
+    }
+
+    public function test_staff_cannot_collect_more_money_while_vnpay_payment_is_under_review(): void
+    {
+        $employee = User::factory()->employee()->create();
+        $customer = User::factory()->create();
+        DB::table('SANPHAM')->insert(['MASP' => 9911, 'TENSP' => 'Hàng chờ đối soát', 'MALOAISP' => 3, 'DONGIA' => 1000, 'SOLUONGTON' => 5]);
+        $this->actingAs($customer)->post(route('gym.cart.add'), ['kind' => 'product', 'item' => 9911, 'quantity' => 1]);
+        $this->post(route('gym.checkout'), ['token' => (string) Str::uuid(), 'mode' => 'pickup', 'payment_method' => 'vnpay'])->assertSessionHasNoErrors();
+        $invoice = (int) DB::table('HOADON')->where('MAKH', $customer->sql_customer_id)->max('MAHD');
+        $this->reviewPayment($customer, 'invoice', $invoice, 1000);
+
+        $this->actingAs($employee)->get(route('gym.invoices.show', $invoice))->assertOk()
+            ->assertSee('đang chờ quản lý đối soát')->assertDontSee('Ghi nhận khoản thu');
+        $this->actingAs($employee)->post(route('gym.invoices.receive', $invoice), [
+            'amount' => 1000, 'method' => 'cash', 'token' => (string) Str::uuid(),
+        ])->assertSessionHasErrors('payment');
+        $this->assertSame(0, DB::table('gym_receipts')->where('invoice_id', $invoice)->count());
+
+        $order = MembershipOrder::factory()->for($customer)->create(['amount' => 1000]);
+        $this->reviewPayment($customer, 'membership_order', $order->id, 1000);
+        $this->post(route('staff.orders.payments.store', $order), ['amount' => 1000, 'payment_method' => 'cash'])
+            ->assertSessionHasErrors('payment');
+        $this->assertDatabaseMissing('order_payments', ['membership_order_id' => $order->id]);
+    }
+
+    public function test_staff_must_explicitly_resume_a_package_order_after_customer_requests_cancellation(): void
+    {
+        $customer = User::factory()->create();
+        $employee = User::factory()->employee()->create();
+        $order = MembershipOrder::factory()->for($customer)->create(['amount' => 1000]);
+
+        $this->actingAs($customer)->post(route('my.orders.cancel-request', $order))->assertSessionHasNoErrors();
+        $this->actingAs($employee)->post(route('staff.orders.payments.store', $order), [
+            'amount' => 1000, 'payment_method' => 'cash',
+        ])->assertSessionHasErrors('order');
+        $this->get(route('staff.orders.show', $order))
+            ->assertSee('Xác nhận tiếp tục đơn')
+            ->assertDontSee('Ghi nhận tiền đã nhận');
+        $this->post(route('staff.orders.confirm', $order), [
+            'start_date' => now()->toDateString(),
+        ])->assertSessionHasErrors('order');
+        $this->assertDatabaseMissing('order_payments', ['membership_order_id' => $order->id]);
+
+        $this->post('/staff/don-hang/'.$order->id.'/tiep-tuc')->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('membership_orders', ['id' => $order->id, 'cancellation_requested_at' => null]);
+        $this->post(route('staff.orders.payments.store', $order), [
+            'amount' => 1000, 'payment_method' => 'cash',
+        ])->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('order_payments', ['membership_order_id' => $order->id, 'amount' => 1000]);
     }
 
     public function test_manager_can_confirm_a_late_invoice_payment_and_fulfill_its_reserved_product(): void

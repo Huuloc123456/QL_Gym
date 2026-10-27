@@ -6,7 +6,6 @@ use App\Models\MembershipOrder;
 use App\Models\TrialRequest;
 use App\Models\User;
 use App\Services\OriginalGymSql;
-use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -124,21 +123,13 @@ class GymSqlIntegrationTest extends TestCase
         }
     }
 
-    public function test_trial_approval_uses_original_days_once_and_allows_checkin_without_paid_membership(): void
+    public function test_unlinked_legacy_trial_cannot_automatically_create_an_account(): void
     {
         $staff = User::factory()->employee()->create();
         $trial = TrialRequest::factory()->create();
-        $package = (int) DB::table('GOITAP')->where('THOIHAN', 1)->value('MAGOITAP');
-        $this->actingAs($staff)->post(route('staff.trial-requests.approve', $trial), ['package' => $package])->assertSessionHasErrors('identity_verified');
-        $this->post(route('staff.trial-requests.approve', $trial), ['package' => $package, 'identity_verified' => 1])->assertRedirect()->assertSessionHasNoErrors();
-        $customer = User::where('phone', $trial->phone)->firstOrFail();
-        $registration = DB::table('DANGKYGOITAP')->where('MADKGT', $trial->fresh()->sql_membership_id)->first();
-        $this->assertSame(1, (int) CarbonImmutable::parse($registration->NGAYBATDAU)->diffInDays($registration->NGAYKETTHUC));
-        $this->assertFalse(Hash::check('123456', DB::table('KHACHHANG')->where('MAKH', $customer->sql_customer_id)->value('MATKHAU')));
-        $this->post(route('staff.trial-requests.approve', $trial), ['package' => $package, 'identity_verified' => 1])->assertRedirect()->assertSessionHasNoErrors();
-        $this->assertSame(1, DB::table('DANGKYGOITAP')->where('MAKH', $customer->sql_customer_id)->count());
-        $this->post(route('staff.checkins.store'), ['member' => $trial->phone])->assertRedirect()->assertSessionHasNoErrors();
-        $this->assertDatabaseHas('check_ins', ['user_id' => $customer->id, 'membership_id' => null]);
-        $this->assertDatabaseHas('CHECKIN', ['MAKH' => $customer->sql_customer_id, 'TRANGTHAI' => 'Hợp lệ']);
+        $this->actingAs($staff)->post(route('staff.trial-requests.approve', $trial), ['start_date' => today()->toDateString()])->assertSessionHasErrors('identity_verified');
+        $this->post(route('staff.trial-requests.approve', $trial), ['start_date' => today()->toDateString(), 'identity_verified' => 1])->assertSessionHasErrors('trial');
+        $this->assertDatabaseMissing('users', ['phone' => $trial->phone]);
+        $this->assertDatabaseCount('trial_entitlements', 0);
     }
 }

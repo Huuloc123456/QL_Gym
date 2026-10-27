@@ -56,6 +56,7 @@
                 <h2 class="text-lg font-bold" id="gym-order-rules">Quy tắc đơn hàng và thông báo</h2>
                 <div class="mt-4 grid gap-5 sm:grid-cols-3">
                     <div><label class="gym-label" for="payment_hours">Hạn thanh toán đơn mới (giờ)</label><x-form-input id="payment_hours" name="payment_hours" type="number" min="1" max="168" value="{{ old('payment_hours', $settings->payment_hours) }}" required /></div>
+                    <div><label class="gym-label" for="trial_days">Thời lượng tập thử (ngày)</label><x-form-input id="trial_days" name="trial_days" type="number" min="1" max="7" value="{{ old('trial_days', $settings->trial_days) }}" required /></div>
                     <div><label class="gym-label" for="reminder_days">Nhắc trước khi hết gói (ngày)</label><x-form-input id="reminder_days" name="reminder_days" type="number" min="1" max="30" value="{{ old('reminder_days', $settings->reminder_days) }}" required /></div>
                     <div><label class="gym-label" for="shipping_fee">Phí giao hàng cố định (VNĐ)</label><x-form-input id="shipping_fee" name="shipping_fee" type="number" min="0" max="10000000" value="{{ old('shipping_fee', $settings->shipping_fee) }}" required /><p class="mt-2 text-xs text-slate-500">Nhận tại quầy luôn miễn phí; không áp dụng ưu đãi hạng khách vào phí giao.</p></div>
                 </div>
@@ -71,7 +72,17 @@
 
         <aside class="gym-card mt-6">
             <h2 class="text-lg font-bold">Tác vụ tự động</h2>
-            <p class="mt-3 text-sm leading-7">Lần xử lý gần nhất: {{ $settings->last_processed_at ?: 'Chưa chạy' }}. Email thông báo gửi lỗi: {{ $failedEmails }}. Cần duy trì Laravel Scheduler để xử lý đơn quá hạn và gửi nhắc lịch.</p>
+            @php($schedulerLastRun = $settings->last_processed_at ? \Illuminate\Support\Carbon::parse($settings->last_processed_at) : null)
+            @php($schedulerIsLate = ! $schedulerLastRun || $schedulerLastRun->lt(now()->subMinutes(3)))
+            @if ($schedulerIsLate)
+                <div class="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950" role="status">
+                    <strong>Scheduler chưa chạy gần đây.</strong>
+                    <p class="mt-1">Tác vụ xử lý đơn quá hạn và nhắc lịch có thể đang dừng. Trên máy local, chạy <code>php artisan schedule:work</code> trong cửa sổ terminal riêng.</p>
+                </div>
+            @else
+                <p class="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-950" role="status"><strong>Scheduler đang hoạt động.</strong> Lần xử lý gần nhất: {{ $schedulerLastRun->format('d/m/Y H:i:s') }}.</p>
+            @endif
+            <p class="mt-3 text-sm leading-7">Email thông báo gửi lỗi: {{ $failedEmails }}. Máy chủ triển khai cần gọi `php artisan schedule:run` mỗi phút.</p>
             <p class="mt-2 text-sm text-slate-500">Đơn đã nhận một phần tiền không tự hủy. Hóa đơn lịch sử chưa có hạn thanh toán được giữ để nhân viên đối chiếu.</p>
         </aside>
 

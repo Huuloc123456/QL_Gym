@@ -9,7 +9,7 @@ class GymSetting extends Model
     protected $fillable = [
         'gym_name', 'phone', 'email', 'address', 'opening_hours', 'introduction',
         'bank_name', 'bank_code', 'bank_account', 'bank_account_name', 'payment_hours', 'reminder_days',
-        'shipping_fee', 'email_enabled',
+        'shipping_fee', 'email_enabled', 'trial_days',
         'faq_items',
     ];
 

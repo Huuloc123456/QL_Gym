@@ -52,14 +52,20 @@
             </article>
         </div>
 
+        <div class="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <article class="gym-card"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Tiền đã hoàn trong kỳ</p><p class="mt-3 text-2xl font-extrabold tabular-nums">{{ number_format($report['refunds_total'], 0, ',', '.') }} VNĐ</p></article>
+            <article class="gym-card"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Thu ròng trong kỳ</p><p class="mt-3 text-2xl font-extrabold tabular-nums">{{ number_format($report['receipts_net'], 0, ',', '.') }} VNĐ</p><p class="mt-2 text-sm text-slate-600">Tiền nhận trong kỳ trừ tiền hoàn trong kỳ; khoản hoàn có thể thuộc đơn của kỳ trước.</p></article>
+            <article class="gym-card"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">VNPay đang chờ đối soát</p><p class="mt-3 text-2xl font-extrabold tabular-nums">{{ number_format($report['payment_review_total'], 0, ',', '.') }} VNĐ</p><p class="mt-2 text-sm text-slate-600">Đã nhận qua cổng, đang chờ quản lý quyết định xác nhận hoặc hoàn.</p></article>
+        </div>
+
         <p class="mt-5 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm leading-6 text-sky-950">
-            Doanh thu đơn đã xác nhận và tiền thực nhận có thể khác nhau khi hội viên trả nhiều lần hoặc ở kỳ khác. Số liệu tính theo múi giờ phòng tập; ngày kết thúc được tính trọn ngày.
+            Doanh thu đơn đã xác nhận và tiền thực nhận có thể khác nhau khi hội viên trả nhiều lần hoặc ở kỳ khác. Tiền VNPay chờ đối soát nằm trong tiền thực nhận nhưng chưa tính vào doanh thu đã xác nhận. Số liệu tính theo múi giờ phòng tập; ngày kết thúc được tính trọn ngày.
         </p>
 
         <div class="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div>
                 <h2 class="font-bold text-gym-ink">Tải báo cáo chi tiết</h2>
-                <p class="mt-1 text-sm text-slate-600">File Excel gồm tổng quan, danh sách đơn và từng khoản thu.</p>
+                <p class="mt-1 text-sm text-slate-600">File Excel gồm tổng quan, khoản thu, hoàn tiền và số dư từng đơn.</p>
             </div>
             <a class="gym-btn-primary" href="{{ route('manager.reports.export', ['from_date' => $report['from_date'], 'to_date' => $report['to_date']]) }}">Xuất Excel</a>
         </div>

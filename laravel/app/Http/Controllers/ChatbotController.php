@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\GymPublicInfoService;
 use App\Services\RagProductCatalogService;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
@@ -10,13 +11,33 @@ use Illuminate\Support\Facades\Http;
 
 class ChatbotController extends Controller
 {
-    public function __invoke(Request $request, RagProductCatalogService $productCatalog): JsonResponse
+    public function __invoke(Request $request, RagProductCatalogService $productCatalog, GymPublicInfoService $publicInfo): JsonResponse
     {
         $validated = $request->validate([
             'message' => ['required', 'string', 'max:500'],
         ]);
         $message = trim($validated['message']);
         $productCards = [];
+
+        $packageAnswer = $productCatalog->answerPackageQuestion($message);
+        if ($packageAnswer !== null) {
+            return response()->json([
+                'answer' => $packageAnswer,
+                'sources' => [str_contains($packageAnswer, 'ước tính')
+                    ? 'Ước tính từ giá gói 1 tháng đang bán'
+                    : 'Gói tập hiện đang mở bán'],
+                'products' => [],
+            ]);
+        }
+
+        $publicAnswer = $publicInfo->answerQuestion($message);
+        if ($publicAnswer !== null) {
+            return response()->json([
+                'answer' => $publicAnswer,
+                'sources' => ['Thông tin công khai The Gym'],
+                'products' => [],
+            ]);
+        }
 
         if ($productCatalog->isProductRelatedQuestion($message)) {
             $productCards = $productCatalog->cardsForQuestion($message);

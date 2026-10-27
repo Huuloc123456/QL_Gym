@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\GymPackage;
+use App\Models\Membership;
 use App\Models\User;
 use App\Services\GymCommerceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -15,6 +16,37 @@ use Tests\TestCase;
 class GymCommerceTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_checkout_rejects_package_overlapping_an_existing_laravel_membership(): void
+    {
+        $customer = User::factory()->create();
+        $package = GymPackage::factory()->create(['duration_months' => 1, 'is_active' => true]);
+        Membership::factory()->for($customer)->for($package, 'gymPackage')->create([
+            'starts_on' => today()->addDays(10), 'expires_on' => today()->addDays(40), 'sql_membership_id' => null,
+        ]);
+        $this->actingAs($customer)->post(route('gym.cart.add'), ['kind' => 'package', 'gym_package_id' => $package->id, 'quantity' => 1])->assertSessionHasNoErrors();
+        $this->post(route('gym.checkout'), ['token' => (string) Str::uuid(), 'mode' => 'pickup', 'payment_method' => 'cash', 'start_date' => today()->toDateString()])
+            ->assertSessionHasErrors('start_date');
+        $this->assertDatabaseMissing('HOADON', ['MAKH' => $customer->sql_customer_id]);
+    }
+
+    public function test_customer_can_remove_a_package_that_was_stopped_after_it_was_added_to_cart(): void
+    {
+        $customer = User::factory()->create();
+        $package = GymPackage::factory()->create(['is_active' => true]);
+        $this->actingAs($customer)->post(route('gym.cart.add'), [
+            'kind' => 'package', 'gym_package_id' => $package->id, 'quantity' => 1,
+        ])->assertSessionHasNoErrors();
+        $package->update(['is_active' => false]);
+
+        $this->get(route('gym.cart'))->assertOk()->assertSee('Không còn mở bán');
+        $this->post(route('gym.checkout'), [
+            'token' => (string) Str::uuid(), 'mode' => 'pickup', 'payment_method' => 'cash',
+        ])->assertSessionHasErrors('cart');
+        $line = DB::table('CHITIETGIOHANG')->where('MAKH', $customer->sql_customer_id)->value('MACHITIETGH');
+        $this->post(route('gym.cart.change', $line), ['quantity' => 0])->assertSessionHasNoErrors();
+        $this->assertDatabaseMissing('CHITIETGIOHANG', ['MACHITIETGH' => $line]);
+    }
 
     private function product(int $stock = 5): void
     {
@@ -64,6 +96,36 @@ class GymCommerceTest extends TestCase
         $this->assertFalse($featuredProducts->contains('MASP', 9002));
         $response->assertSee($featuredProducts->first()->TENSP)
             ->assertSee(route('gym.products.show', $featuredProducts->first()->MASP), false);
+    }
+
+    public function test_public_stock_filter_and_cards_use_quantity_left_after_pending_orders(): void
+    {
+        $this->product(stock: 1);
+        $customer = User::factory()->create();
+        $invoice = $this->order($customer, 1);
+
+        $catalogue = $this->get(route('gym.products.index', ['q' => 'Bình nước kiểm thử']))->assertOk();
+        $product = $catalogue->viewData('products')->firstWhere('MASP', 9001);
+        $this->assertNotNull($product);
+        $this->assertSame(0, (int) $product->available_quantity);
+        $catalogue->assertSee('Bình nước kiểm thử')->assertSee('Hết hàng');
+
+        $stockFiltered = $this->get(route('gym.products.index', ['q' => 'Bình nước kiểm thử', 'stock' => 1]))
+            ->assertOk()
+            ->viewData('products');
+        $this->assertSame(0, $stockFiltered->total());
+
+        $this->get(route('gym.products.show', 9001))
+            ->assertOk()
+            ->assertSee('Có thể đặt')
+            ->assertSee('0 sản phẩm')
+            ->assertSee('Sản phẩm hiện hết hàng.')
+            ->assertDontSee('Thêm vào giỏ hàng');
+
+        $home = $this->get(route('home'))->assertOk();
+        $featuredProducts = $home->viewData('featuredProducts');
+        $this->assertFalse($featuredProducts->contains('MASP', 9001));
+        $this->assertDatabaseHas('HOADON', ['MAHD' => $invoice, 'TRANGTHAI' => 'Chưa thanh toán']);
     }
 
     public function test_product_catalogue_paginates_in_complete_rows_of_three_cards(): void
@@ -118,6 +180,31 @@ class GymCommerceTest extends TestCase
         $this->assertDatabaseHas('HOADON', ['MAHD' => $invoice, 'TRANGTHAI' => 'Chưa thanh toán']);
         $this->assertDatabaseHas('SANPHAM', ['MASP' => 9001, 'SOLUONGTON' => 5]);
         $this->assertSame(500, (int) DB::table('gym_receipts')->where('invoice_id', $invoice)->sum('amount'));
+    }
+
+    public function test_staff_must_resolve_an_invoice_cancellation_request_before_receiving_money(): void
+    {
+        $this->product();
+        $customer = User::factory()->create();
+        $staff = User::factory()->employee()->create();
+        $invoice = $this->order($customer, 1);
+
+        $this->actingAs($customer)->post(route('gym.invoices.cancel', $invoice))->assertSessionHasNoErrors();
+        $this->actingAs($staff)->post(route('gym.invoices.receive', $invoice), [
+            'amount' => 1000, 'method' => 'cash', 'token' => (string) Str::uuid(),
+        ])->assertSessionHasErrors('payment');
+        $this->get(route('gym.invoices.show', $invoice))
+            ->assertSee('Xác nhận tiếp tục đơn')
+            ->assertDontSee('Ghi nhận khoản thu');
+        $this->post(route('gym.invoices.confirm', $invoice))->assertSessionHasErrors('payment');
+        $this->assertDatabaseMissing('gym_receipts', ['invoice_id' => $invoice]);
+
+        $this->post('/hoa-don/'.$invoice.'/tiep-tuc')->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('gym_fulfillments', ['invoice_id' => $invoice, 'cancellation_requested' => false]);
+        $this->post(route('gym.invoices.receive', $invoice), [
+            'amount' => 1000, 'method' => 'cash', 'token' => (string) Str::uuid(),
+        ])->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('gym_receipts', ['invoice_id' => $invoice, 'amount' => 1000]);
     }
 
     public function test_legacy_pt_invoice_cannot_create_a_new_pt_contract(): void

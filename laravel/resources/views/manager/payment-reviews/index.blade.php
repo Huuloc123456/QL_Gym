@@ -32,6 +32,8 @@
                         <h3 class="font-bold">Xác nhận đã nhận tiền</h3>
                         <label class="gym-label" for="confirm-reference-{{ $payment->id }}">Mã chứng từ đối chiếu (nếu có)</label>
                         <input class="gym-input" id="confirm-reference-{{ $payment->id }}" name="reference" maxlength="100" value="{{ $payment->provider_transaction_no }}">
+                        <label class="gym-label" for="confirm-date-{{ $payment->id }}">Ngày bắt đầu gói mới (nếu cần)</label>
+                        <input class="gym-input" id="confirm-date-{{ $payment->id }}" name="start_date" type="date" min="{{ now()->toDateString() }}">
                         <label class="gym-label" for="confirm-note-{{ $payment->id }}">Ghi chú kiểm tra</label>
                         <textarea class="gym-input min-h-20" id="confirm-note-{{ $payment->id }}" name="note" minlength="8" maxlength="1000" required></textarea>
                         <button class="gym-btn-primary" type="submit">Xác nhận và chốt đơn</button>

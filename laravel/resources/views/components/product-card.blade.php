@@ -1,5 +1,6 @@
 @props(['product'])
 @php($price = $product->GIAKHUYENMAI !== null ? min((int) $product->DONGIA, (int) $product->GIAKHUYENMAI) : (int) $product->DONGIA)
+@php($available = (int) ($product->available_quantity ?? 0))
 <article class="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
     <a class="group relative block bg-slate-50" href="{{ route('gym.products.show', $product->MASP) }}">
         <img class="aspect-square w-full object-contain p-3 transition-transform group-hover:scale-105" src="{{ \App\Services\OriginalGymSql::image($product->image ?? null, (int) $product->MASP) }}" alt="{{ $product->TENSP }}" width="400" height="400" loading="lazy">
@@ -9,6 +10,6 @@
         <p class="text-xs text-slate-500">{{ $product->HANG ?: 'The Gym' }}</p>
         <h3 class="mt-1 text-sm font-semibold leading-6"><a class="hover:text-gym-blue hover:underline" href="{{ route('gym.products.show', $product->MASP) }}">{{ $product->TENSP }}</a></h3>
         <div class="mt-auto pt-3"><strong class="text-gym-blue">{{ number_format($price, 0, ',', '.') }}đ</strong>@if ($price < $product->DONGIA)<del class="ml-2 text-xs text-slate-400">{{ number_format($product->DONGIA, 0, ',', '.') }}đ</del>@endif</div>
-        <p class="mt-2 text-xs {{ $product->SOLUONGTON > 0 ? 'text-emerald-700' : 'text-slate-500' }}">{{ $product->SOLUONGTON > 0 ? 'Còn hàng' : 'Hết hàng' }}</p>
+        <p class="mt-2 text-xs {{ $available > 0 ? 'text-emerald-700' : 'text-slate-500' }}">{{ $available > 0 ? 'Còn hàng' : 'Hết hàng' }}</p>
     </div>
 </article>

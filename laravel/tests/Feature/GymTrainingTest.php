@@ -12,6 +12,21 @@ class GymTrainingTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_checkout_rejects_classes_with_overlapping_sessions_in_the_same_cart(): void
+    {
+        $this->travelTo('2027-01-10 08:00');
+        $customer = User::factory()->create();
+        $teacher = User::factory()->employee()->create();
+        foreach ([9001, 9002] as $id) {
+            DB::table('LOPHOC')->insert(['MALOP' => $id, 'TENLOP' => 'Lớp '.$id, 'MACM' => 1, 'HOCPHI' => 100000, 'NGAYBATDAU' => '2027-01-11', 'NGAYKETTHUC' => '2027-02-11', 'SOBUOI' => 2, 'SISOTOIDA' => 10]);
+            DB::table('LICHLOP')->insert(['MALICHLOP' => $id, 'MALOP' => $id, 'MANV' => $teacher->sql_employee_id, 'NGAYHOC' => '2027-01-11', 'GIOBATDAU' => '2027-01-11 09:00:00', 'GIOKETTHUC' => '2027-01-11 10:00:00', 'TRANGTHAI' => 'Chưa diễn ra']);
+            $this->actingAs($customer)->post(route('gym.cart.add'), ['kind' => 'class', 'item' => $id, 'quantity' => 1])->assertSessionHasNoErrors();
+        }
+
+        $this->post(route('gym.checkout'), ['token' => (string) Str::uuid(), 'mode' => 'pickup', 'payment_method' => 'cash'])->assertSessionHasErrors('class');
+        $this->assertDatabaseMissing('HOADON', ['MAKH' => $customer->sql_customer_id]);
+    }
+
     private function legacyPtContract(User $customer, User $trainer, int $id): int
     {
         DB::table('DANGKYPT')->insert(['MADKPT' => $id, 'MAKH' => $customer->sql_customer_id, 'MANV' => $trainer->sql_employee_id, 'SOBUOI' => 1, 'GIAMOIBUOI' => 100000, 'NGAYDANGKY' => now(), 'TRANGTHAI' => 'Còn hiệu lực']);
@@ -87,5 +102,35 @@ class GymTrainingTest extends TestCase
             ->assertSee('Lịch lớp học')
             ->assertDontSee('Đăng ký PT');
         $this->assertDatabaseHas('LICHLOP', ['MALOP' => 9001, 'MANV' => $trainer->sql_employee_id]);
+    }
+
+    public function test_manager_cannot_delete_a_class_reserved_by_a_pending_invoice(): void
+    {
+        $this->travelTo('2026-10-27 08:00');
+        $customer = User::factory()->create();
+        $manager = User::factory()->manager()->create();
+        DB::table('LOPHOC')->insert([
+            'MALOP' => 9905,
+            'TENLOP' => 'Lớp đang chờ QA',
+            'MACM' => 1,
+            'HOCPHI' => 100000,
+            'NGAYBATDAU' => '2027-01-11',
+            'NGAYKETTHUC' => '2027-02-11',
+            'SOBUOI' => 2,
+            'SISOTOIDA' => 10,
+        ]);
+        $this->actingAs($customer)->post(route('gym.cart.add'), [
+            'kind' => 'class', 'item' => 9905, 'quantity' => 1,
+        ])->assertSessionHasNoErrors();
+        $this->post(route('gym.checkout'), [
+            'token' => (string) Str::uuid(), 'mode' => 'pickup', 'payment_method' => 'cash',
+        ])->assertSessionHasNoErrors();
+
+        $this->actingAs($manager)
+            ->delete(route('gym.admin.destroy', ['classes', 9905]))
+            ->assertSessionHasErrors('record');
+
+        $this->assertDatabaseHas('LOPHOC', ['MALOP' => 9905, 'TENLOP' => 'Lớp đang chờ QA']);
+        $this->assertDatabaseHas('gym_invoice_lines', ['kind' => 'class', 'item_id' => 9905]);
     }
 }

@@ -17,7 +17,10 @@ class TrialRequestRepository
 
     public function paginateForStaff(?string $status, ?string $search): LengthAwarePaginator
     {
-        $query = TrialRequest::query()->with('handler');
+        $query = TrialRequest::query()->with([
+            'handler',
+            'entitlement' => fn ($query) => $query->with(['revokedBy'])->withCount('checkIns'),
+        ]);
 
         if ($status !== null) {
             $query->where('status', $status);
@@ -32,7 +35,7 @@ class TrialRequestRepository
         }
 
         return $query
-            ->orderByRaw("CASE WHEN status = 'received' THEN 0 ELSE 1 END")
+            ->orderByRaw("CASE WHEN status IN ('received', 'pending') THEN 0 ELSE 1 END")
             ->latest()
             ->paginate(20)
             ->withQueryString();
@@ -41,7 +44,7 @@ class TrialRequestRepository
     public function markContacted(TrialRequest $trialRequest, User $staff): void
     {
         $trialRequest->update([
-            'status' => 'contacted',
+            'status' => $trialRequest->status === 'received' ? 'contacted' : $trialRequest->status,
             'handled_by' => $staff->id,
             'handled_at' => now(config('app.timezone')),
         ]);

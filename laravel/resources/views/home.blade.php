@@ -78,13 +78,14 @@
                 <h2 class="mt-2 text-3xl font-extrabold uppercase tracking-tight sm:text-4xl">Trải nghiệm miễn phí ngay!</h2>
                 <p class="mt-3 leading-7 text-sky-50">Để lại thông tin, đội ngũ The Gym sẽ liên hệ và hỗ trợ bạn trải nghiệm phòng tập.</p>
             </div>
-            <form class="space-y-4" method="POST" action="{{ route('trials.store') }}">
-                @csrf
-                <div><label class="gym-label text-white" for="trial-name">Họ và tên</label><x-form-input id="trial-name" type="text" name="name" autocomplete="name" value="{{ old('name') }}" required /></div>
-                <div><label class="gym-label text-white" for="trial-phone">Số điện thoại</label><x-form-input id="trial-phone" type="tel" name="phone" autocomplete="tel" value="{{ old('phone') }}" required /></div>
-                <div><label class="gym-label text-white" for="trial-email">Email (không bắt buộc)</label><x-form-input id="trial-email" type="email" name="email" autocomplete="email" value="{{ old('email') }}" /></div>
-                <button class="gym-btn-primary bg-slate-900 hover:bg-slate-800" type="submit">Đăng ký trải nghiệm</button>
-            </form>
+            <div class="space-y-4">
+                @guest
+                    <p>Đăng nhập hoặc tạo tài khoản để đăng ký và theo dõi yêu cầu tập thử.</p>
+                    <div class="flex flex-wrap gap-3"><a class="gym-btn-primary bg-slate-900 hover:bg-slate-800" href="{{ route('login', ['trial' => 1]) }}">Đăng nhập</a><a class="gym-btn-outline border-white text-white hover:bg-white hover:text-gym-blue" href="{{ route('register', ['trial' => 1]) }}">Tạo tài khoản</a></div>
+                @else
+                    @if (auth()->user()->role === 'customer')<a class="gym-btn-primary bg-slate-900 hover:bg-slate-800" href="{{ route('trials.create') }}">Đăng ký tập thử</a>@else<p>Quản lý yêu cầu trong khu vực vận hành.</p>@endif
+                @endguest
+            </div>
         </div>
     </section>
 @endsection

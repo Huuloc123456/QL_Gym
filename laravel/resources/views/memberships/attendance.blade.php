@@ -13,7 +13,7 @@
                 <thead><tr><th scope="col">Ngày</th><th scope="col">Gói</th><th scope="col">Giờ vào</th><th scope="col">Giờ ra</th><th scope="col">Ghi chú</th></tr></thead>
                 <tbody>
                     @forelse ($visits as $visit)
-                        <tr><td class="whitespace-nowrap">{{ $visit->checked_in_at->format('d/m/Y') }}</td><td>{{ $visit->membership?->gymPackage?->name ?? 'Gói hoặc tập thử đã duyệt' }}</td><td class="whitespace-nowrap">{{ $visit->checked_in_at->format('H:i') }}</td><td class="whitespace-nowrap">{{ $visit->checked_out_at?->format('H:i') ?? 'Đang tập' }}</td><td>{{ $visit->manual_close_reason ?: '—' }}</td></tr>
+                        <tr><td class="whitespace-nowrap">{{ $visit->checked_in_at->format('d/m/Y') }}</td><td>{{ $visit->trial_entitlement_id ? 'Tập thử' : ($visit->membership?->gymPackage?->name ?? ($visit->sql_membership_id ? 'Gói dữ liệu SQL #'.$visit->sql_membership_id : 'Gói từ dữ liệu SQL')) }}</td><td class="whitespace-nowrap">{{ $visit->checked_in_at->format('H:i') }}</td><td class="whitespace-nowrap">{{ $visit->checked_out_at?->format('H:i') ?? 'Đang tập' }}</td><td>{{ $visit->manual_close_reason ?: '—' }}</td></tr>
                     @empty
                         <tr><td colspan="5" class="py-8 text-center">
                             <p class="font-semibold text-slate-700">Chưa có lượt tập nào</p>

@@ -3,18 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use App\Services\OriginalGymSql;
+use App\Services\AccountPasswordService;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Password;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\View\View;
 
 class PasswordRecoveryController extends Controller
 {
-    public function __construct(private OriginalGymSql $sql) {}
+    public function __construct(private AccountPasswordService $passwords) {}
 
     public function create(): View
     {
@@ -50,14 +49,8 @@ class PasswordRecoveryController extends Controller
         ]);
 
         $status = Password::reset($credentials, function (User $user, string $password): void {
-            $this->sql->transaction(function () use ($user, $password): void {
-                $user->forceFill([
-                    'password' => $password,
-                    'remember_token' => Str::random(60),
-                ])->save();
-
-                event(new PasswordReset($user));
-            });
+            $this->passwords->reset($user, $password);
+            event(new PasswordReset($user));
         });
 
         if ($status === Password::PASSWORD_RESET) {

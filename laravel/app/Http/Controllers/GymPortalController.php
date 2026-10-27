@@ -68,6 +68,7 @@ class GymPortalController extends Controller
             'faq_items.*.question' => ['nullable', 'string', 'max:180', 'required_with:faq_items.*.answer'],
             'faq_items.*.answer' => ['nullable', 'string', 'max:800', 'required_with:faq_items.*.question'],
             'payment_hours' => ['sometimes', 'required', 'integer', 'between:1,168'],
+            'trial_days' => ['sometimes', 'required', 'integer', 'between:1,7'],
             'reminder_days' => ['sometimes', 'required', 'integer', 'between:1,30'],
             'shipping_fee' => ['sometimes', 'required', 'integer', 'between:0,10000000'],
             'email_enabled' => ['sometimes', 'required', 'boolean'],
@@ -83,7 +84,7 @@ class GymPortalController extends Controller
             'bank_account' => $data['bank_account'] ?? null,
             'bank_account_name' => $data['bank_account_name'] ?? $data['bank_holder'] ?? null,
         ];
-        foreach (['introduction', 'faq_items', 'payment_hours', 'reminder_days', 'shipping_fee', 'email_enabled'] as $optionalField) {
+        foreach (['introduction', 'faq_items', 'payment_hours', 'reminder_days', 'shipping_fee', 'email_enabled', 'trial_days'] as $optionalField) {
             if (array_key_exists($optionalField, $data)) {
                 $settings[$optionalField] = $optionalField === 'faq_items'
                     ? collect($data[$optionalField] ?? [])

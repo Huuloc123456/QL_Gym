@@ -7,7 +7,7 @@
         <header class="mb-7">
             <p class="text-sm font-bold uppercase tracking-[0.18em] text-gym-blue">Khu vực nhân viên</p>
             <h1 class="gym-title mt-2">Check-in hội viên</h1>
-            <p class="mt-2 text-slate-600">Tra cứu bằng mã hội viên hoặc số điện thoại. Chỉ gói đã thanh toán và đang hiệu lực mới được vào tập.</p>
+            <p class="mt-2 text-slate-600">Tra cứu bằng mã hội viên hoặc số điện thoại. Gói đã thanh toán hoặc quyền tập thử đã duyệt phải đang hiệu lực.</p>
         </header>
         <div class="gym-card mb-8">
             <form class="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end" method="POST" action="{{ route('staff.checkins.store') }}">
@@ -27,7 +27,7 @@
                     <article class="flex flex-wrap items-center justify-between gap-4 border-t border-slate-200 py-4 first:border-0 first:pt-0 last:pb-0">
                         <div>
                             <p class="font-bold">{{ $openVisit->user->name }} <span class="font-normal text-slate-500">· {{ $openVisit->user->phone }}</span></p>
-                            <p class="mt-1 text-sm text-slate-600">{{ $openVisit->membership?->gymPackage?->name ?? 'Gói từ dữ liệu SQL' }} · Vào {{ $openVisit->checked_in_at->format('d/m/Y H:i') }}</p>
+                            <p class="mt-1 text-sm text-slate-600">{{ $openVisit->trial_entitlement_id ? 'Tập thử' : ($openVisit->membership?->gymPackage?->name ?? ($openVisit->sql_membership_id ? 'Gói dữ liệu SQL #'.$openVisit->sql_membership_id : 'Gói từ dữ liệu SQL')) }} · Vào {{ $openVisit->checked_in_at->format('d/m/Y H:i') }}</p>
                         </div>
                         <div class="flex flex-wrap items-center gap-2">
                             <form method="POST" action="{{ route('staff.checkins.checkout', $openVisit) }}">@csrf<button class="gym-btn-outline min-h-9 px-3 py-1.5 text-sm" type="submit">Ghi giờ ra</button></form>
@@ -69,7 +69,7 @@
                     @forelse ($visits as $visit)
                         <tr>
                             <td><strong>{{ $visit->user->name }}</strong><div class="text-xs text-slate-500">{{ $visit->user->phone }}</div></td>
-                            <td>{{ $visit->membership?->gymPackage?->name ?? 'Gói từ dữ liệu SQL' }}</td>
+                            <td>{{ $visit->trial_entitlement_id ? 'Tập thử' : ($visit->membership?->gymPackage?->name ?? ($visit->sql_membership_id ? 'Gói dữ liệu SQL #'.$visit->sql_membership_id : 'Gói từ dữ liệu SQL')) }}</td>
                             <td class="whitespace-nowrap">{{ $visit->checked_in_at->format('d/m/Y H:i') }}</td>
                             <td>
                                 @if ($visit->checked_out_at)

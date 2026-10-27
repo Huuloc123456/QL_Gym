@@ -24,16 +24,25 @@ class MembershipRepository
     {
         $query = $customer->memberships()
             ->with(['gymPackage', 'order'])
+            ->select('memberships.*')
+            ->selectSub(DB::table('DANGKYGOITAP')->select('TRANGTHAI')
+                ->whereColumn('DANGKYGOITAP.MADKGT', 'memberships.sql_membership_id')
+                ->limit(1), 'sql_membership_status')
             ->orderByDesc('starts_on')
             ->orderByDesc('id');
-        $this->sourceEligible($query);
 
         if ($section === 'active') {
+            $this->sourceEligible($query);
             $query->whereDate('starts_on', '<=', $today)->whereDate('expires_on', '>', $today);
         } elseif ($section === 'upcoming') {
+            $this->sourceEligible($query);
             $query->whereDate('starts_on', '>', $today)->reorder()->orderBy('starts_on')->orderBy('id');
         } else {
-            $query->whereDate('expires_on', '<=', $today)->reorder()->orderByDesc('expires_on')->orderByDesc('id');
+            $query->where(function (Builder $history) use ($today): void {
+                $history->whereDate('expires_on', '<=', $today)
+                    ->orWhereIn('sql_membership_id', DB::table('DANGKYGOITAP')
+                        ->select('MADKGT')->whereIn('TRANGTHAI', ['Hết hạn', 'Đã hủy']));
+            })->reorder()->orderByDesc('expires_on')->orderByDesc('id');
         }
 
         $pageName = $section === 'expired' ? 'history_page' : $section.'_page';

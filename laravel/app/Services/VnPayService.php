@@ -17,6 +17,7 @@ class VnPayService
         private GymCommerceService $commerce,
         private MembershipOrderService $orders,
         private OriginalGymSql $sql,
+        private GymRefundService $refunds,
     ) {}
 
     public function startMembershipOrder(MembershipOrder $order, User $user): string
@@ -127,7 +128,7 @@ class VnPayService
 
             $reason = $this->manualReviewReason($lockedPayment);
             if ($reason !== null) {
-                DB::table('gym_online_payments')->where('id', $lockedPayment->id)->update($update + ['status' => 'review', 'review_reason' => $reason]);
+                DB::table('gym_online_payments')->where('id', $lockedPayment->id)->update($update + ['status' => 'review', 'review_reason' => $reason, 'paid_at' => now(config('app.timezone'))]);
                 $this->sql->audit('VNPay cần đối soát', $lockedPayment->target_type.':'.$lockedPayment->target_id, ['txn_ref' => $lockedPayment->txn_ref, 'reason' => $reason]);
 
                 return $this->ipnResponse('00', 'Confirm Success');
@@ -183,7 +184,7 @@ class VnPayService
             if ($resolution === 'confirmed') {
                 DB::table('gym_online_payments')->where('id', $paymentId)->update([
                     'status' => 'succeeded',
-                    'paid_at' => $timestamp,
+                    'paid_at' => $payment->paid_at ?? $timestamp,
                     'review_resolution' => 'confirmed',
                     'reviewed_by_user_id' => $manager->id,
                     'reviewed_at' => $timestamp,
@@ -193,16 +194,17 @@ class VnPayService
                 ]);
 
                 if ($payment->target_type === 'invoice') {
-                    $this->commerce->confirmOnline((int) $payment->target_id, allowExpired: true);
+                    $this->commerce->confirmOnline((int) $payment->target_id, allowExpired: true, startDate: $data['start_date'] ?? null);
                 } elseif ($payment->target_type === 'membership_order') {
                     $order = MembershipOrder::query()->findOrFail((int) $payment->target_id);
                     $order->update(['cancellation_requested_at' => null]);
                     $order->refresh();
-                    $this->orders->confirmOnline($order, $order->start_date->toDateString());
+                    $this->orders->confirmOnline($order, $data['start_date'] ?? $order->start_date->toDateString());
                 } else {
                     $this->fail('payment', 'Loại đơn của giao dịch không được hỗ trợ.');
                 }
             } else {
+                $this->refunds->recordOnlineReviewRefund($manager, $paymentId, $data['reference'], $data['note']);
                 DB::table('gym_online_payments')->where('id', $paymentId)->update([
                     'status' => 'refunded',
                     'review_resolution' => 'refunded',

@@ -51,6 +51,13 @@ class MembershipOrderPolicy
         return $this->isStaff($user);
     }
 
+    public function resumeCancellation(User $user, MembershipOrder $order): bool
+    {
+        return $this->isStaff($user)
+            && $order->status === MembershipOrder::STATUS_PENDING
+            && $order->cancellation_requested_at !== null;
+    }
+
     private function isStaff(User $user): bool
     {
         return $user->canManageOrders();

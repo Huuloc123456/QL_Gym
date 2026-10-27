@@ -2,18 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\AccountPasswordService;
 use App\Services\OriginalGymSql;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 
 class ProfileController extends Controller
 {
-    public function __construct(private OriginalGymSql $sql) {}
+    public function __construct(private OriginalGymSql $sql, private AccountPasswordService $passwords) {}
 
     public function show(Request $request): View
     {
@@ -41,11 +40,7 @@ class ProfileController extends Controller
     public function password(Request $request): RedirectResponse
     {
         $data = $request->validate(['current_password' => ['required', 'current_password'], 'password' => ['required', 'confirmed', 'different:current_password', Password::min(8)]]);
-        $this->sql->transaction(function () use ($request, $data): void {
-            $request->user()->forceFill(['password' => $data['password'], 'remember_token' => Str::random(60)])->save();
-            DB::table('sessions')->where('user_id', $request->user()->id)->where('id', '!=', $request->session()->getId())->delete();
-            $this->sql->audit('Đổi mật khẩu', 'users:'.$request->user()->id);
-        });
+        $this->passwords->change($request->user(), $data['password'], $request->session()->getId());
         $request->session()->regenerate();
 
         return back()->with('success', 'Đã đổi mật khẩu và kết thúc các phiên đăng nhập khác.');

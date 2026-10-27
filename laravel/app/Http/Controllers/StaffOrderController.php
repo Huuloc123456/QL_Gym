@@ -38,7 +38,9 @@ class StaffOrderController extends Controller
             ->get();
         $order->setRelation('onlinePayments', $onlinePayments);
 
-        return view('staff.orders.show', compact('order'));
+        $refunds = DB::table('gym_refunds')->where('target_type', 'membership_order')->where('target_id', $order->id)->orderBy('id')->get();
+
+        return view('staff.orders.show', compact('order', 'refunds'));
     }
 
     public function recordPayment(Request $request, MembershipOrder $order, MembershipOrderService $service): RedirectResponse
@@ -87,5 +89,14 @@ class StaffOrderController extends Controller
         $message = $cancelled ? 'Đơn đã được hủy.' : 'Đơn đã được hủy trước đó. Trang đã tải lại trạng thái mới nhất.';
 
         return redirect()->route('staff.orders.show', $order)->with('success', $message);
+    }
+
+    public function resumeCancellation(MembershipOrder $order, Request $request, MembershipOrderService $service): RedirectResponse
+    {
+        $resumed = $service->resumeCancellationRequest($order, $request->user());
+
+        return redirect()->route('staff.orders.show', $order)->with('success', $resumed
+            ? 'Đã xác nhận tiếp tục xử lý đơn theo trao đổi với khách.'
+            : 'Yêu cầu hủy đã được xử lý trước đó; không thay đổi thêm.');
     }
 }

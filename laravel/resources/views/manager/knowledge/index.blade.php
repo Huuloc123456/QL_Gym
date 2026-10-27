@@ -16,10 +16,19 @@
             </div>
         </header>
 
-        @if ($serviceError)
-            <div class="mb-6 rounded-2xl border border-amber-300 bg-amber-50 p-4 leading-6 text-amber-950" role="alert">
-                <p>{{ $serviceError }} Tài liệu trong MySQL vẫn được hiển thị. Tải lại trang sau khi RAG hoạt động để thử đồng bộ tiếp.</p>
-                <a class="mt-2 inline-flex min-h-11 items-center font-semibold text-amber-950 underline underline-offset-4" href="{{ route('manager.knowledge.index', request()->only('q')) }}">Thử đồng bộ lại</a>
+        @if (session('success'))
+            <div class="mb-6 rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-emerald-950" role="status">{{ session('success') }}</div>
+        @endif
+        @if (session('error'))
+            <div class="mb-6 rounded-2xl border border-red-300 bg-red-50 p-4 text-red-950" role="alert">{{ session('error') }}</div>
+        @endif
+        @if ($pendingSyncCount > 0)
+            <div class="mb-6 flex flex-col gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 sm:flex-row sm:items-center sm:justify-between">
+                <p>{{ number_format($pendingSyncCount) }} tài liệu đang chờ chatbot cập nhật. Nội dung vẫn được lưu an toàn trong MySQL.</p>
+                <form method="POST" action="{{ route('manager.knowledge.sync') }}">
+                    @csrf
+                    <button class="gym-btn-primary shrink-0" type="submit">Đồng bộ chatbot</button>
+                </form>
             </div>
         @endif
 

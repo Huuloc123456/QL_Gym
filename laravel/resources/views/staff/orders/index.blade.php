@@ -81,6 +81,15 @@
                     @endif
 
                     @if ($order->status === 'pending')
+                        @if ($order->cancellation_requested_at)
+                            <div class="mt-5 space-y-3 border-t border-slate-100 pt-5">
+                                <p class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-950">Khách đã yêu cầu hủy. Trao đổi với khách rồi hủy đơn hoặc xác nhận tiếp tục trước khi thu tiền.</p>
+                                <form method="POST" action="{{ route('staff.orders.resume-cancellation', $order) }}">
+                                    @csrf
+                                    <button class="gym-btn-outline" type="submit">Xác nhận tiếp tục đơn</button>
+                                </form>
+                            </div>
+                        @else
                         <div class="mt-5 grid gap-5 border-t border-slate-100 pt-5 lg:grid-cols-2">
                             @if ($remaining > 0)
                                 <form class="grid gap-3 sm:grid-cols-2" method="POST" action="{{ route('staff.orders.payments.store', $order) }}">
@@ -114,6 +123,7 @@
                                 @endif
                             </div>
                         </div>
+                        @endif
                     @elseif ($order->membership)
                         <p class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">Gói đã hiệu lực từ {{ $order->membership->starts_on->format('d/m/Y') }} đến hết {{ $order->membership->expires_on->copy()->subDay()->format('d/m/Y') }}.</p>
                     @endif

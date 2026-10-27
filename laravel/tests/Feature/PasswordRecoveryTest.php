@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\Notifications\ResetPasswordNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
@@ -58,6 +59,7 @@ class PasswordRecoveryTest extends TestCase
     public function test_valid_reset_token_changes_the_password_and_can_only_be_used_once(): void
     {
         $customer = User::factory()->create(['password' => 'OldPassword123!']);
+        DB::table('sessions')->insert(['id' => 'old-password-session', 'user_id' => $customer->id, 'payload' => '', 'last_activity' => time()]);
         $token = Password::createToken($customer);
         $credentials = [
             'email' => $customer->email,
@@ -87,6 +89,7 @@ class PasswordRecoveryTest extends TestCase
         $this->assertTrue(Hash::check('NewPassword456!', $customer->password));
         $this->assertFalse(Hash::check('OldPassword123!', $customer->password));
         $this->assertGuest();
+        $this->assertDatabaseMissing('sessions', ['id' => 'old-password-session']);
 
         $this->from(route('password.reset', ['token' => $token, 'email' => $customer->email]))
             ->post(route('password.update'), $credentials)
