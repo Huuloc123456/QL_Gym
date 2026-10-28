@@ -71,7 +71,7 @@ class GymReportController extends Controller
         return response()->streamDownload(function () use ($report): void {
             $stream = fopen('php://output', 'w');
             fwrite($stream, "\xEF\xBB\xBF");
-            fputcsv($stream, ['Mã đơn', 'Ngày lập', 'Khách hàng', 'Email', 'Số điện thoại', 'Sản phẩm/dịch vụ', 'Ngày xác nhận', 'Trạng thái', 'Giá trị đơn', 'Đã nhận gộp', 'Đã hoàn', 'Thu ròng', 'Còn phải thu'], ',', '"', '');
+            fputcsv($stream, ['Mã đơn', 'Ngày lập', 'Khách hàng', 'Email', 'Số điện thoại', 'Sản phẩm/dịch vụ', 'Ngày xác nhận', 'Trạng thái', 'Giá trị đơn', 'Đã nhận gộp', 'Đã hoàn', 'Thu ròng', 'Còn phải thu', 'Tiền giảm', 'Nguồn giảm'], ',', '"', '');
             foreach ($report['orders'] as $order) {
                 $received = (int) ($order->total_received ?? 0) + (int) ($order->online_received ?? 0);
                 $row = [
@@ -92,6 +92,8 @@ class GymReportController extends Controller
                     (int) $order->refunded_total,
                     (int) $order->net_received,
                     (int) $order->remaining_amount,
+                    '',
+                    'Không có ảnh chụp giảm giá (đơn gói cũ)',
                 ];
                 $values = array_map(fn ($value) => is_string($value) && preg_match('/^[\s]*[=+@\-]/u', $value) ? "'".$value : $value, $row);
                 fputcsv($stream, $values, ',', '"', '');
@@ -116,6 +118,8 @@ class GymReportController extends Controller
                     (int) $order->refunded_total,
                     (int) $order->net_received,
                     (int) $order->remaining_amount,
+                    (int) $order->discount_amount,
+                    $order->discount_source,
                 ];
                 $values = array_map(fn ($value) => is_string($value) && preg_match('/^[\s]*[=+@\-]/u', $value) ? "'".$value : $value, $row);
                 fputcsv($stream, $values, ',', '"', '');

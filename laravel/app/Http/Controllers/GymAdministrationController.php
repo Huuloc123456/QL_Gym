@@ -81,11 +81,19 @@ class GymAdministrationController extends Controller
         $profile = DB::table('KHACHHANG as k')
             ->leftJoin('LOAIKHACHHANG as t', 't.MALOAIKH', '=', 'k.MALOAIKH')
             ->where('k.MAKH', $customer)
-            ->select('k.*', 't.TENLOAI', 't.MUCGIAM')
+            ->select('k.*', 't.TENLOAI', 't.MUCGIAM', 't.REQUIRES_VERIFICATION')
             ->first();
         abort_unless($profile, 404);
 
         $account = User::query()->where('sql_customer_id', $customer)->first();
+        $tierVerification = DB::table('gym_customer_tier_verifications as v')
+            ->leftJoin('users as u', 'u.id', '=', 'v.verified_by')
+            ->where('v.customer_id', $customer)
+            ->where('v.tier_id', $profile->MALOAIKH)
+            ->whereNull('v.revoked_at')
+            ->orderByDesc('v.id')
+            ->select('v.*', 'u.name as verifier_name')
+            ->first();
         $memberships = DB::table('DANGKYGOITAP as d')
             ->join('GOITAP as g', 'g.MAGOITAP', '=', 'd.MAGOITAP')
             ->where('d.MAKH', $customer)
@@ -103,7 +111,62 @@ class GymAdministrationController extends Controller
             ->orderByDesc('ordered_at')->orderByDesc('record_id')->paginate(10, ['*'], 'invoice_page');
         $checkIns = DB::table('CHECKIN')->where('MAKH', $customer)->orderByDesc('THOIGIANVAO')->paginate(10, ['*'], 'checkin_page');
 
-        return view('manager.customers.show', compact('profile', 'account', 'memberships', 'invoices', 'checkIns'));
+        return view('manager.customers.show', compact('profile', 'account', 'memberships', 'invoices', 'checkIns', 'tierVerification'));
+    }
+
+    public function verifyCustomerTier(Request $request, int $customer): RedirectResponse
+    {
+        $data = $request->validate([
+            'verified' => ['required', 'boolean'],
+            'reason' => ['required', 'string', 'min:8', 'max:255'],
+        ]);
+
+        $this->sql->transaction(function () use ($request, $customer, $data): void {
+            $profile = DB::table('KHACHHANG')->where('MAKH', $customer)->lockForUpdate()->first();
+            abort_unless($profile, 404);
+            $tier = DB::table('LOAIKHACHHANG')->where('MALOAIKH', $profile->MALOAIKH)->first();
+            if (! $tier || ! $tier->REQUIRES_VERIFICATION) {
+                $this->fail('verified', 'Hạng khách này không yêu cầu xác minh ưu đãi.');
+            }
+
+            $active = DB::table('gym_customer_tier_verifications')
+                ->where('customer_id', $customer)
+                ->where('tier_id', $profile->MALOAIKH)
+                ->whereNull('revoked_at')
+                ->orderByDesc('id')
+                ->first();
+            if ($data['verified']) {
+                if (! $active) {
+                    DB::table('gym_customer_tier_verifications')->insert([
+                        'customer_id' => $customer,
+                        'tier_id' => $profile->MALOAIKH,
+                        'verified_by' => $request->user()->id,
+                        'reason' => $data['reason'],
+                        'verified_at' => now(),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+                $this->sql->audit('Xác minh ưu đãi hạng khách', 'KHACHHANG:'.$customer, [
+                    'tier_id' => $profile->MALOAIKH,
+                    'status' => $active ? 'Đã xác minh trước đó' : 'Đã xác minh',
+                    'reason' => $data['reason'],
+                ]);
+
+                return;
+            }
+
+            if ($active) {
+                DB::table('gym_customer_tier_verifications')->where('id', $active->id)->update(['revoked_at' => now(), 'updated_at' => now()]);
+            }
+            $this->sql->audit('Thu hồi xác minh ưu đãi hạng khách', 'KHACHHANG:'.$customer, [
+                'tier_id' => $profile->MALOAIKH,
+                'was_verified' => (bool) $active,
+                'reason' => $data['reason'],
+            ]);
+        });
+
+        return back()->with('success', $data['verified'] ? 'Đã xác minh hạng khách.' : 'Đã thu hồi xác minh; ưu đãi không còn áp dụng cho đơn mới.');
     }
 
     public function edit(Request $request, string $resource, ?int $record = null): View
@@ -233,6 +296,9 @@ class GymAdministrationController extends Controller
                     $this->identities->sync($user);
                     $id = $customer ? $this->identities->customer($user) : $this->identities->employee($user);
                     DB::table($table)->where($key, $id)->update([$customer ? 'MALOAIKH' : 'MACHUCVU' => $data[$customer ? 'MALOAIKH' : 'MACHUCVU']]);
+                    if ($customer && $row && (string) $row->MALOAIKH !== (string) $data['MALOAIKH']) {
+                        DB::table('gym_customer_tier_verifications')->where('customer_id', $id)->whereNull('revoked_at')->update(['revoked_at' => now(), 'updated_at' => now()]);
+                    }
                     if (! $customer) {
                         if (DB::table('LICHLOP as s')->join('LOPHOC as l', 'l.MALOP', '=', 's.MALOP')->where('s.MANV', $id)->where('s.GIOKETTHUC', '>', now())->whereNotIn('l.MACM', $data['specialties'] ?? [])->exists()) {
                             $this->fail('specialties', 'Không thể bỏ chuyên môn đang cần cho lịch lớp sắp tới.');
@@ -256,7 +322,24 @@ class GymAdministrationController extends Controller
                         DB::table($table)->insert([$key => $id] + $data);
                     }
                 }
-                $this->sql->audit($record ? 'Cập nhật' : 'Tạo', $table.':'.$id, $resource === 'products' ? ['old_stock' => $row?->SOLUONGTON, 'new_stock' => $data['SOLUONGTON'], 'reason' => $request->input('stock_reason')] : []);
+                $auditData = [];
+                if ($resource === 'products') {
+                    $auditData = ['old_stock' => $row?->SOLUONGTON, 'new_stock' => $data['SOLUONGTON'], 'reason' => $request->input('stock_reason')];
+                    foreach (['DONGIA', 'GIAKHUYENMAI'] as $field) {
+                        if ((string) ($row?->$field ?? '') !== (string) ($data[$field] ?? '')) {
+                            $auditData['old_values'][$field] = $row?->$field;
+                            $auditData['new_values'][$field] = $data[$field] ?? null;
+                        }
+                    }
+                } elseif ($resource === 'tiers') {
+                    foreach (['MUCGIAM', 'REQUIRES_VERIFICATION'] as $field) {
+                        if ((string) ($row?->$field ?? '') !== (string) ($data[$field] ?? '')) {
+                            $auditData['old_values'][$field] = $row?->$field;
+                            $auditData['new_values'][$field] = $data[$field] ?? null;
+                        }
+                    }
+                }
+                $this->sql->audit($record ? 'Cập nhật' : 'Tạo', $table.':'.$id, $auditData);
             });
         } catch (QueryException $exception) {
             if (in_array($exception->getCode(), ['23000', '45000'], true)) {
@@ -373,10 +456,10 @@ class GymAdministrationController extends Controller
     {
         return match ($resource) {
             'positions' => ['TENCHUCVU' => ['Tên chức vụ', ['required', 'string', 'max:100']]],
-            'tiers' => ['TENLOAI' => ['Tên hạng', ['required', 'string', 'max:100']], 'MUCGIAM' => ['Giảm giá (%)', ['nullable', 'integer', 'between:0,100']]],
+            'tiers' => ['TENLOAI' => ['Tên hạng', ['required', 'string', 'max:100']], 'MUCGIAM' => ['Giảm giá (%)', ['nullable', 'integer', 'between:0,99']], 'REQUIRES_VERIFICATION' => ['Cần xác minh trước khi áp ưu đãi', ['required', 'boolean']]],
             'specialties' => ['TENCHUYENMON' => ['Tên chuyên môn', ['required', 'string', 'max:100']], 'MOTA' => ['Mô tả', ['nullable', 'string', 'max:10000']]],
             'categories' => ['TENLOAISP' => ['Tên nhóm sản phẩm', ['required', 'string', 'max:100']]],
-            'products' => ['TENSP' => ['Tên sản phẩm', ['required', 'string', 'max:255']], 'MALOAISP' => ['Nhóm', ['required', 'integer', 'exists:LOAISANPHAM,MALOAISP']], 'DONGIA' => ['Giá gốc (VNĐ)', ['required', 'integer', 'min:0', 'max:1000000000000']], 'GIAKHUYENMAI' => ['Giá khuyến mãi (VNĐ)', ['nullable', 'integer', 'min:0', 'max:1000000000000']], 'SOLUONGTON' => ['Tồn kho', ['required', 'integer', 'min:0', 'max:100000000']], 'HANG' => ['Hãng', ['nullable', 'string', 'max:100']], 'XUATXU' => ['Xuất xứ', ['nullable', 'string', 'max:100']], 'BAOHANH' => ['Bảo hành', ['nullable', 'string', 'max:100']], 'MOTACHUNG' => ['Mô tả chung', ['nullable', 'string', 'max:10000']], 'MOTACHITIET' => ['Mô tả chi tiết', ['nullable', 'string', 'max:50000']]],
+            'products' => ['TENSP' => ['Tên sản phẩm', ['required', 'string', 'max:255']], 'MALOAISP' => ['Nhóm', ['required', 'integer', 'exists:LOAISANPHAM,MALOAISP']], 'DONGIA' => ['Giá gốc (VNĐ)', ['required', 'integer', 'min:1', 'max:1000000000000']], 'GIAKHUYENMAI' => ['Giá khuyến mãi (VNĐ)', ['nullable', 'integer', 'min:1', 'max:1000000000000']], 'SOLUONGTON' => ['Tồn kho', ['required', 'integer', 'min:0', 'max:100000000']], 'HANG' => ['Hãng', ['nullable', 'string', 'max:100']], 'XUATXU' => ['Xuất xứ', ['nullable', 'string', 'max:100']], 'BAOHANH' => ['Bảo hành', ['nullable', 'string', 'max:100']], 'MOTACHUNG' => ['Mô tả chung', ['nullable', 'string', 'max:10000']], 'MOTACHITIET' => ['Mô tả chi tiết', ['nullable', 'string', 'max:50000']]],
             'classes' => ['TENLOP' => ['Tên lớp', ['required', 'string', 'max:150']], 'MACM' => ['Chuyên môn', ['required', 'integer', 'exists:CHUYENMON,MACM']], 'HOCPHI' => ['Học phí (VNĐ)', ['required', 'integer', 'min:1', 'max:1000000000000']], 'NGAYBATDAU' => ['Ngày bắt đầu', ['required', 'date']], 'NGAYKETTHUC' => ['Ngày kết thúc', ['required', 'date', 'after_or_equal:NGAYBATDAU']], 'SOBUOI' => ['Số buổi', ['required', 'integer', 'min:1', 'max:1000']], 'SISOTOIDA' => ['Sĩ số tối đa (trống: không giới hạn)', ['nullable', 'integer', 'min:1', 'max:10000']]],
             'customers', 'employees' => ($resource === 'customers' ? ['TENKH' => ['Họ tên', ['required', 'string', 'max:150']], 'MALOAIKH' => ['Hạng khách', ['required', 'integer', 'exists:LOAIKHACHHANG,MALOAIKH']], 'EMAIL' => ['Email', ['nullable', 'email', 'max:100']]] : ['TENNV' => ['Họ tên', ['required', 'string', 'max:150']], 'MACHUCVU' => ['Chức vụ', ['required', 'integer', 'exists:CHUCVU,MACHUCVU']]]) + ['TENDANGNHAP' => ['Tên đăng nhập', ['required', 'alpha_dash', 'max:50']], 'SDT' => ['Điện thoại', ['nullable', 'string', 'max:20']], 'NGAYSINH' => ['Ngày sinh', ['nullable', 'date', 'before:today']], 'GIOITINH' => ['Giới tính', ['nullable', 'in:Nam,Nữ']]],
             default => abort(404),

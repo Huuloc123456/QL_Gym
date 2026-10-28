@@ -51,13 +51,13 @@ class GymSqlIntegrationTest extends TestCase
         $this->get(route('gym.database.table', 'users'))->assertNotFound();
     }
 
-    public function test_signup_calls_original_age_classification_and_stores_only_hashes(): void
+    public function test_signup_defaults_to_gym_null_without_automatically_awarding_student_discount(): void
     {
         $this->travelTo('2027-01-10 08:00');
         $this->post(route('register.store'), ['name' => 'Học viên mới', 'username' => 'hocvien_sql', 'phone' => '0909001234', 'email' => 'hocvien@example.test', 'birth_date' => '2007-01-01', 'gender' => 'female', 'password' => 'StrongPass2027', 'password_confirmation' => 'StrongPass2027'])->assertRedirect()->assertSessionHasNoErrors();
         $user = User::where('username', 'hocvien_sql')->firstOrFail();
         $source = DB::table('KHACHHANG')->where('MAKH', $user->sql_customer_id)->first();
-        $this->assertSame('Học sinh, Sinh viên', DB::table('LOAIKHACHHANG')->where('MALOAIKH', $source->MALOAIKH)->value('TENLOAI'));
+        $this->assertSame('Gym Null', DB::table('LOAIKHACHHANG')->where('MALOAIKH', $source->MALOAIKH)->value('TENLOAI'));
         $this->assertTrue(Hash::check('StrongPass2027', $source->MATKHAU));
         $this->assertSame('Nữ', $source->GIOITINH);
     }

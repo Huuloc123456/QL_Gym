@@ -166,7 +166,7 @@ class RagKnowledgeService
         return str_starts_with($id, self::PRODUCT_CATALOG_PREFIX);
     }
 
-    public function syncPending(): void
+    public function syncPending(bool $reseedIfRemoteEmpty = false): void
     {
         $lock = Cache::lock('rag-knowledge-sync', max(15, (int) config('services.rag.admin_timeout', 180) + 30));
         if (! $lock->get()) {
@@ -175,6 +175,18 @@ class RagKnowledgeService
 
         try {
             $pending = RagDocument::withTrashed()->whereNull('synced_at')->orderBy('id')->get();
+
+            if ($reseedIfRemoteEmpty) {
+                $remoteDocuments = $this->send('GET', '/admin/documents', authenticated: true)['documents'] ?? null;
+                if (! is_array($remoteDocuments)) {
+                    throw new RuntimeException('Dịch vụ chatbot trả về danh sách tài liệu không hợp lệ.');
+                }
+
+                if ($remoteDocuments === [] && RagDocument::query()->exists()) {
+                    $pending = RagDocument::withTrashed()->orderBy('id')->get();
+                }
+            }
+
             if ($pending->isEmpty()) {
                 return;
             }

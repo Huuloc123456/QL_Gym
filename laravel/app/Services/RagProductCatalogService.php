@@ -419,7 +419,7 @@ class RagProductCatalogService
     {
         $price = (int) $product->DONGIA;
         $salePrice = $product->GIAKHUYENMAI;
-        if ($salePrice !== null && (int) $salePrice < $price) {
+        if ($salePrice !== null && (int) $salePrice > 0 && (int) $salePrice < $price) {
             return number_format((int) $salePrice, 0, ',', '.').'đ (giá gốc '.number_format($price, 0, ',', '.').'đ)';
         }
 

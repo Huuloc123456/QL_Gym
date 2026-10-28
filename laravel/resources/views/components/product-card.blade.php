@@ -1,5 +1,6 @@
 @props(['product'])
-@php($price = $product->GIAKHUYENMAI !== null ? min((int) $product->DONGIA, (int) $product->GIAKHUYENMAI) : (int) $product->DONGIA)
+@php($salePrice = (int) ($product->GIAKHUYENMAI ?? 0))
+@php($price = $salePrice > 0 && $salePrice < (int) $product->DONGIA ? $salePrice : (int) $product->DONGIA)
 @php($available = (int) ($product->available_quantity ?? 0))
 <article class="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
     <a class="group relative block bg-slate-50" href="{{ route('gym.products.show', $product->MASP) }}">

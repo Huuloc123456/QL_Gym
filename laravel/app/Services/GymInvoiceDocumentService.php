@@ -40,9 +40,10 @@ class GymInvoiceDocumentService
             $sets = $this->sql->call('sp_LayChiTietHoaDon', [$id]);
             $snapshots = DB::table('gym_invoice_lines')->where('invoice_id', $id)->orderBy('id')->get();
             if ($snapshots->isNotEmpty()) {
-                $sets[1] = $snapshots->map(fn ($line) => (object) ['TENHANG' => $line->name, 'SOLUONG' => $line->quantity, 'DONGIA' => $line->unit_price, 'THANHTIEN_SP' => $line->quantity * $line->unit_price])->all();
+                $sets[1] = $snapshots->map(fn ($line) => (object) ['TENHANG' => $line->name, 'SOLUONG' => $line->quantity, 'DONGIA' => $line->unit_price, 'ORIGINAL_DONGIA' => $line->original_unit_price, 'THANHTIEN_SP' => $line->quantity * $line->unit_price])->all();
             }
-            $content = view('gym.invoice-document', ['invoice' => $invoice, 'lines' => $sets[1] ?? []])->render();
+            $discountSnapshot = DB::table('gym_invoice_discounts')->where('invoice_id', $id)->where('source_type', 'customer_tier')->first();
+            $content = view('gym.invoice-document', ['invoice' => $invoice, 'lines' => $sets[1] ?? [], 'discountSnapshot' => $discountSnapshot])->render();
             if (! openssl_sign($content, $signature, $key, OPENSSL_ALGO_SHA256)) {
                 throw new \RuntimeException('Không ký được chứng từ.');
             }

@@ -28,14 +28,35 @@ class GymPortalService
 
     public function unreconciledInvoices(): Builder
     {
-        $detailTotal = 'COALESCE((SELECT SUM(l.quantity * l.unit_price) FROM gym_invoice_lines l WHERE l.invoice_id = h.MAHD), (SELECT SUM(d.SOLUONG * d.DONGIA) FROM CHITIETHOADON d WHERE d.MAHD = h.MAHD), 0)';
+        $legacyTotal = '(SELECT SUM(d.SOLUONG * d.DONGIA) FROM CHITIETHOADON d WHERE d.MAHD = h.MAHD)';
+        $currentTotal = '(SELECT SUM(l.quantity * l.unit_price) FROM gym_invoice_lines l WHERE l.invoice_id = h.MAHD)';
 
-        return DB::table('HOADON as h')->leftJoin('gym_fulfillments as f', 'f.invoice_id', '=', 'h.MAHD')->where(function ($query) use ($detailTotal): void {
+        return DB::table('HOADON as h')->leftJoin('gym_fulfillments as f', 'f.invoice_id', '=', 'h.MAHD')->where(function ($query) use ($legacyTotal, $currentTotal): void {
             $query->where(function ($empty): void {
                 $empty->whereNotExists(fn ($q) => $q->selectRaw('1')->from('CHITIETHOADON as d')->whereColumn('d.MAHD', 'h.MAHD'))
                     ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('gym_invoice_lines as l')->whereColumn('l.invoice_id', 'h.MAHD'));
-            })->orWhereRaw($detailTotal.' <> COALESCE(h.TONGTIEN, 0)')
-                ->orWhereRaw('COALESCE(h.THANHTIEN, 0) <> COALESCE(h.TONGTIEN, 0) - COALESCE(h.GIAMGIA, 0) + COALESCE(f.shipping_fee, 0)');
+            })->orWhere(function ($legacy) use ($legacyTotal): void {
+                $legacy->whereExists(fn ($q) => $q->selectRaw('1')->from('CHITIETHOADON as d')->whereColumn('d.MAHD', 'h.MAHD'))
+                    ->whereRaw('COALESCE('.$legacyTotal.', 0) <> COALESCE(h.TONGTIEN, 0)');
+            })->orWhere(function ($current) use ($currentTotal): void {
+                $current->whereExists(fn ($q) => $q->selectRaw('1')->from('gym_invoice_lines as l')->whereColumn('l.invoice_id', 'h.MAHD'))
+                    ->whereRaw('COALESCE('.$currentTotal.', 0) <> COALESCE(h.TONGTIEN, 0)');
+            })
+                ->orWhereRaw('COALESCE(h.THANHTIEN, 0) <> COALESCE(h.TONGTIEN, 0) - COALESCE(h.GIAMGIA, 0) + COALESCE(f.shipping_fee, 0)')
+                ->orWhereExists(function ($snapshot): void {
+                    $snapshot->selectRaw('1')->from('gym_fulfillments as versioned')
+                        ->whereColumn('versioned.invoice_id', 'h.MAHD')
+                        ->where('versioned.pricing_snapshot_version', 1)
+                        ->where(function ($invalid): void {
+                            $invalid->whereExists(fn ($line) => $line->selectRaw('1')->from('gym_invoice_lines as l')
+                                ->whereColumn('l.invoice_id', 'h.MAHD')
+                                ->where(function ($price): void {
+                                    $price->whereNull('l.original_unit_price')->orWhereColumn('l.original_unit_price', '<', 'l.unit_price');
+                                }))
+                                ->orWhereRaw('(COALESCE(h.GIAMGIA, 0) = 0 AND EXISTS (SELECT 1 FROM gym_invoice_discounts d WHERE d.invoice_id = h.MAHD))')
+                                ->orWhereRaw("(COALESCE(h.GIAMGIA, 0) > 0 AND ((SELECT COUNT(*) FROM gym_invoice_discounts d WHERE d.invoice_id = h.MAHD AND d.source_type = 'customer_tier') <> 1 OR COALESCE((SELECT SUM(d.discount_amount) FROM gym_invoice_discounts d WHERE d.invoice_id = h.MAHD), 0) <> h.GIAMGIA OR EXISTS (SELECT 1 FROM gym_invoice_discounts d WHERE d.invoice_id = h.MAHD AND (d.base_amount <> h.TONGTIEN OR d.rate_percent >= 100 OR d.discount_amount <> FLOOR(d.base_amount * d.rate_percent / 100) OR d.tier_id IS NULL OR d.tier_name IS NULL))))");
+                        });
+                });
         });
     }
 
