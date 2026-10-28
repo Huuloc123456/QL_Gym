@@ -17,6 +17,17 @@ class GymSqlIntegrationTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_reimporting_an_existing_legacy_database_preserves_its_rows(): void
+    {
+        $count = DB::table('SANPHAM')->count();
+        $product = DB::table('SANPHAM')->orderBy('MASP')->first();
+
+        app(OriginalGymSql::class)->import();
+
+        $this->assertSame($count, DB::table('SANPHAM')->count());
+        $this->assertSame($product->TENSP, DB::table('SANPHAM')->where('MASP', $product->MASP)->value('TENSP'));
+    }
+
     public function test_original_objects_are_installed_and_all_public_and_management_pages_render(): void
     {
         $database = DB::connection()->getDatabaseName();

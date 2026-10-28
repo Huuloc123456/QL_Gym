@@ -24,10 +24,12 @@ class OriginalGymSql
 
     public function import(): void
     {
-        foreach (array_keys(self::TABLES) as $table) {
-            if (Schema::hasTable($table)) {
-                throw new LogicException('Bảng SQL gốc đã tồn tại: '.$table.'. Không ghi đè dữ liệu.');
-            }
+        $existingTables = array_values(array_filter(array_keys(self::TABLES), fn (string $table): bool => Schema::hasTable($table)));
+        if (count($existingTables) === count(self::TABLES)) {
+            return;
+        }
+        if ($existingTables !== []) {
+            throw new LogicException('Database có một phần bảng SQL gốc. Không ghi đè dữ liệu hoặc nhập schema dở dang.');
         }
         $delimiter = ';';
         $statement = '';

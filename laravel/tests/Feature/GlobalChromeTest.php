@@ -39,6 +39,16 @@ class GlobalChromeTest extends TestCase
             ->assertSee('>Quản lý gói tập</a>', false);
     }
 
+    public function test_customers_can_reach_the_cart_from_the_main_navigation(): void
+    {
+        $customer = User::factory()->create();
+
+        $this->actingAs($customer)->get(route('home'))
+            ->assertOk()
+            ->assertSee('href="'.route('gym.cart').'"', false)
+            ->assertSee('>Giỏ hàng</a>', false);
+    }
+
     public function test_all_roles_use_a_consistent_account_menu_with_password_and_logout_actions(): void
     {
         $users = [
