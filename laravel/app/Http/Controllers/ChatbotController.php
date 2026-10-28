@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\GymChatAnswerService;
 use App\Services\GymPublicInfoService;
 use App\Services\RagProductCatalogService;
 use Illuminate\Http\Client\ConnectionException;
@@ -11,7 +12,7 @@ use Illuminate\Support\Facades\Http;
 
 class ChatbotController extends Controller
 {
-    public function __invoke(Request $request, RagProductCatalogService $productCatalog, GymPublicInfoService $publicInfo): JsonResponse
+    public function __invoke(Request $request, RagProductCatalogService $productCatalog, GymPublicInfoService $publicInfo, GymChatAnswerService $answers): JsonResponse
     {
         $validated = $request->validate([
             'message' => ['required', 'string', 'max:500'],
@@ -59,6 +60,11 @@ class ChatbotController extends Controller
                     'products' => $productCards,
                 ]);
             }
+        }
+
+        $local = $answers->answer(trim($validated['message']));
+        if ($local !== null) {
+            return response()->json($local);
         }
 
         try {

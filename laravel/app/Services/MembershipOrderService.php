@@ -116,6 +116,7 @@ class MembershipOrderService
     {
         return $this->sql->transaction(function () use ($order, $staff, $startsOn, $legacyDurationMonths): array {
             $lockedOrder = $this->orders->lockForUpdate($order->id);
+            $this->assertNoPaymentReview($lockedOrder);
 
             if ($lockedOrder->status === MembershipOrder::STATUS_PAID) {
                 return [
@@ -186,6 +187,7 @@ class MembershipOrderService
     {
         return $this->sql->transaction(function () use ($order): bool {
             $lockedOrder = $this->orders->lockForUpdate($order->id);
+            $this->assertNoPaymentReview($lockedOrder);
 
             if ($lockedOrder->status === MembershipOrder::STATUS_CANCELLED) {
                 return false;

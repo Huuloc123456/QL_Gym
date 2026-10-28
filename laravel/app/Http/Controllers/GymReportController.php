@@ -120,6 +120,11 @@ class GymReportController extends Controller
                 $values = array_map(fn ($value) => is_string($value) && preg_match('/^[\s]*[=+@\-]/u', $value) ? "'".$value : $value, $row);
                 fputcsv($stream, $values, ',', '"', '');
             }
+            foreach ($report['orders'] as $order) {
+                $values = ['LEGACY-'.$order->id, $order->created_at->format('Y-m-d H:i:s'), $order->user->name, $order->amount, 0, 0, $order->amount, ['paid' => 'Đã thanh toán', 'pending' => 'Chưa thanh toán', 'cancelled' => 'Hủy'][$order->status]];
+                $values = array_map(fn ($value) => is_string($value) && preg_match('/^[\s]*[=+@\-]/u', $value) ? "'".$value : $value, $values);
+                fputcsv($stream, $values, ',', '"', '');
+            }
             fclose($stream);
         }, 'bao-cao-'.$from->format('Ymd').'-'.$to->format('Ymd').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }

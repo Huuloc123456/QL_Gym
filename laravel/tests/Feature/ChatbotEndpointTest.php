@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\GymSetting;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -131,6 +132,17 @@ class ChatbotEndpointTest extends TestCase
             ->assertOk()
             ->assertSee('data-gym-chatbot', false)
             ->assertSee('Hỏi The Gym');
+    }
+
+    public function test_chat_throttle_does_not_consume_the_guest_login_allowance(): void
+    {
+        $customer = User::factory()->create();
+        for ($message = 0; $message < 10; $message++) {
+            $this->postJson(route('chatbot.message'), ['message' => 'Xin chào'])->assertOk();
+        }
+        $this->postJson(route('chatbot.message'), ['message' => 'Xin chào'])->assertTooManyRequests();
+        $this->post(route('login.store'), ['username' => $customer->username, 'password' => 'password'])->assertRedirect(route('my.memberships.index'));
+        $this->assertAuthenticatedAs($customer);
     }
 
     public function test_chat_panel_uses_a_compact_header_that_matches_the_site(): void

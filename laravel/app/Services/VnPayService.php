@@ -97,19 +97,9 @@ class VnPayService
 
         return $this->sql->transaction(function () use ($payment, $parameters): array {
             $lockedPayment = DB::table('gym_online_payments')->where('id', $payment->id)->lockForUpdate()->first();
-            if ($lockedPayment->status === 'succeeded') {
+            if (in_array($lockedPayment->status, ['succeeded', 'review', 'failed', 'refunded'], true)) {
                 return $this->ipnResponse('00', 'Confirm Success');
             }
-            if ($lockedPayment->status === 'review') {
-                return $this->ipnResponse('00', 'Confirm Success');
-            }
-            if ($lockedPayment->status === 'failed') {
-                return $this->ipnResponse('00', 'Confirm Success');
-            }
-            if ($lockedPayment->status === 'refunded') {
-                return $this->ipnResponse('00', 'Confirm Success');
-            }
-
             $successful = (string) ($parameters['vnp_ResponseCode'] ?? '') === '00'
                 && (string) ($parameters['vnp_TransactionStatus'] ?? '') === '00';
             $update = [
@@ -274,8 +264,12 @@ class VnPayService
         }
 
         $payment = $this->sql->transaction(function () use ($targetType, $targetId, $user, $amount, $maximumExpiry): object {
+            if (DB::table('gym_online_payments')->where('target_type', $targetType)->where('target_id', $targetId)->where('status', 'review')->exists()) {
+                $this->fail('payment', 'Giao dịch đang được đối soát. Vui lòng chờ quản lý xử lý trước khi thanh toán thêm.');
+            }
             $existing = DB::table('gym_online_payments')->where('target_type', $targetType)
                 ->where('target_id', $targetId)->where('user_id', $user->id)->where('status', 'pending')
+                ->where('amount', $amount)
                 ->where('expires_at', '>', now(config('app.timezone')))->orderByDesc('id')->lockForUpdate()->first();
             if ($existing) {
                 return $existing;

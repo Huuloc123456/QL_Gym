@@ -67,7 +67,7 @@
                 <h2 class="font-bold text-gym-ink">Tải báo cáo chi tiết</h2>
                 <p class="mt-1 text-sm text-slate-600">File Excel gồm tổng quan, khoản thu, hoàn tiền và số dư từng đơn.</p>
             </div>
-            <a class="gym-btn-primary" href="{{ route('manager.reports.export', ['from_date' => $report['from_date'], 'to_date' => $report['to_date']]) }}">Xuất Excel</a>
+            <div class="flex flex-wrap gap-3"><a class="gym-btn-outline" href="{{ route('gym.reports.export', ['from_date' => $report['from_date'], 'to_date' => $report['to_date']]) }}">Xuất CSV</a><a class="gym-btn-primary" href="{{ route('manager.reports.export', ['from_date' => $report['from_date'], 'to_date' => $report['to_date']]) }}">Xuất Excel</a></div>
         </div>
     </section>
 @endsection

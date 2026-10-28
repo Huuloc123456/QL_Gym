@@ -10,6 +10,9 @@
     </div>
     <div class="hidden max-h-[calc(100svh-5rem)] overflow-y-auto px-4 pb-6 lg:flex lg:max-h-none lg:flex-1 lg:flex-col" id="gymNavbar" data-menu>
         @if (auth()->user()->role === 'manager')
+            <a class="gym-internal-link mt-4" href="{{ route('manager.payment-reviews.index') }}">Đối soát thanh toán</a>
+            <a class="gym-internal-link" href="{{ route('manager.banners.index') }}">Ảnh banner</a>
+            <a class="gym-internal-link" href="{{ route('manager.knowledge.index') }}">Tài liệu chatbot</a>
             <a class="gym-internal-link mt-4" href="{{ route('manager.dashboard') }}" @if (request()->routeIs('manager.dashboard')) aria-current="page" @endif>Tổng quan quản lý</a>
         @endif
         <a class="gym-internal-link mt-3" href="{{ route('gym.messages') }}">Thông báo @if($unreadMessages)<span class="ml-2 rounded-full bg-sky-500 px-2 py-1 text-xs">{{ $unreadMessages }}</span>@endif</a><a class="gym-internal-link" href="{{ route('gym.security') }}">Bảo mật tài khoản</a><div class="mt-5" data-nav-group="operations">

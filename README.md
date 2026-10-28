@@ -4,6 +4,8 @@
 
 ## Cấu trúc repository
 
+**Kiểm thử theo từng tài khoản:** [Kịch bản test đầy đủ, dữ liệu DEMO và kết quả mong đợi](docs/kich-ban-test-day-du.md). Bộ demo có 12 tài khoản, đơn hàng nhiều trạng thái, lớp/PT và quyền tập; mật khẩu ban đầu `DemoGym@2026`, chỉ dùng local. Seeder bổ sung bằng `php artisan db:seed --class=GymDemoScenarioSeeder` trong `laravel/`, không reset dữ liệu đã có.
+
 | Thư mục | Nội dung |
 | --- | --- |
 | `laravel/` | Ứng dụng Laravel hiện tại, gồm mã nguồn, migration, seed, giao diện và kiểm thử. |
@@ -75,13 +77,31 @@ Mở `http://127.0.0.1:8000`. Nếu Laragon đã cung cấp PHP, Composer, MySQL
 
 Nếu `php -m` chưa liệt kê `zip`, mở `php.ini` đang dùng bởi Laragon, bật dòng `extension=zip`, rồi khởi động lại PHP/Apache. Excel import/export cần tiện ích này.
 
-Chatbot cần dịch vụ RAG chạy riêng. Mặc định Laravel gọi `http://127.0.0.1:8090/chat`; cập nhật `RAG_API_URL` và `RAG_API_TIMEOUT` trong `.env` nếu dịch vụ chạy ở địa chỉ khác.
+Chatbot tra cứu giá/tồn và thông tin hiện tại trực tiếp từ MySQL. Câu hỏi hướng dẫn được chuyển tới API tài liệu local tại `http://127.0.0.1:8090/chat`.
+
+### Chạy API tài liệu khi chưa có khóa Groq
+
+Tại thư mục `laravel/`, dùng **Python 3.12+** chạy ở terminal riêng:
+
+```powershell
+python rag_api.py
+```
+
+API chỉ dùng thư viện chuẩn Python và SQLite FTS5, không cần `pip install` hoặc tải mô hình. Máy hiện tại đã được chạy bằng Python3.12 có sẵn trong Codex; nếu lệnh `python` trỏ tới Python2 thì dùng đường dẫn Python3 của máy. Đặt `RAG_API_URL=http://127.0.0.1:8090` và một `RAG_ADMIN_TOKEN` ngẫu nhiên dài ít nhất32ký tự trong `laravel/.env` trước khi chạy; Laravel và API dùng chung tệp cấu hình. Sau khi sửa `.env`, chạy `php artisan config:clear` và khởi động lại web/scheduler. Không thay APP_KEY của web đang có dữ liệu.
+
+`GET /health` cho biết trạng thái; khi chưa có khóa, chế độ là **document_lookup**, `llm_enabled=false`. Câu trả lời trích đoạn có nguồn từ tài liệu đang bật và ghi rõ chưa dùng mô hình AI. Đây là tìm kiếm toàn văn, không phải tìm kiếm ngữ nghĩa bằng embedding. Trang quản lý tài liệu hỗ trợ thêm/sửa/bật/tắt/xóa và nhập Excel qua API có Bearer token. Chỉ nhập thông tin công khai.
+
+Khi có khóa, điền `GROQ_API_KEY` trực tiếp trong `laravel/.env`; `GROQ_MODEL` mặc định là `llama-3.1-8b-instant`, có thể đổi theo quyền truy cập của tài khoản Groq. API sẽ gửi câu hỏi và các đoạn tài liệu công khai vừa truy xuất tới Groq để viết câu trả lời (`mode=rag_groq`). Không có tài liệu phù hợp thì không gọi mô hình. Khi khóa sai, hết hạn mức hoặc kết nối lỗi, chat thông báo rõ và vẫn trả trích đoạn có nguồn. Không gửi `.env` hoặc token quản trị vào nội dung mô hình, không đưa khóa lên Git. Cờ `llm_enabled` chỉ cho biết đã cấu hình khóa; cần một câu hỏi thực tế để xác minh kết nối nhà cung cấp.
+
+Lần chạy đầu tạo12tài liệu nghiệp vụ công khai; dữ liệu nằm tại `laravel/storage/app/private/rag/knowledge.sqlite3`, được Git bỏ qua. Bật/tắt/sửa/xóa cập nhật chỉ mục trong cùng giao dịch; khởi động lại giữ dữ liệu, không reset tài liệu đã sửa. Có thể kiểm thử backend riêng bằng `python -m unittest discover -s tests -p test_rag_api.py -v`.
+
+Máy demo hiện dùng MySQL cổng3307, database `qly_phonggym_laravel_sql`. Giữ cấu hình này khi dùng bộ dữ liệu đã tạo; đừng chép đè `.env` từ máy khác.
 
 ### Thanh toán VNPay sandbox
 
 Điền `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `VNPAY_RETURN_URL` trong `.env`; URL sandbox và thời hạn thanh toán có sẵn trong `.env.example`. Cấu hình IPN trỏ đến endpoint `/thanh-toan/vnpay/ipn` của website. Máy chủ VNPay phải gọi được endpoint này qua HTTPS. Khi thiếu khóa, giao diện ẩn lựa chọn VNPay và khách vẫn có thể thanh toán tại quầy. Không đưa khóa VNPay vào frontend hoặc Git. Hệ thống ghi nhận thành công từ IPN hợp lệ; việc đối soát hoặc hoàn tiền vẫn cần quản lý xử lý ngoài cổng.
 
-Để dùng quản lý tài liệu chatbot, chạy project [SimpleRAGChatbot](https://github.com/phulee203/simple-rag-chatbot) riêng: tạo `.env` từ `.env.example`, cài `requirements.txt`, điền `GROQ_API_KEY`, tạo một token ngẫu nhiên dài và đặt cùng giá trị vào `RAG_ADMIN_TOKEN` của cả hai project. Trong Laravel, đặt thêm `RAG_ADMIN_TIMEOUT=180`. Chạy `python embed_pdfs.py` lần đầu để tạo chỉ mục, sau đó chạy `python rag_api.py` và để cửa sổ dịch vụ hoạt động. API mặc định chỉ lắng nghe trên máy local; không đổi host thành `0.0.0.0` khi không có mạng nội bộ được bảo vệ.
+Project tham khảo [SimpleRAGChatbot](https://github.com/phulee203/simple-rag-chatbot) ở nhánh `main` đã kiểm tra hiện cung cấp chương trình dòng lệnh và hai PDF minh họa; chưa có HTTP API `/chat` hoặc `/admin/documents` tương thích website. Không thể chỉ chép `.env` để chạy được tích hợp. Bản `laravel/rag_api.py` bổ sung API phù hợp với website và chạy tra cứu local khi chưa có khóa; nhánh gọi Groq đã có nhưng chưa kiểm thử bằng khóa thật trên máy này. Hợp đồng gọi mô hình tham chiếu [API chính thức Groq](https://console.groq.com/docs/api-reference).
 
 Khi chạy production, lưu token trong `.env` phía máy chủ và chạy `php artisan config:cache` sau khi cấu hình; không đưa token lên HTML, JavaScript hoặc Git. Ảnh banner được lưu trong `laravel/storage/app/public/hero-banners`; giữ thư mục này khi chuyển máy.
 
@@ -116,13 +136,12 @@ Sao lưu MySQL và các file người dùng cùng nhau; không lưu bản sao d�
 ```powershell
 $backup = "D:/Backups/TheGym/$(Get-Date -Format yyyyMMdd-HHmmss)"
 New-Item -ItemType Directory -Force -Path $backup | Out-Null
-$ragProject = 'D:/Learning/Projects/SimpleRAGChatbot'
 mysqldump --single-transaction --routines --triggers -u root -p qly_phonggym_laravel --result-file="$backup/database.sql"
 Copy-Item ./laravel/storage/app/public "$backup/public-files" -Recurse
-Copy-Item "$ragProject/knowledge_base" "$backup/knowledge-base" -Recurse
+python -c "import sqlite3,sys; sqlite3.connect(sys.argv[1]).backup(sqlite3.connect(sys.argv[2]))" ./laravel/storage/app/private/rag/knowledge.sqlite3 "$backup/rag.sqlite3"
 ```
 
-Khôi phục vào database đã tạo sẵn bằng `cmd /c "mysql -u root -p qly_phonggym_laravel < $backup/database.sql"`, sau đó chép `public-files` về `laravel/storage/app/public` và `knowledge-base` về thư mục project RAG. Không thay `.env` bằng bản mẫu; giữ khóa và thông tin mail của máy nhận riêng. Thử khôi phục trên database riêng trước khi thay dữ liệu đang chạy.
+Khôi phục MySQL vào database riêng theo cấu hình máy, sau đó chép `public-files` về `laravel/storage/app/public`. Với API tài liệu local, dừng dịch vụ trước khi khôi phục bản SQLite về `laravel/storage/app/private/rag/knowledge.sqlite3`; giữ riêng tệp cấu hình và token. Lệnh dump minh họa dùng database mặc định; trên máy demo hiện tại cần cổng3307 và tên `qly_phonggym_laravel_sql`. Không thay `.env` bằng bản mẫu; giữ khóa và thông tin mail của máy nhận riêng. Thử khôi phục trên database riêng trước khi thay dữ liệu đang chạy.
 
 Test dùng database MySQL riêng và làm mới schema của database đó. Kế hoạch, kết quả kiểm thử và các điểm còn cần kiểm tra nằm trong [test plan](laravel/docs/test-plan.md). Thiết kế và phạm vi các phần tra cứu, báo cáo, lịch sử khách hàng và quản lý RAG nằm trong [kế hoạch chức năng](docs/plans/2026-10-21-tra-cuu-bao-cao-chatbot.md).
 

@@ -93,6 +93,7 @@ class ManagerReportsTest extends TestCase
     public function manager_sees_orders_confirmed_and_receipts_in_the_selected_local_period(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-10-21 09:00:00', 'Asia/Ho_Chi_Minh'));
+        $baselineRevenue = app(ManagerReportService::class)->report('2026-10-01', '2026-10-31')['confirmed_revenue'];
 
         $manager = User::factory()->manager()->create();
         $employee = User::factory()->employee()->create();
