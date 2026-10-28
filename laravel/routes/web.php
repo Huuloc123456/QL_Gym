@@ -9,7 +9,6 @@ use App\Http\Controllers\GymInvoiceController;
 use App\Http\Controllers\GymPortalController;
 use App\Http\Controllers\GymReportController;
 use App\Http\Controllers\GymStoreController;
-use App\Http\Controllers\GymTrainingController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ManagerDashboardController;
 use App\Http\Controllers\ManagerEmployeeController;
@@ -253,8 +252,6 @@ Route::post('/staff/yeu-cau-tap-thu/{trialRequest}/tu-choi', [TrialRequestContro
 Route::post('/staff/yeu-cau-tap-thu/{trialRequest}/doi-lich', [TrialRequestController::class, 'reschedule'])->middleware(['auth', 'role:employee,manager', 'can:reschedule,trialRequest'])->name('staff.trial-requests.reschedule');
 Route::post('/staff/yeu-cau-tap-thu/{trialRequest}/thu-hoi', [TrialRequestController::class, 'revoke'])->middleware(['auth', 'role:employee,manager', 'can:revoke,trialRequest'])->name('staff.trial-requests.revoke');
 Route::get('/san-pham/{product}', [GymStoreController::class, 'show'])->whereNumber('product')->name('gym.products.show');
-Route::get('/lop-hoc', [GymTrainingController::class, 'classes'])->name('gym.classes.index');
-Route::get('/lop-hoc/{class}', [GymTrainingController::class, 'showClass'])->whereNumber('class')->name('gym.classes.show');
 
 Route::middleware(['auth', 'role:customer'])->group(function (): void {
     Route::get('/gio-hang', [GymStoreController::class, 'cart'])->name('gym.cart');
@@ -279,10 +276,6 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/hoa-don/{invoice}/ky', [GymInvoiceController::class, 'sign'])->name('gym.invoices.sign');
     Route::post('/hoa-don/{invoice}/kiem-tra', [GymInvoiceController::class, 'verify'])->middleware('throttle:10,1,invoice-verify:')->name('gym.invoices.verify');
     Route::get('/hoa-don/{invoice}/tai', [GymInvoiceController::class, 'download'])->name('gym.invoices.download');
-    Route::get('/lich-tap', [GymTrainingController::class, 'calendar'])->name('gym.calendar');
-    Route::post('/lich-tap/lop/{class}', [GymTrainingController::class, 'classSession'])->name('gym.class.session');
-    Route::post('/lich-tap/lop/{session}/hoan-thanh', [GymTrainingController::class, 'finish'])->name('gym.sessions.finish');
-    Route::delete('/lich-tap/lop/{session}', [GymTrainingController::class, 'remove'])->name('gym.sessions.remove');
 });
 
 Route::middleware(['auth', 'role:manager'])->prefix('quan-ly/danh-muc')->name('gym.admin.')->group(function (): void {
@@ -296,7 +289,7 @@ Route::middleware(['auth', 'role:manager'])->prefix('quan-ly/danh-muc')->name('g
     Route::delete('/{resource}/{record}', [GymAdministrationController::class, 'destroy'])->whereNumber('record')->name('destroy');
 });
 Route::middleware(['auth', 'role:manager'])->post('/quan-ly/san-pham/{product}/anh/{image?}', [GymAdministrationController::class, 'image'])->name('gym.admin.image');
-Route::middleware(['auth', 'role:manager'])->post('/quan-ly/dang-ky/{kind}/{registration}/huy', [GymTrainingController::class, 'end'])->where('kind', 'package|class')->name('gym.registration.end');
+Route::middleware(['auth', 'role:manager'])->post('/quan-ly/dang-ky/goi/{registration}/huy', [ManagerGymPackageController::class, 'endRegistration'])->whereNumber('registration')->name('manager.memberships.end');
 Route::middleware(['auth', 'role:manager'])->prefix('quan-ly/csdl')->name('gym.database.')->group(function (): void {
     Route::get('/', [GymDatabaseController::class, 'index'])->name('index');
     Route::get('/bang/{table}', [GymDatabaseController::class, 'table'])->name('table');

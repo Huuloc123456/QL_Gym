@@ -23,7 +23,9 @@ class GymDemoScenarioSeederTest extends TestCase
         $originalInvoices = DB::table('HOADON')->count();
         $this->seed(GymDemoScenarioSeeder::class);
         $manifest = json_decode(Storage::disk('local')->get('demo/scenario.json'), true);
-        $this->assertCount(12, $manifest['accounts']);
+        $this->assertCount(11, $manifest['accounts']);
+        $this->assertArrayNotHasKey('class_id', $manifest);
+        $this->assertNotContains('demo_pt', array_column($manifest['accounts'], 'username'));
         $this->assertSame($originalProducts + 3, DB::table('SANPHAM')->count());
         $counts = [DB::table('HOADON')->count(), DB::table('gym_receipts')->count(), DB::table('SANPHAM')->sum('SOLUONGTON'), DB::table('CHECKIN')->count()];
         $this->assertGreaterThan($originalInvoices, $counts[0]);

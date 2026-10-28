@@ -82,8 +82,9 @@ class StaffProductManagementTest extends TestCase
 
         $this->assertDatabaseHas('SANPHAM', ['MASP' => $product->MASP, 'TENSP' => 'Áo tập nhân viên cập nhật', 'SOLUONGTON' => 15]);
         $this->actingAs(User::factory()->manager()->create())
+            ->from(route('gym.admin.edit', ['products', $product->MASP]))
             ->delete(route('gym.admin.destroy', ['products', $product->MASP]))
-            ->assertRedirect();
+            ->assertRedirect(route('gym.admin.index', 'products'));
         $this->assertDatabaseMissing('SANPHAM', ['MASP' => $product->MASP]);
     }
 

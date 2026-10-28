@@ -94,7 +94,7 @@
                             @if ($remaining > 0)
                                 <form class="grid gap-3 sm:grid-cols-2" method="POST" action="{{ route('staff.orders.payments.store', $order) }}">
                                     @csrf
-                                    <div><label class="gym-label" for="amount-{{ $order->id }}">Số tiền nhận</label><x-form-input id="amount-{{ $order->id }}" type="number" name="amount" min="1" max="{{ $remaining }}" value="{{ $remaining }}" required /></div>
+                                    <div><label class="gym-label" for="amount-{{ $order->id }}">Số tiền nhận</label><x-form-input id="amount-{{ $order->id }}" type="text" inputmode="numeric" pattern="[0-9., ]*" maxlength="22" name="amount" value="{{ old('amount', number_format($remaining, 0, '', '.')) }}" required /><p class="mt-1 text-xs text-slate-500">Có thể nhập dấu chấm phân cách hàng nghìn.</p></div>
                                     <div><label class="gym-label" for="method-{{ $order->id }}">Hình thức</label><x-form-select id="method-{{ $order->id }}" name="payment_method"><option value="bank_transfer">Chuyển khoản</option><option value="cash">Tiền mặt</option></x-form-select></div>
                                     <div class="sm:col-span-2"><label class="gym-label" for="reference-{{ $order->id }}">Mã giao dịch (nếu có)</label><x-form-input id="reference-{{ $order->id }}" name="reference" maxlength="255" /></div>
                                     <button class="gym-btn-outline sm:col-span-2 sm:justify-self-start" type="submit">Ghi nhận tiền đã nhận</button>

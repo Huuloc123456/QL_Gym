@@ -206,7 +206,6 @@ if (chatWidget) {
         input.value = '';
         isSending = true;
         status.textContent = 'Đang tìm câu trả lời…';
-        suggestions.hidden = true;
         const pendingMessage = appendMessage('assistant', 'Đang trả lời…');
         updateForm();
 

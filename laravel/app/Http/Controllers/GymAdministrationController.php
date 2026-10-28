@@ -14,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -22,10 +23,10 @@ use Throwable;
 class GymAdministrationController extends Controller
 {
     public const RESOURCES = [
-        'products' => ['SANPHAM', 'MASP', 'Sản phẩm'], 'classes' => ['LOPHOC', 'MALOP', 'Lớp học'],
-        'customers' => ['KHACHHANG', 'MAKH', 'Khách hàng'], 'employees' => ['NHANVIEN', 'MANV', 'Nhân sự và chuyên môn'],
+        'products' => ['SANPHAM', 'MASP', 'Sản phẩm'],
+        'customers' => ['KHACHHANG', 'MAKH', 'Khách hàng'], 'employees' => ['NHANVIEN', 'MANV', 'Nhân viên'],
         'positions' => ['CHUCVU', 'MACHUCVU', 'Chức vụ'], 'tiers' => ['LOAIKHACHHANG', 'MALOAIKH', 'Hạng khách hàng'],
-        'specialties' => ['CHUYENMON', 'MACM', 'Chuyên môn'], 'categories' => ['LOAISANPHAM', 'MALOAISP', 'Nhóm sản phẩm'],
+        'categories' => ['LOAISANPHAM', 'MALOAISP', 'Nhóm sản phẩm'],
     ];
 
     public function __construct(private OriginalGymSql $sql, private GymIdentityService $identities, private RagProductCatalogService $productCatalog) {}
@@ -41,7 +42,7 @@ class GymAdministrationController extends Controller
     {
         [$table, $key, $title] = $this->definition($resource);
         $request->validate(['q' => 'nullable|string|max:150']);
-        $names = ['SANPHAM' => 'TENSP', 'LOPHOC' => 'TENLOP', 'KHACHHANG' => 'TENKH', 'NHANVIEN' => 'TENNV', 'CHUCVU' => 'TENCHUCVU', 'LOAIKHACHHANG' => 'TENLOAI', 'CHUYENMON' => 'TENCHUYENMON', 'LOAISANPHAM' => 'TENLOAISP'];
+        $names = ['SANPHAM' => 'TENSP', 'KHACHHANG' => 'TENKH', 'NHANVIEN' => 'TENNV', 'CHUCVU' => 'TENCHUCVU', 'LOAIKHACHHANG' => 'TENLOAI', 'LOAISANPHAM' => 'TENLOAISP'];
         $name = $names[$table];
         $query = match ($resource) {
             'products' => GymProduct::query(),
@@ -180,18 +181,32 @@ class GymAdministrationController extends Controller
         abort_if($record && ! $row, 404);
         $fields = $this->fields($resource);
         $options = [];
-        foreach (['MALOAISP' => ['LOAISANPHAM', 'MALOAISP', 'TENLOAISP'], 'MACM' => ['CHUYENMON', 'MACM', 'TENCHUYENMON'], 'MALOAIKH' => ['LOAIKHACHHANG', 'MALOAIKH', 'TENLOAI'], 'MACHUCVU' => ['CHUCVU', 'MACHUCVU', 'TENCHUCVU']] as $field => [$lookup, $pk, $label]) {
+        foreach (['MALOAISP' => ['LOAISANPHAM', 'MALOAISP', 'TENLOAISP'], 'MALOAIKH' => ['LOAIKHACHHANG', 'MALOAIKH', 'TENLOAI'], 'MACHUCVU' => ['CHUCVU', 'MACHUCVU', 'TENCHUCVU']] as $field => [$lookup, $pk, $label]) {
             if (isset($fields[$field]) || $resource === 'employees') {
-                $options[$field] = $lookup === 'LOAISANPHAM'
-                    ? GymProductCategory::query()->orderBy($pk)->pluck($label, $pk)
-                    : DB::table($lookup)->orderBy($pk)->pluck($label, $pk);
+                if ($lookup === 'LOAISANPHAM') {
+                    $options[$field] = GymProductCategory::query()->orderBy($pk)->pluck($label, $pk);
+                } else {
+                    $positionOptions = DB::table($lookup)->orderBy($pk)->get();
+                    if ($resource === 'employees' && $field === 'MACHUCVU') {
+                        $positionOptions = $positionOptions->reject(fn ($position) => $this->isRetiredTrainingPosition($position->$label))->values();
+                        $currentPositionId = $row?->$field;
+                        if ($currentPositionId) {
+                            $currentPosition = DB::table($lookup)->where($pk, $currentPositionId)->first();
+                            if ($currentPosition && $this->isRetiredTrainingPosition($currentPosition->$label)) {
+                                $currentPosition->$label .= ' (chức vụ cũ — chỉ giữ lịch sử)';
+                                $positionOptions->push($currentPosition);
+                            }
+                        }
+                    }
+                    $options[$field] = $positionOptions->pluck($label, $pk);
+                }
             }
         }
         $account = $record && in_array($resource, ['customers', 'employees'], true) ? User::query()->where($resource === 'customers' ? 'sql_customer_id' : 'sql_employee_id', $record)->first() : null;
 
         $staffMode = $request->routeIs('staff.products.*');
 
-        return view('gym.admin.edit', ['resource' => $resource, 'title' => $title, 'key' => $key, 'row' => $row, 'fields' => $fields, 'options' => $options, 'account' => $account, 'specialties' => $resource === 'employees' && $record ? DB::table('NHANVIEN_CHUYENMON')->where('MANV', $record)->pluck('MACM')->map(fn ($v) => (int) $v)->all() : [], 'images' => $resource === 'products' && $record ? DB::table('HINHANH')->where('MASP', $record)->orderByDesc('ISMAIN')->orderBy('MAHINH')->get() : [], 'routePrefix' => $staffMode ? 'staff.products' : 'gym.admin', 'staffMode' => $staffMode]);
+        return view('gym.admin.edit', ['resource' => $resource, 'title' => $title, 'key' => $key, 'row' => $row, 'fields' => $fields, 'options' => $options, 'account' => $account, 'images' => $resource === 'products' && $record ? DB::table('HINHANH')->where('MASP', $record)->orderByDesc('ISMAIN')->orderBy('MAHINH')->get() : [], 'routePrefix' => $staffMode ? 'staff.products' : 'gym.admin', 'staffMode' => $staffMode]);
     }
 
     public function save(Request $request, string $resource, ?int $record = null): RedirectResponse
@@ -209,10 +224,6 @@ class GymAdministrationController extends Controller
             }
             $rules['password'] = [$record ? 'nullable' : 'required', 'string', 'min:8', 'max:72'];
             $rules['is_active'] = ['required', 'boolean'];
-        }
-        if ($resource === 'employees') {
-            $rules['specialties'] = ['nullable', 'array'];
-            $rules['specialties.*'] = ['integer', 'distinct', 'exists:CHUYENMON,MACM'];
         }
         $data = $request->validate($rules);
         if (in_array($resource, ['customers', 'employees'], true)) {
@@ -246,25 +257,14 @@ class GymAdministrationController extends Controller
                         );
                     }
                 }
-                if ($resource === 'classes' && $row) {
-                    if (DB::table('LICHLOP as s')->where('s.MALOP', $record)->whereNotExists(function ($q) use ($data): void {
-                        $q->selectRaw('1')->from('NHANVIEN_CHUYENMON as c')->whereColumn('c.MANV', 's.MANV')->where('c.MACM', $data['MACM']);
-                    })->exists()) {
-                        $this->fail('MACM', 'Nhân viên phụ trách lịch đã xếp chưa có chuyên môn mới này.');
-                    }
-                    $used = DB::table('DANGKYLOP')->where('MALOP', $record)->where('TRANGTHAI', 'Còn hiệu lực')->count();
-                    $reserved = DB::table('gym_invoice_lines as l')->join('HOADON as h', 'h.MAHD', '=', 'l.invoice_id')->where('l.kind', 'class')->where('l.item_id', $record)->where('h.TRANGTHAI', 'Chưa thanh toán')->count();
-                    if (($data['SISOTOIDA'] && $data['SISOTOIDA'] < $used + $reserved) || $data['SOBUOI'] < DB::table('LICHLOP')->where('MALOP', $record)->count()) {
-                        $this->fail('SISOTOIDA', 'Sĩ số/số buổi không được thấp hơn đăng ký và lịch đã có.');
-                    }
-                    if (DB::table('LICHLOP')->where('MALOP', $record)->where(function ($q) use ($data): void {
-                        $q->whereDate('NGAYHOC', '<', $data['NGAYBATDAU'])->orWhereDate('NGAYHOC', '>', $data['NGAYKETTHUC']);
-                    })->exists()) {
-                        $this->fail('NGAYBATDAU', 'Thời gian khóa phải chứa tất cả các buổi đã xếp.');
-                    }
-                }
                 if (in_array($resource, ['customers', 'employees'], true)) {
                     $customer = $resource === 'customers';
+                    if (! $customer) {
+                        $selectedPosition = DB::table('CHUCVU')->where('MACHUCVU', $data['MACHUCVU'])->value('TENCHUCVU');
+                        if ($this->isRetiredTrainingPosition($selectedPosition) && (int) ($row?->MACHUCVU) !== (int) $data['MACHUCVU']) {
+                            $this->fail('MACHUCVU', 'Chức vụ PT/lớp học cũ không còn được phân công cho nhân viên mới.');
+                        }
+                    }
                     $link = $customer ? 'sql_customer_id' : 'sql_employee_id';
                     $user = $row ? (User::query()->where($link, $record)->first() ?? $this->identities->importAccount($row, $customer ? 'customer' : 'employee')) : new User;
                     if (! $user) {
@@ -299,16 +299,17 @@ class GymAdministrationController extends Controller
                     if ($customer && $row && (string) $row->MALOAIKH !== (string) $data['MALOAIKH']) {
                         DB::table('gym_customer_tier_verifications')->where('customer_id', $id)->whereNull('revoked_at')->update(['revoked_at' => now(), 'updated_at' => now()]);
                     }
-                    if (! $customer) {
-                        if (DB::table('LICHLOP as s')->join('LOPHOC as l', 'l.MALOP', '=', 's.MALOP')->where('s.MANV', $id)->where('s.GIOKETTHUC', '>', now())->whereNotIn('l.MACM', $data['specialties'] ?? [])->exists()) {
-                            $this->fail('specialties', 'Không thể bỏ chuyên môn đang cần cho lịch lớp sắp tới.');
-                        }
-                        DB::table('NHANVIEN_CHUYENMON')->where('MANV', $id)->delete();
-                        foreach ($data['specialties'] ?? [] as $specialty) {
-                            DB::table('NHANVIEN_CHUYENMON')->insert(['MANV' => $id, 'MACM' => $specialty]);
+                } else {
+                    if ($resource === 'positions') {
+                        $previousName = $row?->TENCHUCVU;
+                        $sameRetiredPosition = $previousName !== null
+                            && $this->isRetiredTrainingPosition($previousName)
+                            && mb_strtolower(trim($previousName)) === mb_strtolower(trim($data['TENCHUCVU']));
+                        if (($this->isRetiredTrainingPosition($data['TENCHUCVU']) && ! $sameRetiredPosition)
+                            || ($this->isRetiredTrainingPosition($previousName) && ! $sameRetiredPosition)) {
+                            $this->fail('TENCHUCVU', 'Chức vụ PT/lớp học đã ngừng; không thể tạo mới hoặc sửa dữ liệu lịch sử này.');
                         }
                     }
-                } else {
                     $id = $record ?? $this->sql->nextId($table);
                     if ($resource === 'products') {
                         $product = $record ? GymProduct::query()->findOrFail($record) : new GymProduct;
@@ -380,21 +381,6 @@ class GymAdministrationController extends Controller
                     $this->fail('record', 'Sản phẩm đang được giữ trong đơn chưa thanh toán nên chưa thể xóa. Hãy xử lý đơn trước.');
                 }
 
-                if ($resource === 'classes') {
-                    $hasPendingInvoice = DB::table('gym_invoice_lines as line')
-                        ->join('HOADON as invoice', 'invoice.MAHD', '=', 'line.invoice_id')
-                        ->where('line.kind', 'class')
-                        ->where('line.item_id', $record)
-                        ->where('invoice.TRANGTHAI', 'Chưa thanh toán')
-                        ->exists();
-                    $hasRegistrations = DB::table('DANGKYLOP')->where('MALOP', $record)->exists();
-                    $hasSchedules = DB::table('LICHLOP')->where('MALOP', $record)->exists();
-
-                    if ($hasPendingInvoice || $hasRegistrations || $hasSchedules) {
-                        $this->fail('record', 'Lớp đã có đơn, đăng ký hoặc lịch học liên quan nên chưa thể xóa. Hãy lưu lại để bảo toàn lịch sử.');
-                    }
-                }
-
                 if ($resource === 'products') {
                     DB::table('HINHANH')->where('MASP', $record)->delete();
                 }
@@ -418,7 +404,7 @@ class GymAdministrationController extends Controller
             ? ($catalogSyncQueued ? 'Đã xóa. Chatbot sẽ cập nhật danh mục trong nền.' : 'Đã xóa trong MySQL. Hãy mở Tài liệu chatbot để thử đồng bộ lại danh mục.')
             : 'Đã xóa.';
 
-        return back()->with('success', $message);
+        return redirect()->route('gym.admin.index', $resource)->with('success', $message);
     }
 
     public function image(Request $request, int $product, ?int $image = null): RedirectResponse
@@ -457,13 +443,18 @@ class GymAdministrationController extends Controller
         return match ($resource) {
             'positions' => ['TENCHUCVU' => ['Tên chức vụ', ['required', 'string', 'max:100']]],
             'tiers' => ['TENLOAI' => ['Tên hạng', ['required', 'string', 'max:100']], 'MUCGIAM' => ['Giảm giá (%)', ['nullable', 'integer', 'between:0,99']], 'REQUIRES_VERIFICATION' => ['Cần xác minh trước khi áp ưu đãi', ['required', 'boolean']]],
-            'specialties' => ['TENCHUYENMON' => ['Tên chuyên môn', ['required', 'string', 'max:100']], 'MOTA' => ['Mô tả', ['nullable', 'string', 'max:10000']]],
             'categories' => ['TENLOAISP' => ['Tên nhóm sản phẩm', ['required', 'string', 'max:100']]],
             'products' => ['TENSP' => ['Tên sản phẩm', ['required', 'string', 'max:255']], 'MALOAISP' => ['Nhóm', ['required', 'integer', 'exists:LOAISANPHAM,MALOAISP']], 'DONGIA' => ['Giá gốc (VNĐ)', ['required', 'integer', 'min:1', 'max:1000000000000']], 'GIAKHUYENMAI' => ['Giá khuyến mãi (VNĐ)', ['nullable', 'integer', 'min:1', 'max:1000000000000']], 'SOLUONGTON' => ['Tồn kho', ['required', 'integer', 'min:0', 'max:100000000']], 'HANG' => ['Hãng', ['nullable', 'string', 'max:100']], 'XUATXU' => ['Xuất xứ', ['nullable', 'string', 'max:100']], 'BAOHANH' => ['Bảo hành', ['nullable', 'string', 'max:100']], 'MOTACHUNG' => ['Mô tả chung', ['nullable', 'string', 'max:10000']], 'MOTACHITIET' => ['Mô tả chi tiết', ['nullable', 'string', 'max:50000']]],
-            'classes' => ['TENLOP' => ['Tên lớp', ['required', 'string', 'max:150']], 'MACM' => ['Chuyên môn', ['required', 'integer', 'exists:CHUYENMON,MACM']], 'HOCPHI' => ['Học phí (VNĐ)', ['required', 'integer', 'min:1', 'max:1000000000000']], 'NGAYBATDAU' => ['Ngày bắt đầu', ['required', 'date']], 'NGAYKETTHUC' => ['Ngày kết thúc', ['required', 'date', 'after_or_equal:NGAYBATDAU']], 'SOBUOI' => ['Số buổi', ['required', 'integer', 'min:1', 'max:1000']], 'SISOTOIDA' => ['Sĩ số tối đa (trống: không giới hạn)', ['nullable', 'integer', 'min:1', 'max:10000']]],
             'customers', 'employees' => ($resource === 'customers' ? ['TENKH' => ['Họ tên', ['required', 'string', 'max:150']], 'MALOAIKH' => ['Hạng khách', ['required', 'integer', 'exists:LOAIKHACHHANG,MALOAIKH']], 'EMAIL' => ['Email', ['nullable', 'email', 'max:100']]] : ['TENNV' => ['Họ tên', ['required', 'string', 'max:150']], 'MACHUCVU' => ['Chức vụ', ['required', 'integer', 'exists:CHUCVU,MACHUCVU']]]) + ['TENDANGNHAP' => ['Tên đăng nhập', ['required', 'alpha_dash', 'max:50']], 'SDT' => ['Điện thoại', ['nullable', 'string', 'max:20']], 'NGAYSINH' => ['Ngày sinh', ['nullable', 'date', 'before:today']], 'GIOITINH' => ['Giới tính', ['nullable', 'in:Nam,Nữ']]],
             default => abort(404),
         };
+    }
+
+    private function isRetiredTrainingPosition(?string $name): bool
+    {
+        $normalized = mb_strtolower(Str::ascii(trim((string) $name)));
+
+        return preg_match('/(?:^|[^a-z0-9])(?:pt|personal trainer|hlv lop|huan luyen vien|lop hoc|lop tap|lop nhom|group class)(?:$|[^a-z0-9])/', $normalized) === 1;
     }
 
     private function fail(string $field, string $message): never

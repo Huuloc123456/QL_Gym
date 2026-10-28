@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\GymSetting;
 use App\Models\User;
 use App\Notifications\GymMessageNotification;
 use App\Services\GymCommerceService;
@@ -104,6 +105,24 @@ class GymPortalCompletionTest extends TestCase
         $this->assertSame('2027-01-10 11:00:00', DB::table('gym_fulfillments')->where('invoice_id', $invoice)->value('paid_at'));
     }
 
+    public function test_staff_can_record_invoice_payment_using_vietnamese_thousands_separator(): void
+    {
+        $customer = User::factory()->create();
+        $staff = User::factory()->employee()->create();
+        $invoice = $this->order($customer);
+
+        $this->actingAs($staff)
+            ->post(route('gym.invoices.receive', $invoice), [
+                'amount' => '100.000',
+                'method' => 'cash',
+                'token' => (string) Str::uuid(),
+            ])
+            ->assertRedirect(route('gym.invoices.show', $invoice))
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('gym_receipts', ['invoice_id' => $invoice, 'amount' => 100000]);
+    }
+
     public function test_late_first_receipt_is_blocked_even_before_scheduler_runs(): void
     {
         $this->travelTo('2027-01-10 08:00');
@@ -189,22 +208,6 @@ class GymPortalCompletionTest extends TestCase
         $this->assertStringNotContainsString('smtp-secret-value', $message->last_error);
     }
 
-    public function test_new_class_session_notifies_each_student_and_teacher_once(): void
-    {
-        $this->travelTo('2027-01-10 08:00');
-        $manager = User::factory()->manager()->create();
-        $teacher = User::factory()->employee()->create();
-        $students = User::factory()->count(2)->create();
-        DB::table('LOPHOC')->insert(['MALOP' => 9001, 'TENLOP' => 'Lớp kiểm thử thông báo', 'MACM' => 1, 'HOCPHI' => 100000, 'NGAYBATDAU' => '2027-01-11', 'NGAYKETTHUC' => '2027-02-11', 'SOBUOI' => 2, 'SISOTOIDA' => 5]);
-        DB::table('NHANVIEN_CHUYENMON')->insert(['MANV' => $teacher->sql_employee_id, 'MACM' => 1]);
-        foreach ($students as $index => $student) {
-            DB::table('DANGKYLOP')->insert(['MADKLOP' => 9001 + $index, 'MAKH' => $student->sql_customer_id, 'MALOP' => 9001, 'NGAYDANGKY' => now(), 'TRANGTHAI' => 'Còn hiệu lực']);
-        }
-        $this->actingAs($manager)->post(route('gym.class.session', 9001), ['date' => '2027-01-11', 'start' => '09:00', 'end' => '10:00', 'employee' => $teacher->sql_employee_id])->assertRedirect()->assertSessionHasNoErrors();
-        $this->assertSame(3, DB::table('gym_messages')->count());
-        $this->assertSame(1, DB::table('gym_messages')->where('user_id', $teacher->id)->count());
-    }
-
     public function test_password_change_requires_current_password_syncs_sql_and_closes_other_sessions(): void
     {
         $customer = User::factory()->create();
@@ -254,6 +257,32 @@ class GymPortalCompletionTest extends TestCase
             ->assertDontSee('Scheduler chưa chạy gần đây');
     }
 
+    public function test_manager_settings_shows_vietqr_readiness_and_missing_fields(): void
+    {
+        $manager = User::factory()->manager()->create();
+        GymSetting::current()->update([
+            'bank_name' => 'MB Bank',
+            'bank_code' => null,
+            'bank_account' => '123456789',
+            'bank_account_name' => 'THE GYM',
+        ]);
+
+        $this->actingAs($manager)->get(route('manager.settings.edit'))
+            ->assertOk()
+            ->assertSee('Cấu hình VietQR chưa hoàn tất')
+            ->assertSee('Mã ngân hàng VietQR')
+            ->assertDontSee('VietQR xem trước tài khoản nhận tiền');
+
+        GymSetting::current()->update(['bank_code' => 'mbbank']);
+
+        $this->get(route('manager.settings.edit'))
+            ->assertOk()
+            ->assertSee('Cấu hình VietQR đã sẵn sàng')
+            ->assertSee('VietQR xem trước tài khoản nhận tiền')
+            ->assertSee('https://img.vietqr.io/image/mbbank-123456789-compact2.png', false)
+            ->assertDontSee('amount=', false);
+    }
+
     public function test_portal_settings_update_preserves_the_existing_settings_column_names(): void
     {
         $manager = User::factory()->manager()->create();
@@ -288,19 +317,6 @@ class GymPortalCompletionTest extends TestCase
         $response = $this->get(route('gym.reports.export', $range))->assertDownload('bao-cao-20270110-20270110.csv');
         $this->assertStringContainsString("'=HYPERLINK", $response->streamedContent());
         $this->get(route('manager.reports.index', ['from' => '2027-01-11', 'to' => '2027-01-11']))->assertViewHas('revenue', 0);
-    }
-
-    public function test_calendar_hides_legacy_pt_sessions_for_every_role(): void
-    {
-        $this->travelTo('2027-01-10 08:00');
-        $customer = User::factory()->create();
-        $other = User::factory()->create(['name' => 'Khách riêng bí mật']);
-        $trainer = User::factory()->employee()->create();
-        DB::table('DANGKYPT')->insert(['MADKPT' => 9001, 'MAKH' => $other->sql_customer_id, 'MANV' => $trainer->sql_employee_id, 'SOBUOI' => 1, 'GIAMOIBUOI' => 100000, 'NGAYDANGKY' => now(), 'TRANGTHAI' => 'Còn hiệu lực']);
-        DB::table('LICHTAPPT')->insert(['MALICHPT' => 9001, 'MADKPT' => 9001, 'NGAYTAP' => '2027-01-11', 'GIOBATDAU' => '2027-01-11 09:00:00', 'GIOKETTHUC' => '2027-01-11 10:00:00', 'TRANGTHAI' => 'Chưa tập']);
-        $this->actingAs($customer)->get(route('gym.calendar', ['date' => '2027-01-11', 'view' => 'week']))->assertOk()->assertDontSee('Khách riêng bí mật')->assertViewHas('calendar', fn ($calendar) => count($calendar['days']) === 7 && $calendar['events']->isEmpty());
-        $this->actingAs($other)->get(route('gym.calendar', ['date' => '2027-01-11', 'view' => 'month']))->assertOk()->assertDontSee('PT lưu lịch sử')->assertViewHas('calendar', fn ($calendar) => count($calendar['days']) === 35 && $calendar['events']->isEmpty());
-        $this->get(route('gym.calendar', ['date' => 'invalid']))->assertSessionHasErrors('date');
     }
 
     public function test_unreconciled_invoice_totals_block_collection_confirmation_and_signing(): void

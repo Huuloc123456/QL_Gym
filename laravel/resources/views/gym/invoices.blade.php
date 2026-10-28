@@ -3,7 +3,7 @@
 @section('content')
 <section class="gym-container py-10">
     <h1 class="gym-title">Đơn hàng và hóa đơn</h1>
-    <p class="mt-2 text-slate-600">Đơn gói hội viên và hóa đơn sản phẩm, lớp học được tra cứu tại đây. Mở chi tiết đơn để xem thông tin và xử lý.</p>
+    <p class="mt-2 text-slate-600">Đơn gói hội viên và đơn sản phẩm được tra cứu tại đây. Hóa đơn dịch vụ cũ vẫn được lưu để xem lịch sử và đối chiếu.</p>
 
     <form class="mt-6 flex flex-wrap items-end gap-3" method="GET">
         <div><label class="gym-label" for="q">Tìm mã đơn, tên khách hoặc gói</label><input class="gym-input" id="q" name="q" value="{{ request('q') }}"></div>

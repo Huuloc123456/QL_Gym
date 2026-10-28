@@ -35,6 +35,18 @@
                     <div><label class="gym-label" for="bank_account">Số tài khoản</label><x-form-input id="bank_account" name="bank_account" value="{{ old('bank_account', $settings->bank_account) }}" maxlength="80" /></div>
                     <div><label class="gym-label" for="bank_account_name">Chủ tài khoản</label><x-form-input id="bank_account_name" name="bank_account_name" value="{{ old('bank_account_name', $settings->bank_account_name) }}" maxlength="160" /></div>
                 </div>
+                @php($vietQrPreview = app(\App\Services\VietQrService::class)->previewImageUrl($settings))
+                @if ($vietQrPreview)
+                    <div class="mt-5 grid gap-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center" role="status">
+                        <img class="size-36 rounded-lg border border-slate-200 bg-white object-contain p-2" src="{{ $vietQrPreview }}" alt="VietQR xem trước tài khoản nhận tiền" width="144" height="144" loading="lazy" referrerpolicy="no-referrer">
+                        <div><p class="font-bold text-emerald-900">Cấu hình VietQR đã sẵn sàng</p><p class="mt-1 text-sm leading-6 text-emerald-900">Mã xem trước không điền số tiền hoặc nội dung chuyển khoản. Chỉ dùng để kiểm tra tài khoản hiển thị; khoản thanh toán thật vẫn phải ghi đúng mã hóa đơn và được nhân viên đối chiếu.</p></div>
+                    </div>
+                @else
+                    <div class="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950" role="status">
+                        <strong>Cấu hình VietQR chưa hoàn tất.</strong>
+                        <p class="mt-1">Nhập mã ngân hàng VietQR, số tài khoản và tên chủ tài khoản để tạo mã cho hóa đơn.</p>
+                    </div>
+                @endif
             </section>
 
             <section class="border-t border-slate-200 pt-7" aria-labelledby="gym-faq-settings">
@@ -136,7 +148,6 @@
             @endif
             <div class="mt-8 grid gap-6 border-t border-slate-200 pt-6 md:grid-cols-2">
                 <div><h3 class="font-bold">Ảnh sản phẩm cần cập nhật</h3><ul class="mt-3 max-h-48 space-y-2 overflow-y-auto text-sm">@forelse ($missingImages as $row)<li><a class="text-gym-blue underline" href="{{ route('gym.admin.edit', ['products', $row->MASP]) }}">#{{ $row->MASP }} · {{ $row->TENSP }}</a></li>@empty<li>Ảnh đại diện đã đầy đủ.</li>@endforelse</ul></div>
-                <div><h3 class="font-bold">Lớp chưa kết thúc: {{ $currentClasses }}</h3><p class="mt-2 text-sm leading-7 text-slate-500">Lịch sử được giữ nguyên. Để nhận đăng ký mới, tạo lớp có ngày bắt đầu trong tương lai rồi xếp lịch và phân công nhân viên phụ trách.</p><a class="mt-3 inline-block text-sm text-gym-blue underline" href="{{ route('gym.admin.create', 'classes') }}">Tạo lớp hiện hành</a></div>
             </div>
         </section>
     </section>

@@ -44,7 +44,6 @@
                                         @can('viewAny', \App\Models\MembershipOrder::class)
                                             <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep focus-visible:outline-2 focus-visible:outline-gym-blue {{ request()->routeIs('gym.invoices.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('gym.invoices.index') }}" @if (request()->routeIs('gym.invoices.*')) aria-current="page" @endif>Đơn hàng và hóa đơn</a></li>
                                         @endcan
-                                        <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep focus-visible:outline-2 focus-visible:outline-gym-blue {{ request()->routeIs('gym.calendar') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('gym.calendar') }}" @if (request()->routeIs('gym.calendar')) aria-current="page" @endif>Lịch lớp học</a></li>
                                     </ul>
                                 </details>
                             </li>
@@ -137,7 +136,7 @@
                     <div class="gym-container mt-4" role="alert" aria-live="assertive"><div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-900"><p class="font-semibold">Kiểm tra lại thông tin:</p><ul class="mt-1 list-inside list-disc">@foreach ($errors->getBag('default')->messages() as $field => $messages) @foreach ($messages as $error)<li><a class="underline underline-offset-2" href="#{{ str_replace('.', '-', $field) }}">{{ $error }}</a></li>@endforeach @endforeach</ul></div></div>
     @endif
 
-    <main id="main" class="min-h-[22rem]" tabindex="-1">
+    <main id="main" class="min-h-[22rem] pb-20 sm:pb-8" tabindex="-1">
         @yield('content')
     </main>
 

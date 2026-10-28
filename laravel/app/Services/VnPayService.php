@@ -48,6 +48,7 @@ class VnPayService
         $this->assertNoPaymentReview('invoice', $invoiceId);
         $this->commerce->assertInvoiceHasDetails($invoiceId);
         $this->commerce->assertSupportedInvoiceKinds($invoiceId);
+        $this->commerce->assertNoRetiredServiceLines($invoiceId);
         $fulfillment = DB::table('gym_fulfillments')->where('invoice_id', $invoiceId)->first();
         if ($fulfillment?->expires_at
             && now(config('app.timezone'))->greaterThanOrEqualTo($fulfillment->expires_at)
@@ -332,6 +333,9 @@ class VnPayService
             }
             if ($invoice->TRANGTHAI !== 'Chưa thanh toán') {
                 return 'Hóa đơn đã được đóng hoặc thanh toán bằng phương thức khác.';
+            }
+            if ($this->commerce->hasRetiredServiceLines((int) $invoice->MAHD)) {
+                return 'Hóa đơn có dịch vụ lớp/PT đã ngừng; cần quản lý đối chiếu và xử lý khoản tiền theo quy trình hoàn/đối soát.';
             }
             if (DB::table('gym_fulfillments')->where('invoice_id', $invoice->MAHD)->value('cancellation_requested')) {
                 return 'Khách đã gửi yêu cầu hủy hóa đơn.';

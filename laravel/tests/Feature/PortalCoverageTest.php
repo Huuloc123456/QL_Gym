@@ -32,7 +32,10 @@ class PortalCoverageTest extends TestCase
             ->assertSee('href="#main"', false)
             ->assertSee('data-menu-toggle', false)
             ->assertSee('aria-expanded="false"', false)
-            ->assertSee('<main id="main"', false);
+            ->assertSee('<main id="main"', false)
+            ->assertSee('pb-20', false)
+            ->assertSee('max-sm:size-11', false)
+            ->assertSee('aria-label="Mở trợ lý The Gym"', false);
     }
 
     public function test_manager_navigation_groups_operational_and_management_links(): void
@@ -107,9 +110,34 @@ class PortalCoverageTest extends TestCase
         OrderPayment::factory()->for($pendingOrder, 'order')->for($staff, 'receiver')->create(['amount' => 50000]);
 
         $this->actingAs($customer)->get(route('my.memberships.index'))->assertOk();
-        $this->get(route('my.orders.index'))->assertOk();
+        $this->get(route('my.orders.index'))->assertRedirect(route('gym.invoices.index'));
         $this->get(route('my.orders.show', $pendingOrder))->assertOk();
         $this->get(route('my.profile.show'))->assertOk();
+    }
+
+    public function test_employee_dashboard_explains_that_product_management_is_already_available(): void
+    {
+        $employee = User::factory()->employee()->create([
+            'can_manage_trial_requests' => false,
+            'can_manage_orders' => false,
+            'can_manage_check_ins' => false,
+        ]);
+
+        $this->actingAs($employee)->get(route('staff.dashboard'))
+            ->assertOk()
+            ->assertSee('Bạn vẫn có thể quản lý sản phẩm')
+            ->assertDontSee('Tài khoản của bạn chưa được giao phần việc nào.');
+    }
+
+    public function test_checkin_page_has_a_mobile_card_list_and_keeps_the_wide_table_for_desktop(): void
+    {
+        $employee = User::factory()->employee()->create();
+
+        $this->actingAs($employee)->get(route('staff.checkins.index'))
+            ->assertOk()
+            ->assertSee('data-checkin-mobile-list', false)
+            ->assertSee('md:hidden', false)
+            ->assertSee('md:block', false);
     }
 
     public function test_manager_dashboard_shows_paid_revenue_and_packages(): void

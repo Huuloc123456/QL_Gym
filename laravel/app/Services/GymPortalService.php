@@ -76,13 +76,6 @@ class GymPortalService
         }
     }
 
-    public function trainingMessage(int $customer, int $employee, string $key, string $title, string $body): void
-    {
-        foreach (User::query()->where('sql_customer_id', $customer)->orWhere('sql_employee_id', $employee)->get() as $user) {
-            $this->message($user, $key, $title, $body, route('gym.calendar', absolute: false));
-        }
-    }
-
     public function expireOrders(): int
     {
         return $this->sql->transaction(function (): int {
@@ -115,13 +108,6 @@ class GymPortalService
             ->whereBetween('f.expires_at', [now(), now()->addHour()])->select('f.invoice_id', 'f.expires_at')->get();
         foreach ($orders as $row) {
             $this->invoiceMessage((int) $row->invoice_id, 'due', 'Đơn hàng sắp hết hạn thanh toán', 'Đơn #'.$row->invoice_id.' có hạn thanh toán '.CarbonImmutable::parse($row->expires_at)->format('H:i d/m/Y').'. Nếu đã chuyển khoản, hãy liên hệ quầy để đối chiếu.');
-        }
-        $classes = DB::table('LICHLOP as s')->join('LOPHOC as l', 'l.MALOP', '=', 's.MALOP')->where('s.TRANGTHAI', 'Chưa diễn ra')->whereBetween('s.GIOBATDAU', [now(), now()->addDay()])->select('s.*', 'l.TENLOP')->get();
-        foreach ($classes as $row) {
-            $customers = DB::table('DANGKYLOP')->where('MALOP', $row->MALOP)->where('TRANGTHAI', 'Còn hiệu lực')->pluck('MAKH');
-            foreach (User::query()->whereIn('sql_customer_id', $customers)->orWhere('sql_employee_id', $row->MANV)->get() as $user) {
-                $this->message($user, 'class:'.$row->MALICHLOP.':'.$row->GIOBATDAU, 'Nhắc lịch lớp học', $row->TENLOP.' bắt đầu lúc '.CarbonImmutable::parse($row->GIOBATDAU)->format('H:i d/m/Y').'.', route('gym.calendar', absolute: false));
-            }
         }
     }
 

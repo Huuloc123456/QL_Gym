@@ -60,9 +60,12 @@ class DatabaseChatbotTest extends TestCase
     public function test_default_chat_suggestions_work_while_external_rag_is_offline(): void
     {
         Http::fake(['*' => Http::failedConnection()]);
-        foreach (['Gói tập 1 tháng tính thời hạn thế nào?', 'Tôi vừa chuyển khoản, khi nào được vào tập?', 'Tôi quên mật khẩu thì làm sao?'] as $message) {
-            $this->postJson(route('chatbot.message'), compact('message'))->assertOk()->assertJsonStructure(['answer', 'sources']);
-        }
-        Http::assertSentCount(3);
+        $this->postJson(route('chatbot.message'), ['message' => 'Gói tập 1 tháng tính thời hạn thế nào?'])
+            ->assertOk()->assertJsonStructure(['answer', 'sources']);
+        $this->postJson(route('chatbot.message'), ['message' => 'Tôi vừa chuyển khoản, khi nào được vào tập?'])
+            ->assertOk()->assertJsonPath('answer', fn ($answer) => str_contains($answer, 'Nhân viên ghi nhận'));
+        $this->postJson(route('chatbot.message'), ['message' => 'Tôi quên mật khẩu thì làm sao?'])
+            ->assertOk()->assertJsonStructure(['answer', 'sources']);
+        Http::assertSentCount(2);
     }
 }

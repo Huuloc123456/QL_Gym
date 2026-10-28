@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\GymRefundService;
+use App\Support\VndAmountInput;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -10,6 +11,7 @@ class ManagerRefundController extends Controller
 {
     public function store(Request $request, GymRefundService $refunds): RedirectResponse
     {
+        $request->merge(['amount' => VndAmountInput::normalize($request->input('amount'))]);
         $data = $request->validate([
             'source_type' => ['required', 'in:receipt,order_payment'],
             'source_id' => ['required', 'integer', 'min:1'],

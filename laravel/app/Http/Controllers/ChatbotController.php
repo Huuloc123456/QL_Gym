@@ -23,6 +23,10 @@ class ChatbotController extends Controller
         if ($privateAnswer !== null) {
             return response()->json($privateAnswer);
         }
+        $authoritativeAnswer = $answers->answerAuthoritativeBusinessQuestion($message);
+        if ($authoritativeAnswer !== null) {
+            return response()->json($authoritativeAnswer + ['products' => []]);
+        }
         $purchaseGuide = $productCatalog->purchaseHowToAnswer($message);
         if ($purchaseGuide !== null) {
             return response()->json([

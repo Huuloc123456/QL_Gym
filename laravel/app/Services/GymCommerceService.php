@@ -15,14 +15,13 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class GymCommerceService
 {
-    public function __construct(private OriginalGymSql $sql, private GymIdentityService $identities, private MembershipPeriod $period, private GymTrainingService $training, private GymPortalService $portal, private MembershipRepository $memberships) {}
+    public function __construct(private OriginalGymSql $sql, private GymIdentityService $identities, private MembershipPeriod $period, private GymPortalService $portal, private MembershipRepository $memberships) {}
 
     public function item(string $kind, int $id): object
     {
         [$table, $key, $name, $price] = match ($kind) {
             'product' => ['SANPHAM', 'MASP', 'TENSP', 'DONGIA'],
             'package' => ['GOITAP', 'MAGOITAP', 'TENGOI', 'GIA'],
-            'class' => ['LOPHOC', 'MALOP', 'TENLOP', 'HOCPHI'],
             default => abort(404),
         };
         $row = DB::table($table)->where($key, $id)->first();
@@ -84,7 +83,7 @@ class GymCommerceService
                 $line->unavailable = false;
             } catch (NotFoundHttpException) {
                 $line->unavailable = true;
-                $item = (object) ['kind' => $kind, 'item_id' => $id, 'item_name' => 'Mặt hàng #'.$id, 'unit_price' => 0, 'original_unit_price' => 0, 'is_promotional' => false];
+                $item = (object) ['kind' => $kind, 'item_id' => $id, 'item_name' => 'Dịch vụ đã ngừng · lớp #'.$id, 'unit_price' => 0, 'original_unit_price' => 0, 'is_promotional' => false];
             }
             $line->item = $item;
             $line->total = $item->unit_price * (int) $line->SOLUONG;
@@ -166,12 +165,12 @@ class GymCommerceService
     public function add(User $user, string $kind, int $id, int $quantity): void
     {
         if ($quantity < 1 || $quantity > 99 || ($kind !== 'product' && $quantity !== 1)) {
-            $this->fail('quantity', 'Số lượng không hợp lệ. Gói và lớp chỉ đăng ký một suất.');
+            $this->fail('quantity', 'Số lượng không hợp lệ. Gói tập chỉ đăng ký một suất.');
         }
         $this->sql->transaction(function () use ($user, $kind, $id, $quantity): void {
             $customer = $this->identities->customer($user);
             $column = match ($kind) {
-                'product' => 'MASP', 'package' => 'MAGOITAP', 'class' => 'MALOP', default => abort(404)
+                'product' => 'MASP', 'package' => 'MAGOITAP', default => abort(404)
             };
             $item = $this->item($kind, $id);
             if ($item->unit_price < 1) {
@@ -237,7 +236,6 @@ class GymCommerceService
             if ($quotedPrice && ! hash_equals($this->quoteSignature($quotedPrice, $data['mode']), $this->quoteSignature($quote, $data['mode']))) {
                 $this->fail('pricing_changed', 'Giá bán, ưu đãi hoặc phí giao hàng vừa thay đổi. Hãy kiểm tra tổng tiền mới trong giỏ rồi xác nhận lại.');
             }
-            $this->assertClassesDoNotOverlap(collect($cart)->filter(fn ($line): bool => $line->item->kind === 'class')->map(fn ($line): int => (int) $line->item->item_id)->all());
             $total = 0;
             $lines = [];
             $hasProducts = false;
@@ -257,8 +255,6 @@ class GymCommerceService
                     $start = $data['start_date'] ?? now()->toDateString();
                     $this->assertPackagePeriod($customer, $start, (int) $item->THOIHAN);
                     $details = ['start_date' => $start, 'months' => (int) $item->THOIHAN];
-                } elseif ($item->kind === 'class') {
-                    $this->assertClassAvailable($customer, $item);
                 }
                 $total += $item->unit_price * $quantity;
                 $lines[] = ['kind' => $item->kind, 'item_id' => $item->item_id, 'name' => $item->item_name, 'quantity' => $quantity, 'unit_price' => $item->unit_price, 'original_unit_price' => $item->original_unit_price, 'details' => json_encode($details)];
@@ -318,6 +314,7 @@ class GymCommerceService
             $this->assertCancellationResolved($invoice);
             $this->assertInvoiceHasDetails($invoice);
             $this->assertSupportedInvoiceKinds($invoice);
+            $this->assertNoRetiredServiceLines($invoice);
             $this->assertBeforeDeadline($invoice);
             if ($bill->TRANGTHAI !== 'Chưa thanh toán' || (int) $data['amount'] > (int) $bill->THANHTIEN - $this->received($invoice)) {
                 $this->fail('amount', 'Khoản thu vượt số còn phải thu hoặc hóa đơn đã đóng.');
@@ -353,6 +350,7 @@ class GymCommerceService
             $this->assertCancellationResolved($invoice);
             $this->assertInvoiceHasDetails($invoice);
             $this->assertSupportedInvoiceKinds($invoice);
+            $this->assertNoRetiredServiceLines($invoice);
             if (! $allowExpired) {
                 $this->assertBeforeDeadline($invoice);
             }
@@ -360,7 +358,6 @@ class GymCommerceService
                 $this->fail('payment', 'Hóa đơn phải đang chờ và đã thu đủ tiền.');
             }
             $lines = DB::table('gym_invoice_lines')->where('invoice_id', $invoice)->orderBy('id')->get();
-            $this->assertClassesDoNotOverlap($lines->where('kind', 'class')->pluck('item_id')->map(fn ($id): int => (int) $id)->all());
             foreach ($lines as $line) {
                 $details = json_decode($line->details, true);
                 $record = ['MACTHD' => $this->sql->nextId('CHITIETHOADON'), 'MAHD' => $invoice, 'SOLUONG' => $line->quantity, 'DONGIA' => $line->unit_price];
@@ -379,12 +376,6 @@ class GymCommerceService
                     $details['start_date'] = $start;
                     DB::table('gym_invoice_lines')->where('id', $line->id)->update(['details' => json_encode($details)]);
                     $this->cacheMembership($bill, $line, $registration, $start, $expiry, $staff);
-                } elseif ($line->kind === 'class') {
-                    $class = $this->item('class', (int) $line->item_id);
-                    $this->assertClassAvailable((int) $bill->MAKH, $class, $invoice);
-                    $registration = $this->sql->nextId('DANGKYLOP');
-                    DB::table('DANGKYLOP')->insert(['MADKLOP' => $registration, 'MAKH' => $bill->MAKH, 'MALOP' => $line->item_id, 'NGAYDANGKY' => now(), 'TRANGTHAI' => 'Còn hiệu lực']);
-                    $record['MADKLOP'] = $registration;
                 }
                 // The original trigger alone deducts product stock here.
                 DB::table('CHITIETHOADON')->insert($record);
@@ -548,6 +539,30 @@ class GymCommerceService
         }
     }
 
+    public function hasRetiredServiceLines(int $id): bool
+    {
+        return DB::table('gym_invoice_lines')->where('invoice_id', $id)
+            ->whereIn('kind', ['class', 'pt', 'trainer', 'personal_training'])->exists();
+    }
+
+    public function assertNoRetiredServiceLines(int $id): void
+    {
+        if ($this->hasRetiredServiceLines($id)) {
+            $this->fail('line', 'Hóa đơn có dịch vụ lớp/PT đã ngừng. Không thể thu tiền hoặc kích hoạt tự động; quản lý cần đối chiếu và xử lý chứng từ cũ.');
+        }
+    }
+
+    public function endPackageRegistration(User $manager, int $registration, string $reason): void
+    {
+        abort_unless($manager->role === 'manager', 403);
+        $this->sql->transaction(function () use ($registration, $reason): void {
+            $exists = DB::table('DANGKYGOITAP')->where('MADKGT', $registration)->exists();
+            abort_unless($exists, 404);
+            DB::table('DANGKYGOITAP')->where('MADKGT', $registration)->update(['TRANGTHAI' => 'Đã hủy']);
+            $this->sql->audit('Chấm dứt đăng ký gói', 'DANGKYGOITAP:'.$registration, ['reason' => $reason]);
+        });
+    }
+
     private function assertBeforeDeadline(int $id): void
     {
         $deadline = DB::table('gym_fulfillments')->where('invoice_id', $id)->value('expires_at');
@@ -570,47 +585,6 @@ class GymCommerceService
         }
 
         return $expiry;
-    }
-
-    private function assertClassAvailable(int $customer, object $class, ?int $exceptInvoice = null): void
-    {
-        foreach (DB::table('LICHLOP')->where('MALOP', $class->item_id)->get() as $session) {
-            $this->training->assertCustomerFree($customer, CarbonImmutable::parse($session->GIOBATDAU), CarbonImmutable::parse($session->GIOKETTHUC), $class->item_id);
-        }
-        if (CarbonImmutable::parse($class->NGAYBATDAU)->startOfDay()->lt(now()->startOfDay())) {
-            $this->fail('class', 'Lớp đã bắt đầu, không nhận đăng ký mới.');
-        }
-        $active = DB::table('DANGKYLOP')->where('MALOP', $class->item_id)->where('TRANGTHAI', 'Còn hiệu lực');
-        if ((clone $active)->where('MAKH', $customer)->exists()) {
-            $this->fail('class', 'Bạn đã đăng ký lớp này.');
-        }
-        $pending = DB::table('gym_invoice_lines as l')->join('HOADON as h', 'h.MAHD', '=', 'l.invoice_id')->where('l.kind', 'class')->where('l.item_id', $class->item_id)->where('h.TRANGTHAI', 'Chưa thanh toán')->when($exceptInvoice, fn ($q) => $q->where('h.MAHD', '!=', $exceptInvoice));
-        if ((clone $pending)->where('h.MAKH', $customer)->exists()) {
-            $this->fail('class', 'Bạn còn đơn đăng ký lớp đang chờ.');
-        }
-        if ($class->SISOTOIDA && $active->count() + $pending->count() >= (int) $class->SISOTOIDA) {
-            $this->fail('class', 'Lớp đã đủ chỗ.');
-        }
-    }
-
-    /** @param list<int> $classIds */
-    private function assertClassesDoNotOverlap(array $classIds): void
-    {
-        if (count($classIds) < 2) {
-            return;
-        }
-        $sessions = DB::table('LICHLOP')->whereIn('MALOP', $classIds)->orderBy('GIOBATDAU')->get()->values();
-        foreach ($sessions as $index => $first) {
-            for ($next = $index + 1; $next < $sessions->count(); $next++) {
-                $second = $sessions[$next];
-                if ($second->GIOBATDAU >= $first->GIOKETTHUC) {
-                    break;
-                }
-                if ((int) $first->MALOP !== (int) $second->MALOP) {
-                    $this->fail('class', 'Các lớp trong giỏ có lịch trùng giờ. Vui lòng chọn lại trước khi đặt hàng.');
-                }
-            }
-        }
     }
 
     private function cacheMembership(object $bill, object $line, int $registration, string $start, CarbonImmutable $expiry, ?User $staff): void

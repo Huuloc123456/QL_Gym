@@ -82,7 +82,7 @@ class GymStoreController extends Controller
 
     public function add(Request $request): RedirectResponse
     {
-        $data = $request->validate(['kind' => 'required|in:product,package,class', 'item' => 'required_without:gym_package_id|integer|min:1', 'gym_package_id' => 'nullable|integer|exists:gym_packages,id', 'quantity' => 'required|integer|min:1|max:99']);
+        $data = $request->validate(['kind' => 'required|in:product,package', 'item' => 'required_without:gym_package_id|integer|min:1', 'gym_package_id' => 'nullable|integer|exists:gym_packages,id', 'quantity' => 'required|integer|min:1|max:99']);
         $item = $data['item'] ?? null;
         if (isset($data['gym_package_id'])) {
             abort_unless($data['kind'] === 'package', 422);
@@ -99,7 +99,8 @@ class GymStoreController extends Controller
         $data = $request->validate(['quantity' => 'required|integer|min:0|max:99']);
         $this->shop->changeCart($request->user(), $line, $data['quantity']);
 
-        return back()->with('success', 'Đã cập nhật giỏ hàng.');
+        return back()->withInput($request->only(['mode', 'address_id', 'recipient', 'phone', 'payment_method', 'start_date']))
+            ->with('success', 'Đã cập nhật giỏ hàng.');
     }
 
     public function checkout(Request $request): RedirectResponse

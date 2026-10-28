@@ -12,7 +12,6 @@ use App\Models\User;
 use App\Services\CheckInService;
 use App\Services\GymCommerceService;
 use App\Services\GymIdentityService;
-use App\Services\GymTrainingService;
 use App\Services\MembershipPeriod;
 use App\Services\OriginalGymSql;
 use App\Services\TrialRegistrationService;
@@ -32,7 +31,7 @@ class GymDemoScenarioSeeder extends Seeder
             $accounts = [];
             $definitions = [
                 'demo_quanly' => ['Quản lý', 'manager'], 'demo_nhanvien' => ['Lễ tân', 'employee'],
-                'demo_kho' => ['Kho, không thu tiền', 'employee'], 'demo_pt' => ['PT', 'employee'],
+                'demo_kho' => ['Kho, không thu tiền', 'employee'],
                 'demo_khach' => ['Khách mua mới A', 'customer'], 'demo_khach_b' => ['Khách B', 'customer'],
                 'demo_hoivien' => ['Hội viên đang hiệu lực', 'customer'], 'demo_hethan' => ['Hội viên hết hạn', 'customer'],
                 'demo_tuonglai' => ['Gói bắt đầu tương lai', 'customer'], 'demo_khoa' => ['Tài khoản bị khóa', 'customer'],
@@ -60,20 +59,7 @@ class GymDemoScenarioSeeder extends Seeder
                 'held' => $this->record('SANPHAM', 'MASP', 'TENSP', 'DEMO Dây kháng lực giữ chỗ', ['MALOAISP' => $category, 'DONGIA' => 100000, 'SOLUONGTON' => 1, 'HANG' => 'DEMO']),
             ];
             $package = GymPackage::query()->firstOrCreate(['name' => 'DEMO Gói 1 tháng'], ['description' => 'Gói dùng cho kịch bản test.', 'price' => 300000, 'duration_months' => 1, 'is_active' => true]);
-            $specialty = $this->record('CHUYENMON', 'MACM', 'TENCHUYENMON', 'DEMO Thể lực', ['MOTA' => 'Chuyên môn mẫu cho lớp và PT.']);
-            $pt = $accounts['demo_pt']->sql_employee_id;
-            DB::table('NHANVIEN')->where('MANV', $pt)->update(['MACHUCVU' => DB::table('CHUCVU')->where('TENCHUCVU', 'PT')->value('MACHUCVU')]);
-            DB::table('NHANVIEN_CHUYENMON')->insertOrIgnore(['MANV' => $pt, 'MACM' => $specialty]);
-            DB::table('gym_pt_rates')->insertOrIgnore(['employee_id' => $pt, 'price' => 100000]);
             $day = CarbonImmutable::today(config('app.timezone'));
-            $class = $this->record('LOPHOC', 'MALOP', 'TENLOP', 'DEMO Lớp thể lực', ['MACM' => $specialty, 'HOCPHI' => 200000, 'NGAYBATDAU' => $day->addDays(2), 'NGAYKETTHUC' => $day->addDays(9), 'SOBUOI' => 2, 'SISOTOIDA' => 3]);
-            $smallClass = $this->record('LOPHOC', 'MALOP', 'TENLOP', 'DEMO Lớp một chỗ', ['MACM' => $specialty, 'HOCPHI' => 200000, 'NGAYBATDAU' => $day->addDays(3), 'NGAYKETTHUC' => $day->addDays(9), 'SOBUOI' => 1, 'SISOTOIDA' => 1]);
-            if (! DB::table('LICHLOP')->where('MALOP', $class)->exists()) {
-                foreach ([2, 4] as $offset) {
-                    app(GymTrainingService::class)->classSession($accounts['demo_quanly'], $class, ['employee' => $pt, 'date' => $day->addDays($offset)->toDateString(), 'start' => '09:00', 'end' => '10:00']);
-                }
-                app(GymTrainingService::class)->classSession($accounts['demo_quanly'], $smallClass, ['employee' => $pt, 'date' => $day->addDays(3)->toDateString(), 'start' => '09:00', 'end' => '10:00']);
-            }
             foreach (['demo_khach', 'demo_khach_b', 'demo_hoivien'] as $username) {
                 $this->address($accounts[$username]);
             }
@@ -114,7 +100,6 @@ class GymDemoScenarioSeeder extends Seeder
                 $shop->cancel($invoices['cancelled'], $staff);
             }
             $invoices['held_stock'] = $this->invoice('held-stock', $active, [['product', $products['held'], 1]], $staff);
-            $invoices['class'] = $this->invoice('class', $active, [['class', $class, 1]], $staff, confirm: true);
             $trialUser = $accounts['demo_tapthu'];
             $trial = TrialRequest::query()->firstOrCreate(['phone' => $trialUser->phone], ['user_id' => $trialUser->id, 'name' => $trialUser->name, 'email' => $trialUser->email, 'status' => 'pending', 'desired_date' => $day->toDateString()]);
             if (! TrialEntitlement::query()->where('trial_request_id', $trial->id)->exists()) {
@@ -132,7 +117,7 @@ class GymDemoScenarioSeeder extends Seeder
             $invoices['review'] = $this->invoice('review', $accounts['demo_khach_b'], [['product', $products['history'], 1]], $staff);
             DB::table('gym_online_payments')->insertOrIgnore(['target_type' => 'invoice', 'target_id' => $invoices['review'], 'user_id' => $accounts['demo_khach_b']->id, 'txn_ref' => 'DEMO-REVIEW-01', 'amount' => $shop->invoice($invoices['review'])->THANHTIEN, 'status' => 'review', 'response_code' => '00', 'review_reason' => 'Dữ liệu DEMO giả lập để test đối soát, không có giao dịch ngân hàng thật.', 'callback_payload' => json_encode(['vnp_ResponseCode' => '00', 'vnp_TransactionStatus' => '00', 'demo' => true]), 'expires_at' => now()->subMinute(), 'created_at' => now(), 'updated_at' => now()]);
 
-            return ['created_on' => substr((string) DB::table('HOADON')->where('MAHD', $invoices['active_package'])->value('NGAYLAP'), 0, 10), 'accounts' => collect($accounts)->map(fn ($user) => ['username' => $user->username, 'name' => $user->name, 'role' => $user->role, 'phone' => $user->phone, 'customer_id' => $user->sql_customer_id, 'employee_id' => $user->sql_employee_id])->all(), 'products' => $products, 'package_id' => $package->id, 'sql_package_id' => $package->sql_package_id, 'class_id' => $class, 'one_seat_class_id' => $smallClass, 'invoices' => $invoices];
+            return ['created_on' => substr((string) DB::table('HOADON')->where('MAHD', $invoices['active_package'])->value('NGAYLAP'), 0, 10), 'accounts' => collect($accounts)->map(fn ($user) => ['username' => $user->username, 'name' => $user->name, 'role' => $user->role, 'phone' => $user->phone, 'customer_id' => $user->sql_customer_id, 'employee_id' => $user->sql_employee_id])->all(), 'products' => $products, 'package_id' => $package->id, 'sql_package_id' => $package->sql_package_id, 'invoices' => $invoices];
         });
         Storage::disk('local')->put('demo/scenario.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
         $this->command?->info('Dữ liệu DEMO đã sẵn sàng. Mật khẩu ban đầu: DemoGym@2026. Danh sách mã tại storage/app/private/demo/scenario.json.');

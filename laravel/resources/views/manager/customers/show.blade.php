@@ -41,8 +41,8 @@
     @endif
     <section class="gym-card">
         <h2 class="text-xl font-bold">Lịch sử gói tập</h2>
-        <div class="mt-4 overflow-x-auto"><table class="gym-table"><thead><tr><th>Gói</th><th>Ngày bắt đầu</th><th>Ngày tập cuối</th><th>Trạng thái</th></tr></thead><tbody>
-        @forelse ($memberships as $membership)<tr><td>{{ $membership->TENGOI }}</td><td>{{ \Illuminate\Support\Carbon::parse($membership->NGAYBATDAU)->format('d/m/Y') }}</td><td>{{ \Illuminate\Support\Carbon::parse($membership->NGAYKETTHUC)->format('d/m/Y') }}</td><td>{{ $membership->TRANGTHAI }}</td></tr>@empty<tr><td colspan="4">Chưa có kỳ tập nào.</td></tr>@endforelse
+        <div class="mt-4 overflow-x-auto"><table class="gym-table"><thead><tr><th>Gói</th><th>Ngày bắt đầu</th><th>Ngày tập cuối</th><th>Trạng thái</th><th>Quản lý</th></tr></thead><tbody>
+        @forelse ($memberships as $membership)<tr><td>{{ $membership->TENGOI }}</td><td>{{ \Illuminate\Support\Carbon::parse($membership->NGAYBATDAU)->format('d/m/Y') }}</td><td>{{ \Illuminate\Support\Carbon::parse($membership->NGAYKETTHUC)->format('d/m/Y') }}</td><td>{{ $membership->TRANGTHAI }}</td><td>@include('gym.end-registration', ['membership' => $membership])</td></tr>@empty<tr><td colspan="5">Chưa có kỳ tập nào.</td></tr>@endforelse
         </tbody></table></div><div class="mt-4">{{ $memberships->links() }}</div>
     </section>
     <section class="gym-card">

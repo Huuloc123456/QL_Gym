@@ -121,6 +121,31 @@ class DocumentApiTest(unittest.TestCase):
         self.assertNotIn("SECRET_SHOULD_NOT_BE_RETURNED", answer["answer"])
         self.assertEqual([], answer["sources"])
 
+    def test_beginner_yoga_question_can_use_groq_without_matching_documents(self):
+        self.config["GROQ_API_KEY"] = "test-no-real-key"
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = json.dumps({"choices": [{"message": {"content": "Kiến thức tham khảo chung: Bắt đầu với vài tư thế nhẹ nhàng."}}]}).encode()
+
+        with patch("rag_api.urlopen", return_value=response) as provider:
+            status, result = self.request("POST", "/chat", {"message": "Cho tôi vài bài Yoga cơ bản để tập ở nhà"})
+
+        self.assertEqual(200, status)
+        self.assertEqual("rag_groq", result["mode"])
+        self.assertEqual([], result["sources"])
+        self.assertIn("Kiến thức tham khảo chung", result["answer"])
+        provider.assert_called_once()
+
+    def test_retired_yoga_class_question_is_not_sent_to_groq(self):
+        self.config["GROQ_API_KEY"] = "test-no-real-key"
+
+        with patch("rag_api.urlopen") as provider:
+            status, result = self.request("POST", "/chat", {"message": "Tôi muốn đăng ký lớp Yoga"})
+
+        self.assertEqual(200, status)
+        self.assertIn("không nhận đặt", result["answer"].lower())
+        self.assertEqual([], result["sources"])
+        provider.assert_not_called()
+
     def test_invalid_json_body_size_and_document_ids(self):
         self.assertEqual(400, self.request("POST", "/chat", raw=b"not json")[0])
         self.assertEqual(415, self.request("POST", "/chat", {"message": "hello"}, headers={"Content-Type": "text/plain"})[0])

@@ -14,6 +14,15 @@ class UnifiedInvoiceBrowseTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_legacy_customer_order_list_redirects_to_the_unified_order_history(): void
+    {
+        $customer = User::factory()->create();
+
+        $this->actingAs($customer)
+            ->get(route('my.orders.index', ['status' => 'pending', 'page' => 2]))
+            ->assertRedirect(route('gym.invoices.index', ['status' => 'Chưa thanh toán']));
+    }
+
     public function test_old_package_purchase_endpoint_returns_to_checkout_without_creating_a_legacy_pending_order(): void
     {
         $customer = User::factory()->create();

@@ -9,6 +9,7 @@ use App\Services\GymInvoiceDocumentService;
 use App\Services\GymPortalService;
 use App\Services\OriginalGymSql;
 use App\Services\VietQrService;
+use App\Support\VndAmountInput;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -96,7 +97,8 @@ class GymInvoiceController extends Controller
         $bill = $this->shop->invoice($invoice, $request->user());
         $sets = $this->sql->call('sp_LayChiTietHoaDon', [$invoice]);
         $lines = DB::table('gym_invoice_lines')->where('invoice_id', $invoice)->get();
-        $hasUnsupportedServices = $lines->contains(fn ($line): bool => ! in_array($line->kind, ['product', 'package', 'class'], true));
+        $hasUnsupportedServices = $lines->contains(fn ($line): bool => ! in_array($line->kind, ['product', 'package', 'class'], true))
+            || $this->shop->hasRetiredServiceLines($invoice);
         $settings = app(GymPortalService::class)->settings();
         $fulfillment = DB::table('gym_fulfillments')->where('invoice_id', $invoice)->first();
         $discountSnapshot = DB::table('gym_invoice_discounts')->where('invoice_id', $invoice)->where('source_type', 'customer_tier')->first();
@@ -158,6 +160,7 @@ class GymInvoiceController extends Controller
 
     public function receive(Request $request, int $invoice): RedirectResponse
     {
+        $request->merge(['amount' => VndAmountInput::normalize($request->input('amount'))]);
         $data = $request->validate(['amount' => 'required|integer|min:1|max:1000000000000000', 'method' => 'required|in:cash,bank_transfer', 'reference' => 'nullable|string|max:100', 'token' => 'required|uuid']);
         $recorded = $this->shop->receive($invoice, $request->user(), $data);
 

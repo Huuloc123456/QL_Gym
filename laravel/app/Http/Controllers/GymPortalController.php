@@ -52,7 +52,6 @@ class GymPortalController extends Controller
                 ->get(['reconciliation.invoice_id', 'reconciliation.category', 'reconciliation.evidence', 'reconciliation.note',
                     'reconciliation.reviewed_at', 'owner.name as owner_name', 'reviewer.name as reviewer_name']),
             'missingImages' => $products->filter(fn ($product) => OriginalGymSql::image($product->image, (int) $product->MASP) === asset('images/product-placeholder.svg')),
-            'currentClasses' => DB::table('LOPHOC')->whereDate('NGAYKETTHUC', '>=', now()->toDateString())->count(),
         ]);
     }
 

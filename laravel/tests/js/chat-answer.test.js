@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 let parseAssistantAnswer;
@@ -24,4 +25,10 @@ test('does not turn a dash inside a normal sentence into a list', () => {
     assert.deepEqual(parseAssistantAnswer?.('Gói dài hạn - tiết kiệm chi phí.') ?? null, [
         { type: 'paragraph', text: 'Gói dài hạn - tiết kiệm chi phí.' },
     ]);
+});
+
+test('does not access the removed suggestion chips when submitting a chat message', async () => {
+    const appSource = await readFile(new URL('../../resources/js/app.js', import.meta.url), 'utf8');
+
+    assert.doesNotMatch(appSource, /suggestions\.hidden/);
 });

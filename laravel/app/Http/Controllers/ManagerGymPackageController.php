@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\GymPackage;
 use App\Repositories\GymPackageRepository;
+use App\Services\GymCommerceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -55,6 +56,14 @@ class ManagerGymPackageController extends Controller
             'success',
             $package->fresh()->is_active ? 'Đã mở bán gói tập.' : 'Đã ngừng bán gói tập; lịch sử đơn và hội viên vẫn được giữ.'
         );
+    }
+
+    public function endRegistration(Request $request, GymCommerceService $commerce, int $registration): RedirectResponse
+    {
+        $data = $request->validate(['reason' => ['required', 'string', 'min:5', 'max:255']]);
+        $commerce->endPackageRegistration($request->user(), $registration, $data['reason']);
+
+        return back()->with('success', 'Đã chấm dứt quyền sử dụng gói; chứng từ và lịch sử thanh toán được giữ nguyên.');
     }
 
     /** @return array<string, list<string>> */

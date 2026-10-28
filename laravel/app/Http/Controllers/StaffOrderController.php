@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\MembershipOrder;
 use App\Repositories\MembershipOrderRepository;
 use App\Services\MembershipOrderService;
+use App\Support\VndAmountInput;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -45,6 +46,7 @@ class StaffOrderController extends Controller
 
     public function recordPayment(Request $request, MembershipOrder $order, MembershipOrderService $service): RedirectResponse
     {
+        $request->merge(['amount' => VndAmountInput::normalize($request->input('amount'))]);
         $validated = $request->validate([
             'amount' => ['required', 'integer', 'min:1', 'max:'.$order->amount],
             'payment_method' => ['required', 'in:cash,bank_transfer'],

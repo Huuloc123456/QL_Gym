@@ -91,7 +91,8 @@ class PortalSynchronizationTest extends TestCase
         $shop->add($customer, 'product', 9901, 1);
         $shop->add($customer, 'package', $package->sql_package_id, 1);
         $invoice = $shop->checkout($customer, $this->checkoutData());
-        $this->actingAs($customer)->get(route('my.orders.index'))->assertOk()->assertSee('Hóa đơn #'.$invoice)->assertSee('360.000');
+        $this->actingAs($customer)->get(route('my.orders.index'))->assertRedirect(route('gym.invoices.index'));
+        $this->get(route('gym.invoices.index'))->assertOk()->assertSee('HĐ #'.$invoice)->assertSee('360.000');
         $this->pay($invoice, User::factory()->manager()->create());
         $cache = MembershipOrder::where('sql_invoice_id', $invoice)->firstOrFail();
         $this->get(route('my.orders.show', $cache))->assertRedirect(route('gym.invoices.show', $invoice));
@@ -174,7 +175,7 @@ class PortalSynchronizationTest extends TestCase
         (require database_path('migrations/2026_10_28_160750_synchronize_imported_admin_web_role.php'))->up();
         $this->assertSame('manager', $admin->fresh()->role);
         $employee = User::factory()->employee()->create();
-        $this->actingAs($employee)->get(route('staff.orders.index'))->assertOk()->assertSee(route('staff.products.index'), false)->assertSee(route('gym.invoices.index'), false)->assertSee(route('gym.calendar'), false);
+        $this->actingAs($employee)->get(route('staff.orders.index'))->assertOk()->assertSee(route('staff.products.index'), false)->assertSee(route('gym.invoices.index'), false)->assertDontSee('Lịch lớp học');
         $this->assertSame('employee', $employee->fresh()->role);
         $this->actingAs($this->customer())->get(route('packages.index'))->assertOk()->assertSee(route('gym.cart'), false)->assertSee(route('gym.invoices.index'), false);
     }

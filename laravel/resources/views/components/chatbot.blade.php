@@ -22,7 +22,7 @@
 
         <div class="gym-chat-messages min-h-24 max-h-[45dvh] space-y-3 overflow-y-auto bg-gym-paper px-3 py-4 sm:max-h-72 sm:px-4" data-chat-messages role="log" aria-live="polite" aria-relevant="additions text">
             <article class="gym-chat-message gym-chat-message--assistant">
-                <p>Chào bạn! Mình tra cứu thông tin công khai về gói tập, sản phẩm, lớp/PT và thanh toán từ dữ liệu hiện tại của web.</p>
+                <p>Chào bạn! Mình hỗ trợ tra cứu gói tập, sản phẩm, đơn hàng và thông tin công khai của The Gym.</p>
             </article>
         </div>
 
@@ -43,13 +43,14 @@
     </section>
 
     <button
-        class="gym-chat-launcher inline-flex min-h-12 items-center gap-2.5 rounded-full bg-gym-blue px-4 py-2 text-white transition-colors hover:bg-gym-blue-deep focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gym-blue"
+        class="gym-chat-launcher inline-flex min-h-12 items-center gap-2.5 rounded-full bg-gym-blue px-4 py-2 text-white transition-colors hover:bg-gym-blue-deep focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gym-blue max-sm:size-11 max-sm:min-h-11 max-sm:justify-center max-sm:gap-0 max-sm:p-0"
         type="button"
         data-chat-open
+        aria-label="Mở trợ lý The Gym"
         aria-controls="gymChatPanel"
         aria-expanded="false"
     >
         <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" class="size-5" stroke="currentColor" stroke-width="1.8"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H7l-3 2v-6.5a7.5 7.5 0 1 1 16-3Z" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span class="text-sm font-semibold">Hỏi The Gym</span>
+        <span class="text-sm font-semibold max-sm:sr-only">Hỏi The Gym</span>
     </button>
 </div>

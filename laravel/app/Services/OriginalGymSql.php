@@ -9,7 +9,7 @@ use LogicException;
 
 class OriginalGymSql
 {
-    public const ARCHIVED_TABLES = ['DANGKYPT', 'LICHTAPPT'];
+    public const ARCHIVED_TABLES = ['CHUYENMON', 'LOPHOC', 'DANGKYLOP', 'DANGKYPT', 'LICHTAPPT', 'LICHLOP', 'NHANVIEN_CHUYENMON'];
 
     public const TABLES = ['CHUCVU' => 'MACHUCVU', 'LOAIKHACHHANG' => 'MALOAIKH', 'CHUYENMON' => 'MACM',
         'GOITAP' => 'MAGOITAP', 'LOAISANPHAM' => 'MALOAISP', 'KHACHHANG' => 'MAKH', 'NHANVIEN' => 'MANV',

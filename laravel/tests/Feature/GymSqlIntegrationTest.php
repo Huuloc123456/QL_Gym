@@ -23,22 +23,24 @@ class GymSqlIntegrationTest extends TestCase
         $this->assertCount(11, DB::table('information_schema.ROUTINES')->where('ROUTINE_SCHEMA', $database)->where('ROUTINE_TYPE', 'PROCEDURE')->get());
         $this->assertSame(1, DB::table('information_schema.TRIGGERS')->where('TRIGGER_SCHEMA', $database)->count());
         $this->assertSame(1, DB::table('information_schema.ROUTINES')->where('ROUTINE_SCHEMA', $database)->where('ROUTINE_TYPE', 'FUNCTION')->count());
-        foreach (['/', '/san-pham', '/san-pham/6', '/lop-hoc', '/lop-hoc/1'] as $url) {
+        foreach (['/', '/san-pham', '/san-pham/6'] as $url) {
             $this->get($url)->assertOk();
         }
         $this->get('/huan-luyen-vien')->assertNotFound();
+        $this->get('/lop-hoc')->assertNotFound();
         $manager = User::factory()->manager()->create();
         MembershipOrder::factory()->create();
         $this->actingAs($manager);
-        foreach (['products' => 'SANPHAM', 'classes' => 'LOPHOC', 'customers' => 'KHACHHANG', 'employees' => 'NHANVIEN', 'categories' => 'LOAISANPHAM', 'positions' => 'CHUCVU', 'tiers' => 'LOAIKHACHHANG', 'specialties' => 'CHUYENMON'] as $resource => $table) {
+        foreach (['products' => 'SANPHAM', 'customers' => 'KHACHHANG', 'employees' => 'NHANVIEN', 'categories' => 'LOAISANPHAM', 'positions' => 'CHUCVU', 'tiers' => 'LOAIKHACHHANG'] as $resource => $table) {
             $this->get(route('gym.admin.index', $resource))->assertOk();
             $this->get(route('gym.admin.create', $resource))->assertOk();
             $id = DB::table($table)->min(OriginalGymSql::TABLES[$table]);
             $this->get(route('gym.admin.edit', [$resource, $id]))->assertOk();
         }
-        foreach (['gym.database.index', 'gym.database.audit', 'gym.invoices.index', 'gym.calendar'] as $route) {
+        foreach (['gym.database.index', 'gym.database.audit', 'gym.invoices.index'] as $route) {
             $this->get(route($route))->assertOk();
         }
+        $this->get('/lich-tap')->assertNotFound();
         $browsableTables = array_diff_key(OriginalGymSql::TABLES, array_flip(OriginalGymSql::ARCHIVED_TABLES));
         foreach (array_keys($browsableTables) as $table) {
             $this->get(route('gym.database.table', $table))->assertOk();
@@ -60,6 +62,47 @@ class GymSqlIntegrationTest extends TestCase
         $this->assertSame('Gym Null', DB::table('LOAIKHACHHANG')->where('MALOAIKH', $source->MALOAIKH)->value('TENLOAI'));
         $this->assertTrue(Hash::check('StrongPass2027', $source->MATKHAU));
         $this->assertSame('Nữ', $source->GIOITINH);
+    }
+
+    public function test_retired_training_positions_are_kept_for_history_but_cannot_be_assigned_to_new_employees(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $retiredPositions = DB::table('CHUCVU')->whereIn('TENCHUCVU', ['PT', 'HLV Lớp'])->get();
+
+        $this->assertCount(2, $retiredPositions);
+
+        $this->actingAs($manager)
+            ->get(route('gym.admin.create', 'employees'))
+            ->assertOk()
+            ->assertDontSee('>PT</option>', false)
+            ->assertDontSee('>HLV Lớp</option>', false);
+
+        $legacyEmployee = DB::table('NHANVIEN')->whereIn('MACHUCVU', $retiredPositions->pluck('MACHUCVU'))->first();
+        if ($legacyEmployee) {
+            $this->get(route('gym.admin.edit', ['employees', $legacyEmployee->MANV]))
+                ->assertOk()
+                ->assertSee('chức vụ cũ — chỉ giữ lịch sử');
+        }
+
+        foreach ($retiredPositions as $position) {
+            $this->from(route('gym.admin.create', 'employees'))
+                ->post(route('gym.admin.store', 'employees'), [
+                    'TENNV' => 'Nhân viên QA '.$position->MACHUCVU,
+                    'MACHUCVU' => $position->MACHUCVU,
+                    'TENDANGNHAP' => 'qa_retired_'.$position->MACHUCVU,
+                    'SDT' => '0909000'.str_pad((string) $position->MACHUCVU, 3, '0', STR_PAD_LEFT),
+                    'password' => 'StrongPass123!',
+                    'is_active' => 1,
+                ])
+                ->assertSessionHasErrors('MACHUCVU');
+        }
+
+        $this->post(route('gym.admin.store', 'positions'), ['TENCHUCVU' => 'HLV lớp Yoga'])
+            ->assertSessionHasErrors('TENCHUCVU');
+
+        $this->assertSame(0, DB::table('NHANVIEN')->where('TENDANGNHAP', 'like', 'qa_retired_%')->count());
+        $this->assertSame(2, DB::table('CHUCVU')->whereIn('TENCHUCVU', ['PT', 'HLV Lớp'])->count());
+        $this->assertDatabaseMissing('CHUCVU', ['TENCHUCVU' => 'HLV lớp Yoga']);
     }
 
     public function test_login_does_not_require_email_otp_verification(): void

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { initCheckout } from '../../resources/js/checkout.js';
+import { checkoutDraftValues, initCheckout } from '../../resources/js/checkout.js';
 
 function fixture(modeValue = 'pickup', hasFields = true) {
     let onChange;
@@ -39,4 +39,27 @@ test('service-only checkout cannot acquire a shipping fee', () => {
     const f = fixture('delivery', false);
     assert.equal(f.total.textContent, '90.000đ');
     initCheckout(null);
+});
+
+test('cart quantity updates forward the current checkout choices but omit disabled and internal fields', () => {
+    const controls = [
+        { name: 'mode', value: 'delivery', disabled: false },
+        { name: 'address_id', value: '24', disabled: false },
+        { name: 'recipient', value: 'Khách QA', disabled: false },
+        { name: 'phone', value: '0900000000', disabled: false },
+        { name: 'payment_method', value: 'bank_transfer', disabled: false },
+        { name: 'start_date', value: '2026-11-01', disabled: false },
+        { name: 'address_id', value: '9', disabled: true },
+        { name: '_token', value: 'secret', disabled: false },
+        { name: 'token', value: 'quote-id', disabled: false },
+    ];
+
+    assert.deepEqual(checkoutDraftValues({ querySelectorAll: () => controls }), [
+        ['mode', 'delivery'],
+        ['address_id', '24'],
+        ['recipient', 'Khách QA'],
+        ['phone', '0900000000'],
+        ['payment_method', 'bank_transfer'],
+        ['start_date', '2026-11-01'],
+    ]);
 });

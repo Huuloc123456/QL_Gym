@@ -31,7 +31,7 @@ class BankTransferQrTest extends TestCase
         ]);
 
         $this->actingAs($customer)
-            ->get(route('my.orders.index'))
+            ->get(route('my.orders.show', $order))
             ->assertOk()
             ->assertSee('img.vietqr.io/image/', false)
             ->assertSee('amount=399000', false)
@@ -47,7 +47,7 @@ class BankTransferQrTest extends TestCase
         ]);
 
         $this->actingAs($customer)
-            ->get(route('my.orders.index'))
+            ->get(route('my.orders.show', MembershipOrder::query()->where('user_id', $customer->id)->firstOrFail()))
             ->assertOk()
             ->assertDontSee('img.vietqr.io/image/', false)
             ->assertSee('Phòng tập chưa cấu hình đầy đủ mã VietQR');

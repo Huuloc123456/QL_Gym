@@ -49,7 +49,7 @@
                     @csrf
                     <input type="hidden" name="token" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
                     <h2 class="text-xl font-bold">Ghi nhận khoản thu</h2>
-                    <div><label class="gym-label" for="amount">Số tiền</label><input class="gym-input" id="amount" name="amount" type="number" min="1" max="{{ max(0, $invoice->THANHTIEN - $received) }}" required></div>
+                    <div><label class="gym-label" for="amount">Số tiền</label><input class="gym-input" id="amount" name="amount" type="text" inputmode="numeric" pattern="[0-9., ]*" maxlength="22" placeholder="Ví dụ: 699000 hoặc 699.000" value="{{ old('amount') }}" required><p class="mt-1 text-xs text-slate-500">Nhập số tiền còn thu (tối đa {{ number_format(max(0, $invoice->THANHTIEN - $received), 0, ',', '.') }} VNĐ). Có thể dùng dấu chấm phân cách hàng nghìn.</p></div>
                     <div><label class="gym-label" for="method">Hình thức</label><select class="gym-input" id="method" name="method"><option value="cash">Tiền mặt</option><option value="bank_transfer">Chuyển khoản</option></select></div>
                     <div><label class="gym-label" for="reference">Mã tham chiếu/biên nhận</label><input class="gym-input" id="reference" name="reference" maxlength="100"></div>
                     <button class="gym-btn-primary" type="submit" @disabled($needsReconciliation)>Ghi nhận tiền</button>
@@ -83,7 +83,7 @@
                 <form class="grid gap-4 border-t border-slate-200 pt-4 sm:grid-cols-2" method="POST" action="{{ route('manager.refunds.store') }}">
                     @csrf<input type="hidden" name="source_type" value="{{ $receipt->source_type }}"><input type="hidden" name="source_id" value="{{ $receipt->id }}"><input type="hidden" name="token" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
                     <p class="text-sm sm:col-span-2">Khoản thu #{{ $receipt->id }} · Còn có thể hoàn {{ number_format($refundable, 0, ',', '.') }} VNĐ</p>
-                    <div><label class="gym-label" for="refund-amount-{{ $receipt->id }}">Số tiền đã hoàn</label><input class="gym-input" id="refund-amount-{{ $receipt->id }}" name="amount" type="number" min="1" max="{{ $refundable }}" value="{{ $refundable }}" required></div>
+                    <div><label class="gym-label" for="refund-amount-{{ $receipt->id }}">Số tiền đã hoàn</label><input class="gym-input" id="refund-amount-{{ $receipt->id }}" name="amount" type="text" inputmode="numeric" pattern="[0-9., ]*" maxlength="22" value="{{ old('amount', number_format($refundable, 0, '', '.')) }}" required><p class="mt-1 text-xs text-slate-500">Có thể nhập dấu chấm phân cách hàng nghìn.</p></div>
                     <div><label class="gym-label" for="refund-reference-{{ $receipt->id }}">Mã chứng từ hoàn</label><input class="gym-input" id="refund-reference-{{ $receipt->id }}" name="reference" minlength="3" maxlength="100" required></div>
                     <div class="sm:col-span-2"><label class="gym-label" for="refund-reason-{{ $receipt->id }}">Lý do hoàn</label><input class="gym-input" id="refund-reason-{{ $receipt->id }}" name="reason" minlength="5" maxlength="1000" required></div>
                     <button class="gym-btn-outline sm:justify-self-start" type="submit">Ghi nhận hoàn tiền</button>

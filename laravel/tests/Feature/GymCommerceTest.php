@@ -53,6 +53,29 @@ class GymCommerceTest extends TestCase
         DB::table('SANPHAM')->insert(['MASP' => 9001, 'TENSP' => 'Bình nước kiểm thử', 'MALOAISP' => 3, 'DONGIA' => 1200, 'GIAKHUYENMAI' => 1000, 'SOLUONGTON' => $stock]);
     }
 
+    public function test_cart_quantity_update_preserves_delivery_and_payment_choices(): void
+    {
+        $this->product();
+        $customer = User::factory()->create();
+        $this->actingAs($customer)->post(route('gym.cart.add'), ['kind' => 'product', 'item' => 9001, 'quantity' => 1]);
+        $line = DB::table('CHITIETGIOHANG')->where('MAKH', $customer->sql_customer_id)->value('MACHITIETGH');
+
+        $this->get(route('gym.cart'))
+            ->assertOk()
+            ->assertSee('data-checkout-form', false)
+            ->assertSee('data-cart-change', false);
+
+        $this->from(route('gym.cart'))->post(route('gym.cart.change', $line), [
+            'quantity' => 2,
+            'mode' => 'delivery',
+            'recipient' => 'Khách kiểm thử',
+            'phone' => '0900000000',
+            'payment_method' => 'bank_transfer',
+        ])->assertRedirect(route('gym.cart'))
+            ->assertSessionHas('_old_input.mode', 'delivery')
+            ->assertSessionHas('_old_input.payment_method', 'bank_transfer');
+    }
+
     private function order(User $customer, int $quantity = 2, array $data = []): int
     {
         $this->actingAs($customer)->post(route('gym.cart.add'), ['kind' => 'product', 'item' => 9001, 'quantity' => $quantity])->assertRedirect(route('gym.cart'));

@@ -8,7 +8,7 @@ Tài liệu hướng dẫn thao tác thủ công; kết quả tự động ghi r
 
 1. Mở cửa sổ thường cho khách, cửa sổ ẩn danh hoặc trình duyệt khác cho nhân viên. Các tab cùng trình duyệt thường dùng chung phiên đăng nhập.
 2. Chạy mục 2–4 trước để xem dữ liệu gốc của bộ demo. Chạy luồng mua hàng mục 5 **một lần** bằng `demo_khach`; ghi mã hóa đơn vừa tạo.
-3. Chạy mục 6–10 sau. Các ca sửa giá, khóa tài khoản, hủy lịch và đối soát làm thay đổi dữ liệu; ghi trạng thái trước/sau và phục hồi cấu hình khi xong.
+3. Chạy mục 6–10 sau. Các ca sửa giá, khóa tài khoản, hủy đơn và đối soát làm thay đổi dữ liệu; ghi trạng thái trước/sau và phục hồi cấu hình khi xong.
 4. Chỉ dùng tên bắt đầu `DEMO`/`QA` và email `example.test`. Không sửa khách, hóa đơn hay 57 sản phẩm nguồn để làm bài test.
 5. Trước mục 5, quản lý mở Báo cáo, chọn riêng ngày đang test, ghi doanh thu và tiền thực nhận làm mốc. Dữ liệu SQL có hóa đơn lịch sử nên không kỳ vọng tổng toàn hệ thống bằng tổng của riêng ca test.
 
@@ -37,24 +37,24 @@ Seeder chỉ chạy ở `local/testing`, không tạo trùng hóa đơn, phiếu
 
 ## 2. Tài khoản và quyền
 
-Mật khẩu ban đầu của cả 12 tài khoản: **`DemoGym@2026`**. Đây là tài khoản local phục vụ kiểm thử.
+Seeder hiện tạo 11 tài khoản demo, mật khẩu ban đầu **`DemoGym@2026`**. Cơ sở dữ liệu được seed từ phiên bản cũ có thể giữ tài khoản thứ 12 `demo_pt`; đây là tài khoản nhân viên thường trong hệ thống hiện hành, không còn quyền hay chức năng PT. Seeder không đổi mật khẩu/dữ liệu tài khoản đã tồn tại.
 
 | Tên đăng nhập | SĐT / mã khách | Mục đích và kết quả đăng nhập |
 |---|---|---|
 | `demo_quanly` | 0999000101 | Quản lý: tất cả mục vận hành, danh mục, nhân viên, báo cáo, cài đặt, CSDL, đối soát |
-| `demo_nhanvien` | 0999000102 | Lễ tân: sản phẩm, đơn/hóa đơn, yêu cầu thử, check-in, lịch; không vào quản lý |
+| `demo_nhanvien` | 0999000102 | Lễ tân: sản phẩm, đơn/hóa đơn, yêu cầu thử, check-in; không vào quản lý |
 | `demo_kho` | 0999000103 | Nhân viên chỉ quản lý sản phẩm; không thu tiền, xem hóa đơn hoặc check-in |
-| `demo_pt` | 0999000104 | PT SQL #20251225; chuyên môn DEMO Thể lực, 100.000đ/buổi; xem và xử lý lịch của mình |
+| `demo_pt` (chỉ DB cũ) | 0999000104 | Tài khoản nhân viên cũ; không có màn PT/lớp hoặc lịch dạy trong bản hiện tại |
 | `demo_khach` | 0999000105 / 185 | Khách A chưa mua; dành riêng cho luồng mua mới mục 5 |
 | `demo_khach_b` | 0999000106 / 186 | Khách B: kiểm tra bảo mật chéo, hóa đơn hủy và đối soát |
-| `demo_hoivien` | 0999000107 / 187 | Gói hiệu lực, đơn sản phẩm và hợp đồng lớp/PT có sẵn |
+| `demo_hoivien` | 0999000107 / 187 | Gói hiệu lực và đơn sản phẩm; có thể còn chứng từ PT/lớp lịch sử trong DB cũ |
 | `demo_hethan` | 0999000108 / 188 | Gói hết hạn; xem lịch sử được, vào tập bị từ chối |
 | `demo_tuonglai` | 0999000109 / 189 | Gói đã trả tiền, bắt đầu 04/11/2026; trước ngày này chưa được vào tập |
 | `demo_khoa` | 0999000110 / 190 | Tài khoản ngừng hoạt động: đăng nhập bị từ chối |
 | `demo_tapthu` | 0999000111 / 191 | Đã duyệt thử 3 ngày từ 28/10; còn hạn thì được check-in |
 | `demo_dangtap` | 0999000112 / 192 | Có lượt check-in đang mở; dùng test chặn vào hai lần/check-out |
 
-PT là tài khoản nhân viên gắn nhân sự có chức vụ PT; không có một loại đăng nhập PT riêng. Theo quyền hiện có, PT cũng có mục sản phẩm như nhân viên kho. Ba quyền được quản lý bật/tắt riêng là **đơn hàng, tập thử, check-in**.
+Không tạo mới role PT. Tài khoản `demo_pt` nếu còn từ lần seed cũ chỉ là nhân viên thường và không có chức năng giảng dạy. Ba quyền nhân viên được quản lý bật/tắt riêng là **đơn hàng, tập thử, check-in**; quản lý sản phẩm là quyền độc lập.
 
 ## 3. Dữ liệu mẫu để tìm nhanh
 
@@ -65,9 +65,6 @@ PT là tài khoản nhân viên gắn nhân sự có chức vụ PT; không có 
 | DEMO Dây kháng lực giữ chỗ | Sản phẩm #65; tồn thực 1, đang giữ 1, còn bán 0 | Chặn bán vượt kho/xóa hàng đang giữ |
 | DEMO Gói 1 tháng | Gói #5; 300.000 | Mua gói và kiểm tra ngày hết quyền |
 | DEMO Gói 3 tháng | 800.000; trường thời lượng 3 | Gói trả phí 3 tháng; procedure duyệt thử dùng 3 **ngày** |
-| DEMO Lớp thể lực | Lớp #22, 200.000, tối đa 3 người, có 1 học viên mẫu | Mở 30/10–06/11; lịch 30/10 và 01/11 lúc 09–10h |
-| DEMO Lớp một chỗ | Lớp #23, 200.000, tối đa 1 người | Giữ chỗ và chặn đăng ký quá sĩ số; lịch 31/10 09–10h |
-| Hợp đồng PT mẫu | #27 của `demo_hoivien`, PT #20251225, 2 buổi | Một buổi 27/10 11–12h chưa đánh dấu; một buổi 30/10 11–12h |
 | Phí giao hàng | 30.000đ | Không giảm theo hạng khách; nhận tại quầy phí 0 |
 | Hạng khách demo | Giảm 10% | Tính trên tiền hàng/dịch vụ sau khuyến mãi, trước phí giao |
 
@@ -85,8 +82,7 @@ PT là tài khoản nhân viên gắn nhân sự có chức vụ PT; không có 
 | #192 | demo_hoivien | Nhận tại quầy, đã thanh toán và nhận 90.000 | Lịch sử; chặn thao tác quay ngược trạng thái |
 | #193 | demo_khach_b | Đã hủy | Không thu/chốt lại |
 | #194 | demo_hoivien | Chưa thanh toán, giữ duy nhất 1 dây | Xóa sản phẩm bị chặn; hủy hóa đơn để trả chỗ |
-| #195 | demo_hoivien | Lớp #22 đã thanh toán 180.000 | Lịch lớp tự xuất hiện |
-| #196 | demo_hoivien | PT 2 buổi đã thanh toán 180.000 | Lịch PT và số buổi còn được xếp |
+| #195–#196 (nếu còn trong DB cũ) | demo_hoivien | Chứng từ lớp/PT lịch sử | Chỉ xem lịch sử; không tạo lịch, thu/chốt thêm hoặc kích hoạt dịch vụ đã ngừng |
 | #197 | demo_khach_b | Chưa chốt, giao dịch `DEMO-REVIEW-01` cần đối soát | Nhân viên thấy cảnh báo; quản lý xử lý mục 9 |
 
 Đơn chưa thanh toán có hạn giữ hàng. Khi hết hạn, scheduler có thể hủy đơn demo chưa thu; không coi khác biệt do thời gian trôi qua là lỗi. Đơn đã thu một phần hoặc đang đối soát không tự bị hủy theo hạn này.
@@ -95,7 +91,7 @@ PT là tài khoản nhân viên gắn nhân sự có chức vụ PT; không có 
 
 | Mã | Các bước | Kết quả mong đợi |
 |---|---|---|
-| G01 | Chưa đăng nhập, mở Trang chủ, Gói tập, Sản phẩm, Lớp, PT, Liên hệ, Hướng dẫn, Chính sách | Trang hiển thị; menu đúng; chỉ gói mở bán xuất hiện |
+| G01 | Chưa đăng nhập, mở Trang chủ, Gói tập, Sản phẩm, Liên hệ, Hướng dẫn, Chính sách; mở `/lop-hoc`, `/huan-luyen-vien`, `/lich-tap` | Trang còn hỗ trợ hiển thị; các đường dẫn lớp/PT/lịch đã ngừng trả 404 |
 | G02 | Ở trang chủ, đợi 5 giây; thử chấm ảnh, tạm dừng, tiếp tục; di chuột/đặt focus vào banner | Tự chuyển, không có hai nút Trước/Sau; tạm dừng khi tương tác; không nháy mất ảnh |
 | G03 | Thu cửa sổ 390px, mở/đóng menu, nhấn Escape; dùng Tab và phóng to 200% | Liên kết dùng được, nội dung không bị sidebar che, bảng cuộn trong khung |
 | G04 | Tìm DEMO Bình nước; thử nhóm sản phẩm, khoảng giá, có hàng và phân trang; mở chi tiết | Giá 80.000, đúng thông tin; #65 không xuất hiện khi lọc còn hàng |
@@ -120,7 +116,7 @@ Mở **Hỏi The Gym**, kiểm tra từng câu dưới đây. Khi muốn dùng l
 | C04 | Bấm “Thanh toán” | Hướng dẫn chờ đối chiếu/IPN hợp lệ; không nói tự kích hoạt ngay sau bấm chuyển khoản |
 | C05 | Bấm “Quên mật khẩu” | Có đường dẫn `/quen-mat-khau`, không đòi cung cấp mật khẩu trong chat |
 | C06 | “Sản phẩm DEMO Bình nước giá bao nhiêu?” | 80.000đ; lượng có thể đặt theo DB (ban đầu 30), kèm nguồn; sau mục 5 số lượng giảm đúng |
-| C07 | “Phí giao hàng bao nhiêu?”; “Có gói tập nào?”; “Lớp học nào đang mở?”; “PT nào đang nhận?” | Phí 30.000; tên/giá gói, lớp tương lai và PT đã có giá/chuyên môn; không tự bịa danh mục |
+| C07 | “Phí giao hàng bao nhiêu?”; “Có gói tập nào?”; “Bạn có sản phẩm gì?”; “Tôi muốn đăng ký lớp yoga”; “Bài tập yoga nào phù hợp người mới?” | Dữ liệu phí/gói/sản phẩm lấy từ web; báo rõ không còn đặt lớp/PT; vẫn trả lời kiến thức tập luyện chung an toàn |
 | C08 | Quản lý sửa giá trên một **sản phẩm QA riêng**, khách tải lại và hỏi tên QA đó | Giá/khả dụng mới xuất hiện ngay từ DB; hóa đơn đã chụp giá cũ vẫn giữ nguyên |
 | C09 | “Đơn hàng của tôi?”, “Danh sách khách hàng”, câu chứa OTP/token | Chỉ hướng dẫn xem tài khoản, không trả đơn, SĐT hay dữ liệu riêng của bất kỳ ai |
 | C10 | Hỏi một câu ngoài phạm vi, như “Hướng dẫn từ tài liệu nâng cao chưa công bố?” | Nếu RAG riêng chưa chạy: hiện thông báo trợ lý bận; form dùng lại được, không lộ lỗi/khóa máy chủ |
@@ -139,11 +135,9 @@ Chat tra cứu công khai từ DB hoạt động độc lập. API tài liệu l
 | M01 | Sản phẩm #63 → thêm 2 → Giỏ → Giao theo địa chỉ, chọn địa chỉ demo → Đặt; ghi mã H1 | Mở H1; thử chốt trước khi thu; thu 100.000, tải lại; thu tiếp 74.000; chốt đủ; Đang giao → Đã giao | Tiền hàng 160.000, giảm 16.000, phí 30.000, **174.000**. Trước chốt tồn thực 30, đang giữ 2, còn bán 28. Thu một phần chưa kích hoạt/chốt. Chốt xong tồn thực 28, hết giữ 2. Khách thấy lịch sử hai lần thu và trạng thái giao |
 | M02 | Thêm 1 bình #63 → Nhận tại quầy → Đặt, ghi H2 | Thu **72.000** → chốt → Sẵn sàng nhận → Đã nhận | 80.000 − 8.000, phí 0; tồn thực sau cả H1/H2 là **27**; khách thấy đã nhận |
 | M03 | Gói DEMO 1 tháng → giỏ/đặt, chọn bắt đầu hôm nay, ghi H3 | Thu **270.000**, chốt ngày bắt đầu đúng với khách | Gói chỉ có quyền sau chốt; mục Hóa đơn và Đơn gói có cùng H3, không đếm hai đơn; Gói hội viên hiện đúng tháng đã chụp; check-in được |
-| M04 | Lớp #22 → đăng ký/đặt, ghi H4 | Thu **180.000**, chốt | Sĩ số đã thanh toán tăng 1; lịch hai buổi 09–10h có trong `/lich-tap` của khách, đúng PT; không mua trùng lớp còn hiệu lực |
-| M05 | Chọn PT DEMO, 2 buổi → đặt, ghi H5 | Thu **180.000**, chốt | Hợp đồng 2 buổi xuất hiện. Khách đặt D+2 lúc 13–14h và D+3 lúc 13–14h; lần thứ ba bị chặn. PT thấy đúng lịch; khách khác không thấy |
-| M06 | Khách mở từng H1–H5, tải lại Thông báo và Đơn hàng | Quản lý mở Báo cáo đúng ngày, xuất Excel và CSV | So với mốc trước M01: thêm **5 hóa đơn**, doanh thu/tiền thu thêm **876.000đ**, giảm giá cộng **94.000đ**; không tính bản cache gói thêm lần nữa. Tổng có phí giao 30.000. Các ca khác chạy cùng ngày sẽ làm thay đổi mốc nên đối chiếu bằng 5 mã H1–H5 |
+| M04 | Khách mở H1–H3, tải lại Thông báo và Đơn hàng | Quản lý mở Báo cáo đúng ngày, xuất Excel và CSV | So với mốc trước M01: thêm **3 hóa đơn**, tổng thu **516.000đ**, giảm giá **54.000đ**, phí giao 30.000đ; đối chiếu bằng đúng mã H1–H3 |
 
-Ngày D là ngày thực chạy bài test. Tránh giờ đã có lớp/PT. Nếu lịch 30/10/2026 của bộ demo đã qua, cần dùng lớp QA còn nhận đăng ký; không tái dùng lớp đã khai giảng để kết luận lỗi mua lớp.
+Ngày D là ngày thực chạy bài test. Không đổi ngày hệ thống để làm cho gói hoặc tập thử mẫu còn hiệu lực; nếu mẫu đã hết hạn, dùng một fixture QA được tạo trong cơ sở dữ liệu test cô lập.
 
 ### Giỏ, giá, tồn và hủy — ca lỗi cần thử
 
@@ -151,7 +145,7 @@ Ngày D là ngày thực chạy bài test. Tránh giờ đã có lớp/PT. Nếu
 |---|---|---|
 | M07 | Tăng/giảm số lượng trong giỏ; nhập 0, số âm, lớn hơn tồn; thử đặt giỏ trống | 0 xóa dòng; số sai bị chặn; không có tổng âm/đơn rỗng |
 | M08 | Khách cho một gói **QA riêng** vào giỏ; quản lý ngừng mở bán; khách mở lại giỏ | Trang vẫn mở; báo không còn mở bán, nút đặt bị chặn; xóa dòng được, không 404 toàn giỏ |
-| M09 | Hai khách cùng đặt lớp #23 chỉ một chỗ, hoặc sản phẩm QA chỉ một cái | Đơn đầu giữ chỗ; đơn sau bị từ chối; hủy/xử lý hết hạn đơn đầu thì chỗ trở lại |
+| M09 | Hai khách cùng đặt sản phẩm QA chỉ còn một cái | Đơn đầu giữ hàng; đơn sau bị từ chối; hủy/xử lý hết hạn đơn đầu thì hàng trở lại |
 | M10 | Mở #65 hoặc hỏi chatbot; quản lý thử xóa #65 đang được #194 giữ | Khả dụng 0, lọc “còn hàng” không có; xóa bị chặn, dữ liệu còn nguyên. Sau khi thu/chốt #194 vẫn xử lý được |
 | M11 | Nhân viên sửa tồn #65 xuống 0 khi vẫn còn giữ 1; nhập giá khuyến mãi vượt giá gốc | Báo lỗi, không phá khả năng hoàn tất đơn đã đặt |
 | M12 | Đặt một đơn QA, quản lý đổi giá gói/sản phẩm rồi khách xem đơn cũ | Đơn cũ giữ giá/thời lượng snapshot; đơn mới dùng giá mới |
@@ -191,20 +185,15 @@ Ngày D là ngày thực chạy bài test. Tránh giờ đã có lớp/PT. Nếu
 | K05 | Gõ `/hoa-don`, `/staff/check-in`, `/staff/yeu-cau-tap-thu`, `/quan-ly` | 403; không thể thu tiền hoặc cấp quyền tập nhờ đổi URL |
 | K06 | Kho thử nhập URL xóa danh mục; quản lý xóa mặt hàng đang có giao dịch | Kho không được xóa; quản lý bị chặn xóa dữ liệu được tham chiếu/giữ. Mặt hàng không có giao dịch chỉ xóa bằng chức năng cho phép trên UI |
 
-## 8. PT, lớp và lịch tập
+## 8. PT/lớp đã ngừng và dữ liệu lịch sử
 
 | Mã | Các bước | Kết quả mong đợi |
 |---|---|---|
-| L01 | `demo_hoivien` mở Lịch tập; `demo_pt` mở Lịch tập | Khách thấy lớp #22 và hợp đồng #27; PT thấy lịch được phân cho mình, không thấy hợp đồng của PT khác |
-| L02 | PT đánh dấu hoàn thành buổi **27/10 11–12h** của hợp đồng #27 | Thành “Đã tập”, không xóa lịch sử; khách tải lại thấy trạng thái đó |
-| L03 | PT thử hoàn thành buổi **30/10 11–12h** trước khi kết thúc | Bị chặn; không đánh dấu sử dụng sớm |
-| L04 | Hợp đồng #27 đã có đủ2lịch, khách thử đặt lịch thứ3 | Bị chặn vì số buổi đã dùng/đã xếp đạt hạn mức |
-| L05 | Khách hủy buổi tương lai của #27 rồi đặt lại 30/10 **09–10h** | Hủy được trước giờ bắt đầu; đặt09–10h bị chặn do PT/khách có lớp cùng giờ; đặt lại11–12h được nếu trống |
-| L06 | Khách/PT thử hủy buổi quá khứ/đã tập, hoặc can thiệp lịch của người khác | Bị chặn; không mất buổi đã sử dụng/không lộ dữ liệu |
-| L07 | Quản lý tạo lớp QA1buổi, chuyên môn DEMO, ngày trong tương lai; thêm lịch với PT khác không có chuyên môn | Lớp hợp lệ lưu; lịch sai chuyên môn bị chặn; ngày ngoài khóa, giờ kết thúc trước bắt đầu, trùng HLV cũng bị chặn |
-| L08 | Thêm lịch đúng cho lớp QA, khách mua/chốt; quản lý hủy buổi chưa bắt đầu rồi xếp lại | Lịch và thông báo khách/PT cập nhật; không xếp vượt số buổi; không cho khách tự hủy lịch chung của lớp |
-| L09 | Quản lý kết thúc/hủy một đăng ký **QA riêng** | Quyền/lịch phản ánh trạng thái mới; không tự hoàn tiền hay sửa hóa đơn đã chốt; ghi lại lý do theo màn hình |
-| L10 | PT gõ `/hoa-don`, `/quan-ly`; lễ tân hoàn thành buổi PT không được phân | 403; chỉ quản lý hoặc HLV của buổi đó được xác nhận hoàn thành |
+| L01 | Guest/member/employee/manager mở `/lop-hoc`, `/lich-tap`, `/huan-luyen-vien` hoặc menu cũ | Trả 404; không lộ trang đăng ký, lịch hay hồ sơ PT |
+| L02 | Hội viên gửi payload `kind=class` hoặc `kind=pt` tới giỏ/đặt hàng | Validation/backend từ chối; không sinh hóa đơn mới hoặc giữ chỗ |
+| L03 | Mở giỏ cũ còn dòng lớp/PT lịch sử | Có nhãn dịch vụ đã ngừng và nút bỏ; không được checkout cho tới khi bỏ dòng cũ |
+| L04 | Mở hóa đơn lớp/PT chưa thanh toán cũ | Giữ thông tin chứng từ; QR/thanh toán VNPay/thu quầy/chốt bị chặn và cần đối chiếu |
+| L05 | Tra cứu hóa đơn lớp/PT cũ đã thanh toán | Vẫn xem được trạng thái, số tiền và lịch sử đã lưu; không tạo thêm lịch/PT hay thay đổi khoản thu |
 
 ## 9. Đối soát, chứng từ và VNPay
 
@@ -229,9 +218,8 @@ Ngày D là ngày thực chạy bài test. Tránh giờ đã có lớp/PT. Nếu
 |---|---|---|
 | Q01 | `demo_quanly` kiểm tra sidebar trên desktop/mobile | Có sản phẩm, hóa đơn, lịch, tất cả danh mục, gói, tài khoản nhân viên, cài đặt, banner, chatbot, báo cáo, CSDL và đối soát |
 | Q02 | Tạo gói QA2tháng600.000 → khách xem; sửa giá/thời lượng; tắt/bật mở bán | Thay đổi hiện ngay cho đơn mới, không sửa giá/thời lượng của đơn cũ; gói tắt biến khỏi trang khách |
-| Q03 | Tạo/sửa nhóm sản phẩm, chuyên môn, chức vụ, hạng khách QA; thử tên thiếu/giảm giá ngoài0–100 | Bản đúng lưu, bản sai không lưu; quan hệ SQL được giữ; xóa bản đang được dùng bị chặn |
+| Q03 | Tạo/sửa nhóm sản phẩm, chức vụ và hạng khách QA; thử tên thiếu/giảm giá ngoài0–100 | Bản đúng lưu, bản sai không lưu; quan hệ SQL được giữ; xóa bản đang được dùng bị chặn |
 | Q04 | Khách hàng → sửa hạng khách **QA riêng** từ0% sang10%; khách đặt một mặt hàng100.000 | Đơn mới giảm10.000, đơn đã đặt giữ nguyên; tên/SĐT và trạng thái tài khoản đồng bộ SQL/users |
-| Q05 | Nhân sự và chuyên môn → gán chuyên môn/giá cho một PT QA | PT chỉ mở đăng ký online khi đúng chức vụ, có chuyên môn, giá>0 và tài khoản hoạt động; giá mới chỉ cho đơn mới |
 | Q06 | Tài khoản nhân viên → tạo `qa_staff_01`, mật khẩu≥8, thông tin duy nhất; sửa thông tin, để trống mật khẩu | Tài khoản role nhân viên; sửa trống không reset mật khẩu. Không tạo quản lý bằng cách nhập trường lạ |
 | Q07 | Phân quyền `qa_staff_01`: bật/tắt từng quyền đơn, thử, check-in; đăng nhập lại và nhập URL trực tiếp | Bật có chức năng, tắt bị403; sản phẩm vẫn có theo quy định hiện tại; không chỉ ẩn menu mà backend cũng chặn |
 | Q08 | Khóa nhân viên QA đang có phiên đăng nhập; mở tiếp trang riêng tư; quản lý mở khóa | Phiên bị chặn khi tài khoản ngừng hoạt động, mở khóa đăng nhập lại được; không tự khóa quản lý đang sử dụng |
@@ -248,10 +236,10 @@ Ngày D là ngày thực chạy bài test. Tránh giờ đã có lớp/PT. Nếu
 
 ## 11. Thông báo và kiểm tra kết thúc
 
-1. Sau thu/chốt, xếp/hủy lịch và xử lý đối soát, khách/PT tải lại **Thông báo**. Nội dung phải gắn đúng người/đơn/lịch, bộ đếm giảm sau “Đánh dấu đã đọc”, “Đọc tất cả”. Không xem/đọc được thông báo của tài khoản khác bằng đổi mã.
+1. Sau thu/chốt hoặc xử lý đối soát, hội viên tải lại **Thông báo**. Nội dung phải gắn đúng người/đơn; bộ đếm giảm sau “Đánh dấu đã đọc”, “Đọc tất cả”. Không xem/đọc được thông báo của tài khoản khác bằng đổi mã.
 2. Cuối test, checkout các lượt đang mở; ghi các hóa đơn đã thu một phần chưa chốt; xử lý yêu cầu hủy QA. Đừng xóa hóa đơn có tiền để làm sạch màn hình.
-3. Khôi phục cấu hình phí giao30.000, quyền demo_nhanvien đủ3mục, demo_kho/demo_pt không có3quyền đặc biệt, và các gói/ảnh QA theo trạng thái đã ghi. Không dùng seeder làm lệnh hoàn tác.
-4. Kiểm tra trên hai cửa sổ: cùng mã hóa đơn, cùng trạng thái thu/giao nhận, lịch PT/lớp và quyền vào tập. Tải lại trang để lấy trạng thái mới; web không có cam kết đẩy dữ liệu thời gian thực qua WebSocket.
+3. Khôi phục cấu hình phí giao30.000, quyền demo_nhanvien đủ3mục, demo_kho không có quyền thu/check-in, và các gói/ảnh QA theo trạng thái đã ghi. Không dùng seeder làm lệnh hoàn tác.
+4. Kiểm tra trên hai cửa sổ: cùng mã hóa đơn, cùng trạng thái thu/giao nhận và quyền vào tập. Tải lại trang để lấy trạng thái mới; web không có cam kết đẩy dữ liệu thời gian thực qua WebSocket.
 
 ## 12. Phiếu ghi kết quả
 

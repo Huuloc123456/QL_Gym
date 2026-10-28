@@ -48,8 +48,8 @@
 
         @unless (auth()->user()->canManageTrialRequests() || auth()->user()->canManageOrders() || auth()->user()->canManageCheckIns())
             <div class="gym-card mt-5 border-amber-200 bg-amber-50 p-6 text-amber-950" role="status">
-                <h2 class="text-lg font-bold">Chưa được cấp quyền nghiệp vụ</h2>
-                <p class="mt-1 leading-6">Tài khoản của bạn chưa được giao phần việc nào. Vui lòng liên hệ quản lý để được cấp quyền.</p>
+                <h2 class="text-lg font-bold">Chưa được cấp quyền vận hành</h2>
+                <p class="mt-1 leading-6">Bạn vẫn có thể quản lý sản phẩm. Để xử lý đăng ký tập thử, đơn hàng hoặc check-in, hãy liên hệ quản lý cấp quyền tương ứng.</p>
             </div>
         @endunless
     </section>

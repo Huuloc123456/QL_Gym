@@ -55,6 +55,21 @@ class ChatbotEndpointTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_payment_guidance_from_the_application_wins_over_an_http_200_rag_refusal(): void
+    {
+        Http::fake(['http://127.0.0.1:8090/chat' => Http::response([
+            'answer' => 'Xin lỗi, mình chỉ hỗ trợ thông tin về The Gym, gói tập, sản phẩm và kiến thức tập luyện cơ bản.',
+            'sources' => [],
+        ])]);
+
+        $response = $this->postJson('/chatbot/message', ['message' => 'Tôi vừa chuyển khoản, khi nào được vào tập?']);
+
+        $response->assertOk()->assertJsonPath('sources.0', 'Quy trình hóa đơn và thanh toán');
+        $this->assertStringContainsString('xác nhận khi đủ tiền', $response->json('answer'));
+        $this->assertStringNotContainsString('Xin lỗi, mình chỉ hỗ trợ', $response->json('answer'));
+        Http::assertNothingSent();
+    }
+
     public function test_chat_returns_a_safe_service_unavailable_message_when_rag_is_offline(): void
     {
         config(['services.rag.url' => 'http://127.0.0.1:8090']);
@@ -161,6 +176,22 @@ class ChatbotEndpointTest extends TestCase
             ->assertJsonPath('sources.0', 'Ngày bắt đầu và thời hạn gói');
 
         Http::assertSent(fn (Request $request): bool => $request->url() === 'http://127.0.0.1:8090/chat');
+    }
+
+    public function test_short_beginner_yoga_question_is_forwarded_to_rag_for_general_fitness_advice(): void
+    {
+        Http::fake(['http://127.0.0.1:8090/chat' => Http::response([
+            'answer' => 'Kiến thức tham khảo chung: Hãy bắt đầu nhẹ nhàng và dừng nếu thấy đau.',
+            'sources' => [],
+        ])]);
+
+        $this->postJson('/chatbot/message', ['message' => 'Cho tôi vài bài Yoga cơ bản để tập ở nhà'])
+            ->assertOk()
+            ->assertJsonPath('answer', 'Kiến thức tham khảo chung: Hãy bắt đầu nhẹ nhàng và dừng nếu thấy đau.')
+            ->assertJsonPath('sources', []);
+
+        Http::assertSent(fn (Request $request): bool => $request->url() === 'http://127.0.0.1:8090/chat'
+            && $request['message'] === 'Cho tôi vài bài Yoga cơ bản để tập ở nhà');
     }
 
     public function test_homepage_shows_the_chatbot_widget(): void

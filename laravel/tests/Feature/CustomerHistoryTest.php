@@ -34,24 +34,23 @@ class CustomerHistoryTest extends TestCase
 
         $this->actingAs($customer)
             ->get(route('my.orders.index', ['status' => 'pending', 'page' => 2]))
+            ->assertRedirect(route('gym.invoices.index', ['status' => 'Chưa thanh toán']));
+
+        $this->get(route('gym.invoices.index', ['status' => 'Chưa thanh toán']))
             ->assertOk()
-            ->assertSee('status=pending', false)
-            ->assertViewHas('orders', function ($orders): bool {
-                $this->assertInstanceOf(LengthAwarePaginator::class, $orders);
-                $this->assertSame(2, $orders->currentPage());
-                $this->assertSame(21, $orders->total());
-                $this->assertSame(1, $orders->count());
+            ->assertViewHas('invoices', function ($invoices) use ($customer): bool {
+                $this->assertSame(21, $invoices->total());
+                $this->assertTrue($invoices->getCollection()->every(fn ($row): bool => $row->customer_name === $customer->name));
 
                 return true;
             });
 
-        $this->get(route('my.orders.index', ['status' => 'paid']))
+        $this->get(route('gym.invoices.index', ['status' => 'Đã thanh toán']))
             ->assertOk()
-            ->assertSee('Gói hội viên')
-            ->assertViewHas('orders', function ($orders) use ($paidOrder, $otherOrder): bool {
-                $this->assertSame(1, $orders->total());
-                $this->assertTrue($orders->contains('id', $paidOrder->id));
-                $this->assertFalse($orders->contains('id', $otherOrder->id));
+            ->assertViewHas('invoices', function ($invoices) use ($paidOrder, $otherOrder): bool {
+                $this->assertSame(1, $invoices->total());
+                $this->assertSame($paidOrder->id, (int) $invoices->first()->record_id);
+                $this->assertNotSame($otherOrder->id, (int) $invoices->first()->record_id);
 
                 return true;
             });

@@ -33,7 +33,7 @@
                 <form class="grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2" method="POST" action="{{ route('manager.refunds.store') }}">
                     @csrf<input type="hidden" name="source_type" value="order_payment"><input type="hidden" name="source_id" value="{{ $payment->id }}"><input type="hidden" name="token" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
                     <p class="text-sm sm:col-span-2">Hoàn khoản thu #{{ $payment->id }} sau khi đã trả tiền cho khách ngoài website.</p>
-                    <div><label class="gym-label" for="refund-order-amount-{{ $payment->id }}">Số tiền hoàn</label><input class="gym-input" id="refund-order-amount-{{ $payment->id }}" name="amount" type="number" min="1" max="{{ $refundable }}" value="{{ $refundable }}" required></div>
+                    <div><label class="gym-label" for="refund-order-amount-{{ $payment->id }}">Số tiền hoàn</label><input class="gym-input" id="refund-order-amount-{{ $payment->id }}" name="amount" type="text" inputmode="numeric" pattern="[0-9., ]*" maxlength="22" value="{{ old('amount', number_format($refundable, 0, '', '.')) }}" required><p class="mt-1 text-xs text-slate-500">Có thể nhập dấu chấm phân cách hàng nghìn.</p></div>
                     <div><label class="gym-label" for="refund-order-reference-{{ $payment->id }}">Mã chứng từ</label><input class="gym-input" id="refund-order-reference-{{ $payment->id }}" name="reference" minlength="3" maxlength="100" required></div>
                     <div class="sm:col-span-2"><label class="gym-label" for="refund-order-reason-{{ $payment->id }}">Lý do</label><input class="gym-input" id="refund-order-reason-{{ $payment->id }}" name="reason" minlength="5" maxlength="1000" required></div>
                     <button class="gym-btn-outline sm:justify-self-start" type="submit">Ghi nhận hoàn tiền</button>
@@ -70,7 +70,7 @@
         @if ($remaining > 0)
             <form class="grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2" method="POST" action="{{ route('staff.orders.payments.store', $order) }}">
                 @csrf
-                <div><label class="gym-label" for="package-order-amount-{{ $order->id }}">Số tiền nhận</label><x-form-input id="package-order-amount-{{ $order->id }}" type="number" name="amount" min="1" max="{{ $remaining }}" value="{{ $remaining }}" required /></div>
+                <div><label class="gym-label" for="package-order-amount-{{ $order->id }}">Số tiền nhận</label><x-form-input id="package-order-amount-{{ $order->id }}" type="text" inputmode="numeric" pattern="[0-9., ]*" maxlength="22" name="amount" value="{{ old('amount', number_format($remaining, 0, '', '.')) }}" required /><p class="mt-1 text-xs text-slate-500">Có thể nhập dấu chấm phân cách hàng nghìn.</p></div>
                 <div><label class="gym-label" for="package-order-method-{{ $order->id }}">Hình thức</label><x-form-select id="package-order-method-{{ $order->id }}" name="payment_method"><option value="bank_transfer" @selected($order->payment_method !== 'cash')>Chuyển khoản</option><option value="cash" @selected($order->payment_method === 'cash')>Tiền mặt</option></x-form-select></div>
                 <div class="sm:col-span-2"><label class="gym-label" for="package-order-reference-{{ $order->id }}">Mã giao dịch (nếu có)</label><x-form-input id="package-order-reference-{{ $order->id }}" name="reference" maxlength="255" /></div>
                 <button class="gym-btn-outline sm:justify-self-start" type="submit">Ghi nhận tiền đã nhận</button>

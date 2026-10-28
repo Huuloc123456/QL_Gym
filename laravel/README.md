@@ -1,6 +1,6 @@
 # The Gym — Laravel
 
-Ứng dụng quản lý một phòng tập, viết bằng Laravel, Blade, Tailwind CSS và MySQL. Khách có thể mua gói/sản phẩm, đăng ký lớp và thanh toán tại quầy hoặc VNPay sandbox. Nhân viên xử lý hóa đơn, check-in và lịch lớp học; quản lý theo dõi hoạt động, báo cáo, nội dung website, tài khoản nhân viên và tài liệu chatbot. Website không còn chức năng PT; dữ liệu PT cũ được giữ để tra cứu lịch sử.
+Ứng dụng quản lý một phòng tập, viết bằng Laravel, Blade, Tailwind CSS và MySQL. Khách mua gói tự luyện/sản phẩm, tập thử, xem hóa đơn và lịch sử vào/ra. Nhân viên xử lý sản phẩm, hóa đơn và check-in; quản lý theo dõi khách hàng, báo cáo, nội dung website, tài khoản và tài liệu chatbot. Website đã ngừng đặt PT/lớp học nhóm; dữ liệu và hóa đơn lịch sử vẫn được giữ để tra cứu.
 
 README ở thư mục gốc mô tả đầy đủ nghiệp vụ, tài khoản local, cấu hình VNPay và quy trình sao lưu. Xem thêm [kế hoạch kiểm thử, kết quả mới nhất và giới hạn kiểm tra](docs/test-plan.md).
 

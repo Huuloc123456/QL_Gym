@@ -6,7 +6,6 @@ use App\Models\GymSetting;
 use App\Models\MembershipOrder;
 use App\Repositories\GymPackageRepository;
 use App\Repositories\MembershipOrderRepository;
-use App\Services\GymIdentityService;
 use App\Services\MembershipOrderService;
 use App\Services\VietQrService;
 use Illuminate\Http\RedirectResponse;
@@ -16,37 +15,20 @@ use Illuminate\View\View;
 
 class MembershipOrderController extends Controller
 {
-    public function index(Request $request, MembershipOrderRepository $orderRepository, VietQrService $vietQr): View
+    public function index(Request $request): RedirectResponse
     {
-        $filters = $request->validate([
-            'status' => ['nullable', 'in:all,pending,paid,cancelled'],
-        ]);
-        $filters['status'] ??= 'all';
-        $orders = $orderRepository->paginateForCustomer($request->user(), $filters['status']);
-        $customer = app(GymIdentityService::class)->customer($request->user());
-        $query = DB::table('HOADON as h')->where('h.MAKH', $customer)
-            ->where(function ($query): void {
-                $query->whereExists(fn ($lines) => $lines->selectRaw('1')->from('gym_invoice_lines as l')->whereColumn('l.invoice_id', 'h.MAHD')->where('l.kind', 'package'))
-                    ->orWhereExists(fn ($lines) => $lines->selectRaw('1')->from('CHITIETHOADON as d')->whereColumn('d.MAHD', 'h.MAHD')->whereNotNull('d.MADKGT'));
-            });
-        $states = ['pending' => 'Chưa thanh toán', 'paid' => 'Đã thanh toán', 'cancelled' => 'Hủy'];
-        if (isset($states[$filters['status']])) {
-            $query->where('h.TRANGTHAI', $states[$filters['status']]);
-        }
-        $packageInvoices = $query->select('h.*')->selectSub(DB::table('gym_invoice_lines as l')->selectRaw("GROUP_CONCAT(l.name SEPARATOR ', ')")->whereColumn('l.invoice_id', 'h.MAHD'), 'contents')
-            ->orderByDesc('h.MAHD')->paginate(15, ['*'], 'invoice_page')->withQueryString();
-        $gymSettings = GymSetting::query()->find(1);
-        $qrUrls = $orders->getCollection()->mapWithKeys(function (MembershipOrder $order) use ($gymSettings, $vietQr): array {
-            if ($order->status !== 'pending' || $order->payment_method !== 'bank_transfer' || $order->cancellation_requested_at) {
-                return [];
-            }
+        $query = $request->query();
+        unset($query['page'], $query['invoice_page']);
 
-            $remaining = max(0, (int) $order->amount - (int) ($order->payments_sum_amount ?? 0));
+        $query['status'] = match ($query['status'] ?? 'all') {
+            'pending' => 'Chưa thanh toán',
+            'paid' => 'Đã thanh toán',
+            'cancelled' => 'Hủy',
+            default => null,
+        };
+        $query = array_filter($query, static fn ($value): bool => $value !== null && $value !== '');
 
-            return [$order->id => $vietQr->imageUrl($gymSettings, $order->id, $remaining)];
-        });
-
-        return view('orders.index', compact('orders', 'filters', 'gymSettings', 'qrUrls', 'packageInvoices'));
+        return redirect()->route('gym.invoices.index', $query);
     }
 
     public function show(Request $request, MembershipOrder $order, MembershipOrderRepository $orderRepository, VietQrService $vietQr): View|RedirectResponse

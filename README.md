@@ -1,10 +1,10 @@
 # The Gym — hệ thống quản lý phòng tập
 
-Ứng dụng web Laravel quản lý hoạt động của một phòng tập: khách mua gói và sản phẩm, đăng ký lớp học; nhân viên quản lý sản phẩm, hóa đơn, check-in và lịch lớp; quản lý theo dõi nhân sự cùng doanh thu. Website không còn chức năng PT; dữ liệu PT cũ được giữ để tra cứu lịch sử. Khách có thể thanh toán tại quầy hoặc qua VNPay sandbox khi máy chủ đã cấu hình khóa cổng. Trợ lý RAG hỗ trợ hỏi đáp nghiệp vụ trên website. Phạm vi và quy tắc nghiệp vụ được ghi tại [tài liệu nghiệp vụ](docs/nghiep-vu-goi-hoi-vien.md).
+Ứng dụng Laravel quản lý một phòng tập: khách mua gói tự luyện và sản phẩm; nhân viên xử lý hóa đơn, tập thử, kho và check-in; quản lý theo dõi khách hàng, nhân sự và báo cáo. Website đã ngừng đặt PT và lớp học nhóm; dữ liệu/chứng từ lịch sử được giữ để tra cứu, nhưng dịch vụ cũ không thể đặt hoặc thanh toán thêm. Khách có thể trả tại quầy hoặc qua VNPay sandbox khi máy chủ đã cấu hình. Phạm vi và quy tắc nghiệp vụ được ghi tại [tài liệu nghiệp vụ](docs/nghiep-vu-goi-hoi-vien.md).
 
 ## Cấu trúc repository
 
-**Kiểm thử theo từng tài khoản:** [Kịch bản test đầy đủ, dữ liệu DEMO và kết quả mong đợi](docs/kich-ban-test-day-du.md). Bộ demo có 12 tài khoản, đơn hàng nhiều trạng thái, lớp/PT và quyền tập; mật khẩu ban đầu `DemoGym@2026`, chỉ dùng local. Seeder bổ sung bằng `php artisan db:seed --class=GymDemoScenarioSeeder` trong `laravel/`, không reset dữ liệu đã có.
+**Kiểm thử theo từng tài khoản:** [Kịch bản test và kết quả mong đợi](docs/kich-ban-test-day-du.md). Seeder hiện tạo 11 tài khoản demo, đơn hàng nhiều trạng thái và quyền tập; mật khẩu khởi tạo `DemoGym@2026`, chỉ dùng local. Cơ sở dữ liệu được tạo trước có thể còn tài khoản/chứng từ PT hoặc lớp cũ; chúng chỉ phục vụ lịch sử. Seeder bổ sung bằng `php artisan db:seed --class=GymDemoScenarioSeeder` trong `laravel/`, không reset dữ liệu đã có.
 
 | Thư mục | Nội dung |
 | --- | --- |
@@ -14,14 +14,13 @@
 
 ## Nghiệp vụ hiện có
 
-- **Khách vãng lai:** xem gói, sản phẩm và lớp học; đăng ký tài khoản trước khi gửi yêu cầu tập thử. Chỉ duyệt mới tạo quyền tập thử; gửi yêu cầu không tự cấp quyền.
-- **Khách hàng:** đăng ký/đăng nhập, khôi phục mật khẩu qua email, cập nhật hồ sơ được phép, gửi yêu cầu thử tập, mua gói/sản phẩm/lớp qua giỏ hàng và theo dõi hóa đơn, quyền tập cùng lịch sử vào ra. Yêu cầu hủy đơn đang chờ sẽ khóa thao tác thanh toán cho đến khi nhân viên hủy hoặc xác nhận tiếp tục.
+- **Khách vãng lai:** xem gói và sản phẩm; đăng ký tài khoản trước khi gửi yêu cầu tập thử. Chỉ duyệt mới tạo quyền tập thử; gửi yêu cầu không tự cấp quyền.
+- **Khách hàng:** đăng ký/đăng nhập, khôi phục mật khẩu qua email, cập nhật hồ sơ được phép, gửi yêu cầu tập thử, mua gói/sản phẩm và theo dõi hóa đơn, quyền tập cùng lịch sử vào/ra. Yêu cầu hủy đơn đang chờ sẽ khóa thao tác thanh toán cho đến khi nhân viên hủy hoặc xác nhận tiếp tục.
 - **Nhân viên:** xử lý yêu cầu thử, hóa đơn mới và đơn gói cũ còn lịch sử; ghi nhận khoản thu tiền mặt/chuyển khoản, chốt đơn, giao hàng và check-in/check-out. Nhân viên có thể tạo/sửa sản phẩm, cập nhật tồn và ảnh; chỉ quản lý được xóa sản phẩm. Danh sách hóa đơn có tìm kiếm, lọc và phân trang.
 - **Cửa hàng:** khách tìm và xem sản phẩm, quản lý giỏ hàng/địa chỉ, chọn nhận tại quầy hoặc giao hàng; giá và khuyến mãi lấy từ MySQL. Hệ thống giữ hàng trong đơn chờ, chỉ trừ tồn khi hóa đơn được xác nhận đã thu đủ; hủy đơn hợp lệ giải phóng phần giữ. Tồn kho không thể giảm thấp hơn số lượng đang được giữ cho đơn chờ.
-- **Lớp học:** khách xem/đăng ký lớp; nhân viên/quản lý quản lý lịch và hồ sơ chuyên môn cần thiết cho lớp học.
 - **Khách hàng:** xem đơn theo trạng thái và phân trang; xem riêng gói đang dùng, sắp bắt đầu và đã hết hạn; lịch sử chỉ hiển thị dữ liệu thuộc đúng tài khoản. Có thể thanh toán đơn gói và hóa đơn đủ điều kiện qua VNPay khi máy chủ đã cấu hình cổng.
 - **Quản lý:** xem bảng điều khiển và báo cáo theo khoảng ngày, gồm tiền nhận, tiền hoàn và thu ròng; xuất Excel. Quản lý hội viên, gói, sản phẩm, tài khoản/quyền nhân viên, thông tin phòng tập, banner và tài liệu chatbot. Hoàn tiền thủ công được ghi bằng chứng vào sổ riêng sau khi đã trả tiền bên ngoài website; hệ thống không tự chuyển tiền hoàn.
-- **Trợ lý The Gym (RAG):** nhận câu hỏi nghiệp vụ tối đa 500 ký tự và chuyển đến dịch vụ RAG qua API. Tài liệu gốc trong màn quản lý được lưu ở MySQL; dịch vụ RAG giữ bản lập chỉ mục để tra cứu. Quản lý có biểu mẫu tiếng Việt để thêm/sửa câu hỏi thường gặp, chỉnh hướng dẫn dài, tìm tài liệu, tạm ngừng/bật lại/xóa và nhập tối đa 100 câu hỏi từ Excel sau bước xem trước. Câu hỏi sản phẩm lấy dữ liệu hiện hành và có thể hiện ảnh cùng nút mở trang chi tiết. Câu hỏi có thể dùng để tính toán đơn giản nếu đủ dữ kiện; giá mẫu luôn được ghi rõ là tham khảo. Chatbot cũng trả lời kiến thức chung về gym và tập luyện ngoài tài liệu, gắn nhãn nội dung tham khảo; câu hỏi ngoài chủ đề bị từ chối. Nguồn tài liệu không hiển thị trong khung chat. Người dùng nhấn Enter để gửi câu hỏi, Shift+Enter để xuống dòng.
+- **Trợ lý The Gym (RAG):** tài liệu gốc do quản lý cập nhật được lưu ở MySQL và đồng bộ sang dịch vụ tra cứu. Quản lý có thể thêm/sửa/tạm ngừng/bật lại/xóa tài liệu, nhập tối đa 100 câu hỏi từ Excel sau bước xem trước. Chatbot lấy sản phẩm/giá/khả dụng từ dữ liệu hiện hành, có thể hiện ảnh và link chi tiết; suy luận số học đơn giản khi nêu rõ giả định; trả lời kiến thức tập luyện phổ thông (kể cả Yoga) như thông tin tham khảo chung. Hỏi đặt PT/lớp sẽ được báo rõ là chức năng đã ngừng. Câu hỏi ngoài phạm vi, dữ liệu riêng, chẩn đoán/y lệnh và chính sách chưa có căn cứ bị từ chối hoặc hướng tới nguồn chính thức. Nguồn tài liệu không hiển thị trong khung chat; Enter gửi, Shift+Enter xuống dòng.
 - **Banner trang chủ:** ảnh tự chuyển; các nút chọn ảnh vẫn dùng được và banner tạm ngưng khi người dùng đang thao tác hoặc bật chế độ giảm chuyển động.
 - **Tài khoản nhân viên:** quản lý có thể khóa/mở tài khoản. Tài khoản bị khóa không đăng nhập lại được và phiên đang mở sẽ bị kết thúc ở yêu cầu tiếp theo. Người dùng đang đăng nhập có thể đổi mật khẩu sau khi xác nhận mật khẩu hiện tại.
 
@@ -34,7 +33,7 @@
 - Ngày hết hạn được lưu như mốc không còn quyền tập, ở đầu ngày theo múi giờ `Asia/Ho_Chi_Minh`. Khách tập đến hết ngày liền trước mốc này. Ví dụ gói một tháng bắt đầu 31/01/2026 hết quyền lúc 00:00 ngày 01/03/2026, nên ngày tập cuối là 28/02/2026.
 - Tài khoản quản lý/nhân viên mẫu chỉ được tạo khi `APP_ENV=local`; không dùng thông tin mẫu ở môi trường thật.
 
-Đây là đồ án giới hạn một cơ sở phòng tập. VNPay sandbox được tích hợp cho đơn gói và hóa đơn cửa hàng/lớp; thanh toán thật cần cấu hình `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, URL trả kết quả và IPN công khai qua HTTPS. Hoàn tiền tự động, nhiều chi nhánh và xác minh tài khoản nhiều bước chưa nằm trong phạm vi.
+Đây là đồ án giới hạn một cơ sở phòng tập. VNPay sandbox được tích hợp cho gói hội viên và hóa đơn cửa hàng; thanh toán thật cần cấu hình `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, URL trả kết quả và IPN công khai qua HTTPS. Hoàn tiền tự động, nhiều chi nhánh và xác minh tài khoản nhiều bước chưa nằm trong phạm vi.
 
 Để chạy tác vụ hết hạn đơn và nhắc lịch ở local, mở một cửa sổ PowerShell riêng trong `laravel/` và chạy `php artisan schedule:work`. Máy chủ triển khai cần gọi `php artisan schedule:run` mỗi phút. Trang Quản lý → Cài đặt cảnh báo nếu tác vụ chưa chạy trong hơn 3 phút.
 

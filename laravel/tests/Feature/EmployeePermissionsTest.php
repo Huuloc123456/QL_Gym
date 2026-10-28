@@ -149,7 +149,7 @@ class EmployeePermissionsTest extends TestCase
 
         $this->actingAs($employee)->get(route('staff.dashboard'))
             ->assertOk()
-            ->assertSee('Chưa được cấp quyền nghiệp vụ')
+            ->assertSee('Chưa được cấp quyền vận hành')
             ->assertDontSee(route('staff.trial-requests.index'), false)
             ->assertDontSee(route('staff.orders.index'), false)
             ->assertDontSee(route('gym.invoices.index'), false)
