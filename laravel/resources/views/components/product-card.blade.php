@@ -9,6 +9,7 @@
         <p class="text-xs text-slate-500">{{ $product->HANG ?: 'The Gym' }}</p>
         <h3 class="mt-1 text-sm font-semibold leading-6"><a class="hover:text-gym-blue hover:underline" href="{{ route('gym.products.show', $product->MASP) }}">{{ $product->TENSP }}</a></h3>
         <div class="mt-auto pt-3"><strong class="text-gym-blue">{{ number_format($price, 0, ',', '.') }}đ</strong>@if ($price < $product->DONGIA)<del class="ml-2 text-xs text-slate-400">{{ number_format($product->DONGIA, 0, ',', '.') }}đ</del>@endif</div>
-        <p class="mt-2 text-xs {{ $product->SOLUONGTON > 0 ? 'text-emerald-700' : 'text-slate-500' }}">{{ $product->SOLUONGTON > 0 ? 'Còn hàng' : 'Hết hàng' }}</p>
+        @php($available = $product->available_quantity ?? $product->SOLUONGTON)
+        <p class="mt-2 text-xs {{ $available > 0 ? 'text-emerald-700' : 'text-slate-500' }}">{{ $available > 0 ? 'Còn hàng' : 'Tạm hết hàng có thể đặt' }}</p>
     </div>
 </article>

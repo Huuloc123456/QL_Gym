@@ -45,8 +45,22 @@ class GymInvoiceController extends Controller
         $bill = $this->shop->invoice($invoice, $request->user());
         $sets = $this->sql->call('sp_LayChiTietHoaDon', [$invoice]);
         $lines = DB::table('gym_invoice_lines')->where('invoice_id', $invoice)->get();
+        $legacyPackageOrders = MembershipOrder::query()->with('gymPackage')->where('sql_invoice_id', $invoice)->get();
+        $legacyOrders = $legacyPackageOrders->pluck('id');
+        $onlineQuery = DB::table('gym_online_payments')->where(function ($query) use ($invoice, $legacyOrders): void {
+            $query->where(fn ($q) => $q->where('target_type', 'invoice')->where('target_id', $invoice))
+                ->orWhere(fn ($q) => $q->where('target_type', 'membership_order')->whereIn('target_id', $legacyOrders));
+        });
+        if ($request->user()->role === 'customer') {
+            $onlineQuery->where('user_id', $request->user()->id);
+        }
+        $onlinePayments = $onlineQuery->orderByDesc('id')->get();
+        $receipts = DB::table('gym_receipts as r')->join('users as u', 'u.id', '=', 'r.user_id')->where('invoice_id', $invoice)->select('r.*', 'u.name')->get()
+            ->concat(DB::table('order_payments as p')->join('users as u', 'u.id', '=', 'p.received_by')->whereIn('p.membership_order_id', $legacyOrders)
+                ->select('p.amount', 'p.payment_method as method', 'p.reference', 'p.received_at as created_at', 'u.name')->get())
+            ->sortBy('created_at')->values();
 
-        return view('gym.invoice', ['invoice' => $bill, 'lines' => $lines, 'settings' => app(GymPortalService::class)->settings(), 'needsReconciliation' => app(GymPortalService::class)->unreconciledInvoices()->where('h.MAHD', $invoice)->exists(), 'originalLines' => $sets[1] ?? [], 'fulfillment' => DB::table('gym_fulfillments')->where('invoice_id', $invoice)->first(), 'receipts' => DB::table('gym_receipts as r')->join('users as u', 'u.id', '=', 'r.user_id')->where('invoice_id', $invoice)->select('r.*', 'u.name')->orderBy('r.id')->get(), 'onlinePayments' => DB::table('gym_online_payments')->where('target_type', 'invoice')->where('target_id', $invoice)->where('user_id', $request->user()->id)->orderByDesc('id')->get(), 'received' => $this->shop->received($invoice)]);
+        return view('gym.invoice', ['legacyPackageOrders' => $legacyPackageOrders, 'invoice' => $bill, 'lines' => $lines, 'settings' => app(GymPortalService::class)->settings(), 'needsReconciliation' => app(GymPortalService::class)->unreconciledInvoices()->where('h.MAHD', $invoice)->exists(), 'originalLines' => $sets[1] ?? [], 'fulfillment' => DB::table('gym_fulfillments')->where('invoice_id', $invoice)->first(), 'receipts' => $receipts, 'onlinePayments' => $onlinePayments, 'hasPaymentReview' => $onlinePayments->contains('status', 'review'), 'received' => $this->shop->received($invoice)]);
     }
 
     public function receive(Request $request, int $invoice): RedirectResponse

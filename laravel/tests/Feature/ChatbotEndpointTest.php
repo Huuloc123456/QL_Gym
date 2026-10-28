@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -21,13 +22,13 @@ class ChatbotEndpointTest extends TestCase
             ]),
         ]);
 
-        $this->postJson('/chatbot/message', ['message' => 'Gói 1 tháng tính thế nào?'])
+        $this->postJson('/chatbot/message', ['message' => 'Nội dung tài liệu hướng dẫn nâng cao'])
             ->assertOk()
             ->assertJsonPath('answer', 'Gói 1 tháng có thời hạn theo tháng lịch.')
             ->assertJsonPath('sources.0', 'Ngày bắt đầu và thời hạn gói');
 
         Http::assertSent(fn (Request $request): bool => $request->url() === 'http://127.0.0.1:8090/chat'
-            && $request['message'] === 'Gói 1 tháng tính thế nào?');
+            && $request['message'] === 'Nội dung tài liệu hướng dẫn nâng cao');
     }
 
     public function test_chat_rejects_blank_and_overlong_messages_before_calling_rag(): void
@@ -45,7 +46,7 @@ class ChatbotEndpointTest extends TestCase
         config(['services.rag.url' => 'http://127.0.0.1:8090']);
         Http::fake(['*' => Http::response(['error' => 'private traceback'], 503)]);
 
-        $this->postJson('/chatbot/message', ['message' => 'Hỏi về gói tập'])
+        $this->postJson('/chatbot/message', ['message' => 'Tài liệu nâng cao'])
             ->assertServiceUnavailable()
             ->assertJsonPath('message', 'Trợ lý đang bận. Bạn thử lại sau nhé.');
     }
@@ -54,7 +55,7 @@ class ChatbotEndpointTest extends TestCase
     {
         Http::fake(['*' => Http::failedConnection()]);
 
-        $this->postJson('/chatbot/message', ['message' => 'Hỏi về gói tập'])
+        $this->postJson('/chatbot/message', ['message' => 'Tài liệu nâng cao'])
             ->assertServiceUnavailable()
             ->assertJsonPath('message', 'Trợ lý đang bận. Bạn thử lại sau nhé.');
     }
@@ -65,6 +66,17 @@ class ChatbotEndpointTest extends TestCase
             ->assertOk()
             ->assertSee('data-gym-chatbot', false)
             ->assertSee('Hỏi The Gym');
+    }
+
+    public function test_chat_throttle_does_not_consume_the_guest_login_allowance(): void
+    {
+        $customer = User::factory()->create();
+        for ($message = 0; $message < 10; $message++) {
+            $this->postJson(route('chatbot.message'), ['message' => 'Xin chào'])->assertOk();
+        }
+        $this->postJson(route('chatbot.message'), ['message' => 'Xin chào'])->assertTooManyRequests();
+        $this->post(route('login.store'), ['username' => $customer->username, 'password' => 'password'])->assertRedirect(route('my.memberships.index'));
+        $this->assertAuthenticatedAs($customer);
     }
 
     public function test_chat_panel_uses_a_compact_header_that_matches_the_site(): void

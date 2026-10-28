@@ -12,92 +12,13 @@
 <body>
     <a class="sr-only fixed left-4 top-4 z-50 rounded-lg bg-white px-4 py-3 text-gym-ink shadow-lg focus:not-sr-only focus:outline-2 focus:outline-gym-blue" href="#main">Bỏ qua điều hướng</a>
 
-    <nav class="fixed inset-x-0 top-0 z-40 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur" aria-label="Điều hướng chính">
-        <div class="gym-container flex min-h-20 items-center justify-between gap-4 py-3">
-            <a class="shrink-0" href="{{ route('home') }}" aria-label="The Gym - trang chủ">
-                <img src="{{ asset('images/csharp/logo.png') }}" alt="The Gym" width="96" height="64">
-            </a>
-            <button class="inline-flex size-11 items-center justify-center rounded-lg border border-slate-300 text-gym-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gym-blue lg:hidden" type="button" data-menu-toggle aria-controls="gymNavbar" aria-expanded="false" aria-label="Mở menu">
-                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" class="size-6 stroke-current" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round"/></svg>
-            </button>
-            <div class="absolute left-0 right-0 top-full hidden border-b border-slate-200 bg-white px-4 pb-4 shadow-lg lg:static lg:flex lg:min-w-0 lg:flex-1 lg:items-center lg:justify-between lg:gap-2 lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" id="gymNavbar" data-menu>
-                <ul class="flex flex-col gap-1 lg:flex-row lg:items-center lg:gap-1">
-                    <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-wide hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-gym-blue lg:px-2 {{ request()->routeIs('home') ? 'bg-sky-50 text-gym-blue-deep' : 'text-slate-800' }}" href="{{ route('home') }}" @if (request()->routeIs('home')) aria-current="page" @endif>Trang chủ</a></li>
-                    <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-wide hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-gym-blue lg:px-2 {{ request()->routeIs('packages.*') ? 'bg-sky-50 text-gym-blue-deep' : 'text-slate-800' }}" href="{{ route('packages.index') }}" @if (request()->routeIs('packages.*')) aria-current="page" @endif>Gói tập</a></li>
-                    <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-800 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-gym-blue lg:px-2" href="{{ route('home') }}#trial">Trải nghiệm</a></li>
-                    @auth
-                        @if (in_array(auth()->user()->role, ['employee', 'manager'], true))
-                            <li>
-                                <details class="group relative" name="gym-primary-navigation" data-nav-group="operations">
-                                    <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-wide hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-gym-blue lg:justify-center lg:px-2 {{ request()->routeIs('staff.*') ? 'bg-sky-50 text-gym-blue-deep' : 'text-slate-800' }}">
-                                        Vận hành <span aria-hidden="true" class="text-[0.65rem]">▾</span>
-                                    </summary>
-                                    <ul class="mt-1 grid gap-1 border-l border-slate-200 pl-2 lg:absolute lg:left-0 lg:top-full lg:z-50 lg:mt-2 lg:min-w-56 lg:rounded-xl lg:border lg:bg-white lg:p-2 lg:shadow-lg">
-                                        <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep focus-visible:outline-2 focus-visible:outline-gym-blue {{ request()->routeIs('staff.dashboard') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('staff.dashboard') }}" @if (request()->routeIs('staff.dashboard')) aria-current="page" @endif>Tổng quan vận hành</a></li>
-                                        @can('viewAny', \App\Models\TrialRequest::class)
-                                            <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep focus-visible:outline-2 focus-visible:outline-gym-blue {{ request()->routeIs('staff.trial-requests.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('staff.trial-requests.index') }}" @if (request()->routeIs('staff.trial-requests.*')) aria-current="page" @endif>Đăng ký tập thử</a></li>
-                                        @endcan
-                                        @can('viewAny', \App\Models\CheckIn::class)
-                                            <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep focus-visible:outline-2 focus-visible:outline-gym-blue {{ request()->routeIs('staff.checkins.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('staff.checkins.index') }}" @if (request()->routeIs('staff.checkins.*')) aria-current="page" @endif>Check-in</a></li>
-                                        @endcan
-                                        @can('viewAny', \App\Models\MembershipOrder::class)
-                                            <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep focus-visible:outline-2 focus-visible:outline-gym-blue {{ request()->routeIs('staff.orders.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('staff.orders.index') }}" @if (request()->routeIs('staff.orders.*')) aria-current="page" @endif>Đơn hội viên</a></li>
-                                        @endcan
-                                    </ul>
-                                </details>
-                            </li>
-                        @endif
-                        @if (auth()->user()->role === 'manager')
-                            <li>
-                                <details class="group relative" name="gym-primary-navigation" data-nav-group="management">
-                                    <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-wide hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-gym-blue lg:justify-center lg:px-2 {{ request()->routeIs('manager.*') ? 'bg-sky-50 text-gym-blue-deep' : 'text-slate-800' }}">
-                                        Quản lý <span aria-hidden="true" class="text-[0.65rem]">▾</span>
-                                    </summary>
-                                    <ul class="mt-1 grid gap-1 border-l border-slate-200 pl-2 lg:absolute lg:left-0 lg:top-full lg:z-50 lg:mt-2 lg:min-w-56 lg:rounded-xl lg:border lg:bg-white lg:p-2 lg:shadow-lg">
-                                        <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep focus-visible:outline-2 focus-visible:outline-gym-blue {{ request()->routeIs('manager.dashboard') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('manager.dashboard') }}" @if (request()->routeIs('manager.dashboard')) aria-current="page" @endif>Tổng quan quản lý</a></li>
-                                        <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep {{ request()->routeIs('manager.reports.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('manager.reports.index') }}" @if (request()->routeIs('manager.reports.*')) aria-current="page" @endif>Báo cáo đơn hàng</a></li>
-                                        <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep focus-visible:outline-2 focus-visible:outline-gym-blue {{ request()->routeIs('manager.packages.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('manager.packages.index') }}" @if (request()->routeIs('manager.packages.*')) aria-current="page" @endif>Quản lý gói tập</a></li>
-                                        <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep focus-visible:outline-2 focus-visible:outline-gym-blue {{ request()->routeIs('manager.employees.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('manager.employees.index') }}" @if (request()->routeIs('manager.employees.*')) aria-current="page" @endif>Tài khoản nhân viên</a></li>
-                                        <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep {{ request()->routeIs('manager.settings.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('manager.settings.edit') }}">Cài đặt phòng tập</a></li>
-                                        <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep {{ request()->routeIs('manager.banners.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('manager.banners.index') }}">Ảnh banner</a></li>
-                                        <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep {{ request()->routeIs('manager.knowledge.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('manager.knowledge.index') }}">Tài liệu chatbot</a></li>
-                                    </ul>
-                                </details>
-                            </li>
-                        @endif
-                    @endauth
-                </ul>
-                <div class="mt-3 border-t border-slate-100 pt-3 lg:mt-0 lg:shrink-0 lg:border-0 lg:pt-0">
-                    @auth
-                        @if (auth()->user()->role === 'customer')
-                            <details class="group relative" name="gym-primary-navigation">
-                                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-full bg-slate-100 px-5 py-2 font-semibold text-slate-800 hover:bg-slate-200 focus-visible:outline-2 focus-visible:outline-gym-blue lg:whitespace-nowrap">
-                                    {{ auth()->user()->name }} <span aria-hidden="true">▾</span>
-                                </summary>
-                                <ul class="mt-2 grid gap-1 rounded-xl border border-slate-200 bg-white p-2 shadow-lg lg:absolute lg:right-0 lg:top-full lg:min-w-52">
-                                    <li><a class="block rounded-lg px-3 py-2 hover:bg-slate-50 {{ request()->routeIs('my.memberships.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : '' }}" href="{{ route('my.memberships.index') }}" @if (request()->routeIs('my.memberships.*')) aria-current="page" @endif>Gói hội viên</a></li>
-                                    <li><a class="block rounded-lg px-3 py-2 hover:bg-slate-50 {{ request()->routeIs('my.orders.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : '' }}" href="{{ route('my.orders.index') }}" @if (request()->routeIs('my.orders.*')) aria-current="page" @endif>Đơn đăng ký</a></li>
-                                    <li><a class="block rounded-lg px-3 py-2 hover:bg-slate-50 {{ request()->routeIs('my.attendance.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : '' }}" href="{{ route('my.attendance.index') }}" @if (request()->routeIs('my.attendance.*')) aria-current="page" @endif>Lịch sử tập</a></li>
-                                    <li><a class="block rounded-lg px-3 py-2 hover:bg-slate-50 {{ request()->routeIs('my.profile.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : '' }}" href="{{ route('my.profile.show') }}" @if (request()->routeIs('my.profile.*')) aria-current="page" @endif>Thông tin cá nhân</a></li>
-                                    <li><a class="block rounded-lg px-3 py-2 hover:bg-slate-50" href="{{ route('account.password.edit') }}">Đổi mật khẩu</a></li>
-                                    <li class="my-1 border-t border-slate-100"></li>
-                                    <li><form method="POST" action="{{ route('logout') }}">@csrf<button class="w-full rounded-lg px-3 py-2 text-left text-red-700 hover:bg-red-50" type="submit">Đăng xuất</button></form></li>
-                                </ul>
-                            </details>
-                        @else
-                            <div class="flex items-center justify-between gap-3 lg:justify-start">
-                                <span class="max-w-36 truncate text-sm font-semibold text-slate-800" title="{{ auth()->user()->name }}">{{ auth()->user()->name }}</span>
-                                <a class="whitespace-nowrap text-sm font-semibold text-gym-blue underline underline-offset-4" href="{{ route('account.password.edit') }}">Đổi mật khẩu</a>
-                                <form class="shrink-0" method="POST" action="{{ route('logout') }}">@csrf<button class="gym-btn-outline min-h-10 px-4 py-2 text-sm" type="submit">Đăng xuất</button></form>
-                            </div>
-                        @endif
-                    @else
-                        <a class="gym-btn-outline min-h-10 px-5 py-2 text-sm" href="{{ route('login') }}">Đăng nhập</a>
-                    @endauth
-                </div>
-            </div>
-        </div>
-    </nav>
+    @php($isInternal = auth()->check() && in_array(auth()->user()->role, ['employee', 'manager'], true))
+    @if ($isInternal)
+        @include('layouts.internal-navigation')
+    @else
+        @include('layouts.public-navigation')
+    @endif
+    <div class="{{ $isInternal ? 'lg:pl-[260px]' : '' }}">
 
     <div class="pt-20">
         @if (request()->routeIs('home'))
@@ -156,5 +77,6 @@
     </footer>
 
     @include('components.chatbot')
+    </div>
 </body>
 </html>

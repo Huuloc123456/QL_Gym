@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\MembershipOrder;
 use App\Models\User;
 use Carbon\CarbonInterface;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -92,13 +93,7 @@ class VnPayService
 
         return $this->sql->transaction(function () use ($payment, $parameters): array {
             $lockedPayment = DB::table('gym_online_payments')->where('id', $payment->id)->lockForUpdate()->first();
-            if ($lockedPayment->status === 'succeeded') {
-                return $this->ipnResponse('00', 'Confirm Success');
-            }
-            if ($lockedPayment->status === 'review') {
-                return $this->ipnResponse('00', 'Confirm Success');
-            }
-            if ($lockedPayment->status === 'failed') {
+            if (in_array($lockedPayment->status, ['succeeded', 'review', 'failed', 'refunded'], true)) {
                 return $this->ipnResponse('00', 'Confirm Success');
             }
 
@@ -158,6 +153,68 @@ class VnPayService
         return $payment;
     }
 
+    public function reviewQueue(): LengthAwarePaginator
+    {
+        return DB::table('gym_online_payments as p')->join('users as u', 'u.id', '=', 'p.user_id')
+            ->where('p.status', 'review')->select('p.*', 'u.name as customer_name')
+            ->orderBy('p.id')->paginate(20);
+    }
+
+    public function resolveReview(int $id, User $manager, array $data): void
+    {
+        abort_unless($manager->role === 'manager', 403);
+        $this->sql->transaction(function () use ($id, $manager, $data): void {
+            $payment = DB::table('gym_online_payments')->where('id', $id)->lockForUpdate()->first();
+            abort_unless($payment, 404);
+            $targetState = $data['action'] === 'refunded' ? 'refunded' : 'succeeded';
+            if ($payment->resolved_at && $payment->status === $targetState) {
+                return;
+            }
+            if ($payment->status !== 'review') {
+                $this->fail('payment', 'Giao dịch không còn trong hàng đợi đối soát.');
+            }
+            $callback = json_decode($payment->callback_payload ?? '{}', true);
+            if (($callback['vnp_ResponseCode'] ?? null) !== '00' || ($callback['vnp_TransactionStatus'] ?? null) !== '00') {
+                $this->fail('payment', 'Chưa có thông báo thanh toán thành công để đối soát.');
+            }
+            if ($data['action'] === 'confirmed') {
+                if ($payment->target_type === 'invoice') {
+                    $bill = $this->commerce->invoice((int) $payment->target_id);
+                    if ($bill->TRANGTHAI !== 'Chưa thanh toán' || $this->commerce->received((int) $bill->MAHD) + $payment->amount > $bill->THANHTIEN) {
+                        $this->fail('payment', 'Đơn đã đóng hoặc khoản thu sẽ vượt tổng tiền; hãy đối chiếu và hoàn tiền bên ngoài nếu cần.');
+                    }
+                    DB::table('gym_fulfillments')->where('invoice_id', $bill->MAHD)->update(['cancellation_requested' => false, 'updated_at' => now()]);
+                } else {
+                    $order = MembershipOrder::query()->findOrFail($payment->target_id);
+                    if ($order->status !== MembershipOrder::STATUS_PENDING || $order->receivedAmount() + $payment->amount > $order->amount) {
+                        $this->fail('payment', 'Đơn đã đóng hoặc khoản thu sẽ vượt tổng tiền.');
+                    }
+                    $order->update(['cancellation_requested_at' => null]);
+                }
+            }
+            DB::table('gym_online_payments')->where('id', $id)->update([
+                'status' => $targetState, 'resolved_by' => $manager->id, 'resolved_at' => now(),
+                'resolution_note' => $data['note'], 'resolution_reference' => $data['reference'] ?? null,
+                'paid_at' => $data['action'] === 'confirmed' ? ($payment->paid_at ?? now()) : $payment->paid_at,
+                'updated_at' => now(),
+            ]);
+            if ($data['action'] === 'confirmed') {
+                if ($payment->target_type === 'invoice' && $this->commerce->received((int) $bill->MAHD) >= $bill->THANHTIEN) {
+                    $this->commerce->confirm((int) $bill->MAHD, $manager, $data['start_date'] ?? null);
+                } elseif ($payment->target_type === 'membership_order' && $order->receivedAmount() >= $order->amount) {
+                    $this->orders->confirm($order, $manager, $data['start_date'] ?? $order->start_date->toDateString());
+                }
+            }
+            $owner = User::query()->find($payment->user_id);
+            if ($owner) {
+                app(GymPortalService::class)->message($owner, 'payment-review:'.$id, 'Đã xử lý đối soát thanh toán',
+                    $data['action'] === 'refunded' ? 'Quản lý đã ghi nhận hoàn tiền được thực hiện ngoài hệ thống.' : 'Giao dịch đã được đối chiếu và ghi nhận vào đơn.',
+                    $payment->target_type === 'invoice' ? route('gym.invoices.show', $payment->target_id, absolute: false) : route('my.orders.show', $payment->target_id, absolute: false));
+            }
+            $this->sql->audit('Đối soát VNPay', 'gym_online_payments:'.$id, ['action' => $data['action'], 'reference' => $data['reference'] ?? null, 'note' => $data['note']]);
+        });
+    }
+
     /** @param array<string, mixed> $parameters */
     public function signature(array $parameters): string
     {
@@ -178,8 +235,12 @@ class VnPayService
         }
 
         $payment = $this->sql->transaction(function () use ($targetType, $targetId, $user, $amount, $maximumExpiry): object {
+            if (DB::table('gym_online_payments')->where('target_type', $targetType)->where('target_id', $targetId)->where('status', 'review')->exists()) {
+                $this->fail('payment', 'Giao dịch đang được đối soát. Vui lòng chờ quản lý xử lý trước khi thanh toán thêm.');
+            }
             $existing = DB::table('gym_online_payments')->where('target_type', $targetType)
                 ->where('target_id', $targetId)->where('user_id', $user->id)->where('status', 'pending')
+                ->where('amount', $amount)
                 ->where('expires_at', '>', now(config('app.timezone')))->orderByDesc('id')->lockForUpdate()->first();
             if ($existing) {
                 return $existing;

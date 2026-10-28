@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\GymChatAnswerService;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -9,11 +10,16 @@ use Illuminate\Support\Facades\Http;
 
 class ChatbotController extends Controller
 {
-    public function __invoke(Request $request): JsonResponse
+    public function __invoke(Request $request, GymChatAnswerService $answers): JsonResponse
     {
         $validated = $request->validate([
             'message' => ['required', 'string', 'max:500'],
         ]);
+
+        $local = $answers->answer(trim($validated['message']));
+        if ($local !== null) {
+            return response()->json($local);
+        }
 
         try {
             $response = Http::acceptJson()

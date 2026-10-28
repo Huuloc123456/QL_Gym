@@ -30,6 +30,7 @@ class ManagerReportsTest extends TestCase
     public function manager_sees_orders_confirmed_and_receipts_in_the_selected_local_period(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-10-21 09:00:00', 'Asia/Ho_Chi_Minh'));
+        $baselineRevenue = app(ManagerReportService::class)->report('2026-10-01', '2026-10-31')['confirmed_revenue'];
 
         $manager = User::factory()->manager()->create();
         $employee = User::factory()->employee()->create();
@@ -71,10 +72,10 @@ class ManagerReportsTest extends TestCase
         $this->actingAs($manager)
             ->get(route('manager.reports.index', ['from_date' => '2026-10-01', 'to_date' => '2026-10-31']))
             ->assertOk()
-            ->assertSee('500.000')
+            ->assertSee(number_format($baselineRevenue + 500000, 0, ',', '.'))
             ->assertSee('350.000')
-            ->assertViewHas('report', function (array $report) use ($confirmedThisMonth, $pending): bool {
-                $this->assertSame(500000, $report['confirmed_revenue']);
+            ->assertViewHas('report', function (array $report) use ($confirmedThisMonth, $pending, $baselineRevenue): bool {
+                $this->assertSame($baselineRevenue + 500000, $report['confirmed_revenue']);
                 $this->assertSame(350000, $report['receipts_total']);
                 $this->assertSame(100000, $report['receipts_by_method']['cash']);
                 $this->assertSame(250000, $report['receipts_by_method']['bank_transfer']);

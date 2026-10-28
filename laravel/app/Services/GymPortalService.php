@@ -68,6 +68,7 @@ class GymPortalService
             $orders = DB::table('gym_fulfillments as f')->join('HOADON as h', 'h.MAHD', '=', 'f.invoice_id')
                 ->where('h.TRANGTHAI', 'Chưa thanh toán')->whereNotNull('f.expires_at')->where('f.expires_at', '<=', now())
                 ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('gym_receipts as r')->whereColumn('r.invoice_id', 'f.invoice_id'))
+                ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('gym_online_payments as p')->whereColumn('p.target_id', 'f.invoice_id')->where('p.target_type', 'invoice')->whereIn('p.status', ['review', 'succeeded']))
                 ->select('f.invoice_id')->get();
             foreach ($orders as $order) {
                 DB::table('HOADON')->where('MAHD', $order->invoice_id)->update(['TRANGTHAI' => 'Hủy']);

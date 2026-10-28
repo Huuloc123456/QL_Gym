@@ -32,7 +32,9 @@ php artisan serve
 
 Mở `http://127.0.0.1:8000`. Tài khoản quản lý/nhân viên mẫu và cách cấu hình email được ghi trong [README gốc](../README.md). Chỉ dùng các tài khoản mẫu ở môi trường local.
 
-Chatbot gọi dịch vụ RAG riêng; cấu hình `RAG_API_URL` và `RAG_ADMIN_TOKEN` trong `.env` khi cần chạy dịch vụ đó. Hướng dẫn khởi chạy nằm trong [README gốc](../README.md).
+Chatbot tra cứu thông tin công khai từ DB (giá/tồn sản phẩm, gói, lớp/PT, phí giao, FAQ cấu hình). Hướng dẫn dài được tra cứu qua API local `rag_api.py`: chạy `python rag_api.py` bằng Python3.12+ ở terminal riêng. API dùng SQLite FTS5 và `RAG_ADMIN_TOKEN` trong cùng `.env` để bảo vệ quản trị tài liệu, không cần thêm thư viện. Khi chưa có `GROQ_API_KEY`, câu trả lời trích tài liệu có nguồn và ghi rõ chưa dùng mô hình AI. Có khóa thì nhánh Groq viết câu trả lời từ tài liệu truy xuất; không có embedding. Hướng dẫn cấu hình và dữ liệu chỉ mục nằm trong [README gốc](../README.md).
+
+Xem [kịch bản test chi tiết theo từng tài khoản](../docs/kich-ban-test-day-du.md), gồm 12 tài khoản local, dữ liệu DEMO, luồng khách–nhân viên–quản lý và kết quả mong đợi. Seeder `GymDemoScenarioSeeder` chỉ bổ sung ở local/testing, không reset mật khẩu hay hóa đơn đã có.
 
 VNPay là tùy chọn; cấu hình `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `VNPAY_RETURN_URL` và IPN công khai qua HTTPS trước khi bật giao dịch sandbox. Thiếu khóa thì trang thanh toán không hiển thị VNPay. IPN đã xác thực mới xác nhận thanh toán; test tự động giả lập callback có chữ ký và không thay cho giao dịch thật với sandbox.
 

@@ -22,7 +22,7 @@
 
         <div class="gym-chat-messages min-h-24 max-h-[45dvh] space-y-3 overflow-y-auto bg-gym-paper px-3 py-4 sm:max-h-72 sm:px-4" data-chat-messages role="log" aria-live="polite" aria-relevant="additions text">
             <article class="gym-chat-message gym-chat-message--assistant">
-                <p>Chào bạn! Mình có thể giúp gì về gói tập hoặc tài khoản hội viên?</p>
+                <p>Chào bạn! Mình tra cứu thông tin công khai về gói tập, sản phẩm, lớp/PT và thanh toán từ dữ liệu hiện tại của web.</p>
             </article>
         </div>
 

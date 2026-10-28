@@ -15,6 +15,7 @@ use App\Http\Controllers\ManagerDashboardController;
 use App\Http\Controllers\ManagerEmployeeController;
 use App\Http\Controllers\ManagerGymPackageController;
 use App\Http\Controllers\ManagerHeroBannerController;
+use App\Http\Controllers\ManagerPaymentReviewController;
 use App\Http\Controllers\ManagerRagKnowledgeController;
 use App\Http\Controllers\ManagerReportController;
 use App\Http\Controllers\MemberController;
@@ -39,23 +40,23 @@ Route::get('/goi-tap', [MemberController::class, 'packages'])->name('packages.in
 Route::get('/goi-tap/{package}', [MemberController::class, 'showPackage'])->name('packages.show');
 Route::post('/dang-ky-trai-nghiem', [TrialRequestController::class, 'store'])->name('trials.store');
 Route::post('/chatbot/message', ChatbotController::class)
-    ->middleware('throttle:10,1')
+    ->middleware('throttle:10,1,chat:')
     ->name('chatbot.message');
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/dang-nhap', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/dang-nhap', [AuthController::class, 'login'])
-        ->middleware('throttle:5,1')
+        ->middleware('throttle:5,1,login:')
         ->name('login.store');
     Route::get('/dang-ky', [AuthController::class, 'showRegistration'])->name('register');
     Route::post('/dang-ky', [AuthController::class, 'register'])->name('register.store');
     Route::get('/quen-mat-khau', [PasswordRecoveryController::class, 'create'])->name('password.request');
     Route::post('/quen-mat-khau', [PasswordRecoveryController::class, 'store'])
-        ->middleware('throttle:5,1')
+        ->middleware('throttle:5,1,password-email:')
         ->name('password.email');
     Route::get('/dat-lai-mat-khau/{token}', [PasswordRecoveryController::class, 'edit'])->name('password.reset');
     Route::post('/dat-lai-mat-khau', [PasswordRecoveryController::class, 'update'])
-        ->middleware('throttle:5,1')
+        ->middleware('throttle:5,1,password-reset:')
         ->name('password.update');
 });
 
@@ -138,6 +139,8 @@ Route::middleware(['auth', 'role:employee,manager'])->prefix('staff')->name('sta
 Route::middleware(['auth', 'role:manager'])->get('/quan-ly', [ManagerDashboardController::class, 'index'])->name('manager.dashboard');
 
 Route::middleware(['auth', 'role:manager'])->prefix('quan-ly')->name('manager.')->group(function (): void {
+    Route::get('doi-soat', [ManagerPaymentReviewController::class, 'index'])->name('payment-reviews.index');
+    Route::post('doi-soat/{payment}', [ManagerPaymentReviewController::class, 'resolve'])->whereNumber('payment')->name('payment-reviews.resolve');
     Route::get('bao-cao', [GymReportController::class, 'index'])->name('reports.index');
     Route::get('bao-cao/xuat-excel', [ManagerReportController::class, 'export'])->name('reports.export');
 
@@ -216,7 +219,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/thong-bao', [GymPortalController::class, 'messages'])->name('gym.messages');
     Route::post('/thong-bao/doc-tat-ca', [GymPortalController::class, 'readAll'])->name('gym.messages.read-all');
     Route::post('/thong-bao/{message}/doc', [GymPortalController::class, 'read'])->whereNumber('message')->name('gym.messages.read');
-    Route::put('/tai-khoan/mat-khau', [ProfileController::class, 'password'])->middleware('throttle:5,1')->name('gym.password');
+    Route::put('/tai-khoan/mat-khau', [ProfileController::class, 'password'])->middleware('throttle:5,1,change-password:')->name('gym.password');
     Route::get('/tai-khoan/bao-mat', fn () => view('profile.password'))->name('gym.security');
 });
 Route::middleware(['auth', 'role:manager'])->group(function (): void {
@@ -251,7 +254,7 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/hoa-don/{invoice}/huy', [GymInvoiceController::class, 'cancel'])->name('gym.invoices.cancel');
     Route::post('/hoa-don/{invoice}/giao-nhan', [GymInvoiceController::class, 'fulfill'])->name('gym.invoices.fulfill');
     Route::post('/hoa-don/{invoice}/ky', [GymInvoiceController::class, 'sign'])->name('gym.invoices.sign');
-    Route::post('/hoa-don/{invoice}/kiem-tra', [GymInvoiceController::class, 'verify'])->middleware('throttle:10,1')->name('gym.invoices.verify');
+    Route::post('/hoa-don/{invoice}/kiem-tra', [GymInvoiceController::class, 'verify'])->middleware('throttle:10,1,invoice-verify:')->name('gym.invoices.verify');
     Route::get('/hoa-don/{invoice}/tai', [GymInvoiceController::class, 'download'])->name('gym.invoices.download');
     Route::get('/lich-tap', [GymTrainingController::class, 'calendar'])->name('gym.calendar');
     Route::post('/lich-tap/pt/{contract}', [GymTrainingController::class, 'book'])->name('gym.pt.book');
@@ -275,5 +278,5 @@ Route::middleware(['auth', 'role:manager'])->prefix('quan-ly/csdl')->name('gym.d
     Route::get('/bang/{table}', [GymDatabaseController::class, 'table'])->name('table');
     Route::get('/nhat-ky', [GymDatabaseController::class, 'audit'])->name('audit');
     Route::get('/tai-khoan', [GymDatabaseController::class, 'accounts'])->name('accounts');
-    Route::post('/tai-khoan', [GymDatabaseController::class, 'accountAction'])->middleware('throttle:10,1')->name('account-action');
+    Route::post('/tai-khoan', [GymDatabaseController::class, 'accountAction'])->middleware('throttle:10,1,database-accounts:')->name('account-action');
 });

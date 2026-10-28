@@ -204,6 +204,11 @@ class GymAdministrationController extends Controller
         abort_if(in_array($resource, ['customers', 'employees'], true), 403);
         try {
             $this->sql->transaction(function () use ($table, $key, $record, $resource): void {
+                if (in_array($resource, ['products', 'classes'], true) && DB::table('gym_invoice_lines as l')
+                    ->join('HOADON as h', 'h.MAHD', '=', 'l.invoice_id')->where('l.kind', $resource === 'products' ? 'product' : 'class')
+                    ->where('l.item_id', $record)->where('h.TRANGTHAI', 'Chưa thanh toán')->exists()) {
+                    $this->fail('record', 'Dữ liệu đang được giữ cho hóa đơn chờ thanh toán, không thể xóa.');
+                }
                 if ($resource === 'products') {
                     DB::table('HINHANH')->where('MASP', $record)->delete();
                 }

@@ -45,7 +45,7 @@ class PortalCoverageTest extends TestCase
             ->assertSee('lg:flex', false)
             ->assertSee('lg:flex-1', false)
             ->assertSee('id="gymNavbar"', false)
-            ->assertSee('name="gym-primary-navigation"', false)
+            ->assertSee('aria-label="Điều hướng chính"', false)
             ->assertSee('data-nav-group="operations"', false)
             ->assertSee('data-nav-group="management"', false)
             ->assertSee(route('staff.trial-requests.index'), false)

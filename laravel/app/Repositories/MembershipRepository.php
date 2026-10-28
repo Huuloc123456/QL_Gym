@@ -26,7 +26,7 @@ class MembershipRepository
             ->with(['gymPackage', 'order'])
             ->orderByDesc('starts_on')
             ->orderByDesc('id');
-        $this->sourceEligible($query);
+        $this->sourceEligible($query, $section === 'expired');
 
         if ($section === 'active') {
             $query->whereDate('starts_on', '<=', $today)->whereDate('expires_on', '>', $today);
@@ -94,13 +94,13 @@ class MembershipRepository
         return Membership::query()->create($attributes);
     }
 
-    private function sourceEligible(Builder|HasMany $query): void
+    private function sourceEligible(Builder|HasMany $query, bool $includeExpired = false): void
     {
         if (Schema::hasTable('DANGKYGOITAP')) {
-            $query->where(function (Builder $query): void {
+            $query->where(function (Builder $query) use ($includeExpired): void {
                 $query->whereNull('sql_membership_id')
                     ->orWhereIn('sql_membership_id', DB::table('DANGKYGOITAP')
-                        ->select('MADKGT')->where('TRANGTHAI', 'Còn hiệu lực'));
+                        ->select('MADKGT')->whereIn('TRANGTHAI', $includeExpired ? ['Còn hiệu lực', 'Hết hạn'] : ['Còn hiệu lực']));
             });
         }
     }

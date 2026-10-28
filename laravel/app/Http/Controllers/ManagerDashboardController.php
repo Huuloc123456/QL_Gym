@@ -33,6 +33,7 @@ class ManagerDashboardController extends Controller
             'invoicePendingCount' => DB::table('HOADON')->where('TRANGTHAI', 'Chưa thanh toán')->count(),
             'packages' => $packages->activePackages(),
             'recentOrders' => $orders->recent(8),
+            'recentInvoices' => DB::table('HOADON as h')->join('KHACHHANG as k', 'k.MAKH', '=', 'h.MAKH')->select('h.*', 'k.TENKH')->orderByDesc('h.NGAYLAP')->orderByDesc('h.MAHD')->limit(8)->get(),
         ]);
     }
 }

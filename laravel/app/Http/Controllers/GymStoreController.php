@@ -18,7 +18,7 @@ class GymStoreController extends Controller
     public function index(Request $request): View
     {
         $data = $request->validate(['q' => 'nullable|string|max:150', 'category' => 'nullable|integer|exists:LOAISANPHAM,MALOAISP', 'brand' => 'nullable|string|max:100', 'origin' => 'nullable|string|max:100', 'min' => 'nullable|integer|min:0|max:1000000000000', 'max' => 'nullable|integer|min:0|max:1000000000000', 'sort' => 'nullable|in:name,price_up,price_down,newest', 'stock' => 'nullable|in:1', 'sale' => 'nullable|in:1']);
-        $query = DB::table('SANPHAM as p')->leftJoin('LOAISANPHAM as c', 'c.MALOAISP', '=', 'p.MALOAISP')->select('p.*', 'c.TENLOAISP')
+        $query = $this->shop->availableProductsQuery()->leftJoin('LOAISANPHAM as c', 'c.MALOAISP', '=', 'p.MALOAISP')->addSelect('c.TENLOAISP')
             ->selectSub(DB::table('HINHANH')->select('URL')->whereColumn('MASP', 'p.MASP')->orderByDesc('ISMAIN')->orderBy('MAHINH')->limit(1), 'image');
         $query->when($data['q'] ?? null, fn ($q, $value) => $q->where('p.TENSP', 'like', '%'.$value.'%'))
             ->when($data['category'] ?? null, fn ($q, $value) => $q->where('p.MALOAISP', $value))
@@ -31,7 +31,7 @@ class GymStoreController extends Controller
             $query->whereRaw('LEAST(DONGIA, COALESCE(GIAKHUYENMAI, DONGIA)) <= ?', [$data['max']]);
         }
         if (isset($data['stock'])) {
-            $query->where('SOLUONGTON', '>', 0);
+            $query->whereRaw('p.SOLUONGTON - p.reserved_quantity > 0');
         }
         if (isset($data['sale'])) {
             $query->whereColumn('GIAKHUYENMAI', '<', 'DONGIA');

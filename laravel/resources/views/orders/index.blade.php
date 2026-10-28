@@ -13,6 +13,19 @@
                 <a class="rounded-full px-4 py-2 text-sm font-semibold {{ $filters['status'] === $status ? 'bg-gym-blue text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50' }}" href="{{ route('my.orders.index', ['status' => $status]) }}" @if ($filters['status'] === $status) aria-current="page" @endif>{{ $label }}</a>
             @endforeach
         </nav>
+        <h2 class="mb-3 text-lg font-bold">Hóa đơn đăng ký gói tập</h2>
+        <div class="mb-6 grid gap-3">
+            @forelse ($packageInvoices as $invoice)
+                <a class="gym-card flex flex-wrap items-center justify-between gap-3" href="{{ route('gym.invoices.show', $invoice->MAHD) }}">
+                    <div><strong>Hóa đơn #{{ $invoice->MAHD }}</strong><p class="mt-1 text-sm">{{ $invoice->contents ?: 'Đăng ký gói tập từ SQL' }}</p></div>
+                    <div><p class="font-bold">{{ number_format($invoice->THANHTIEN, 0, ',', '.') }}đ</p><p class="text-sm">{{ $invoice->TRANGTHAI }}</p></div>
+                </a>
+            @empty
+                <p class="text-sm text-slate-500">Chưa có hóa đơn gói tập ở trạng thái này.</p>
+            @endforelse
+        </div>
+        {{ $packageInvoices->links() }}
+        @if ($orders->total())<h2 class="mt-6 mb-3 text-lg font-bold">Đơn hội viên chưa liên kết hóa đơn</h2>@endif
         <p class="mb-3 text-sm text-slate-600">{{ number_format($orders->total()) }} đơn · {{ $orders->firstItem() ?? 0 }}–{{ $orders->lastItem() ?? 0 }}</p>
         <div class="grid gap-4">
             @forelse ($orders as $order)
@@ -44,7 +57,7 @@
                     @endif
                 </article>
             @empty
-                <div class="gym-card py-10 text-center"><p class="text-slate-600">{{ $filters['status'] === 'all' ? 'Bạn chưa đăng ký gói tập nào.' : 'Không có đơn hàng ở trạng thái này.' }}</p>@if ($filters['status'] === 'all')<a class="gym-btn-primary mt-5" href="{{ route('packages.index') }}">Xem gói tập</a>@endif</div>
+                @if (! $packageInvoices->total())<div class="gym-card py-10 text-center"><p class="text-slate-600">{{ $filters['status'] === 'all' ? 'Bạn chưa đăng ký gói tập nào.' : 'Không có đơn hàng ở trạng thái này.' }}</p>@if ($filters['status'] === 'all')<a class="gym-btn-primary mt-5" href="{{ route('packages.index') }}">Xem gói tập</a>@endif</div>@endif
             @endforelse
         </div>
         <nav class="mt-6" aria-label="Các trang đơn hàng">{{ $orders->links() }}</nav>

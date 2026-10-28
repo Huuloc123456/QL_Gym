@@ -66,13 +66,20 @@ class GymReportController extends Controller
     public function export(Request $request): StreamedResponse
     {
         [$from, $to] = $this->range($request);
+        $report = app(ManagerReportService::class)->report($from->toDateString(), $to->toDateString());
 
-        return response()->streamDownload(function () use ($from, $to): void {
+        return response()->streamDownload(function () use ($report): void {
             $stream = fopen('php://output', 'w');
             fwrite($stream, "\xEF\xBB\xBF");
             fputcsv($stream, ['Mã hóa đơn', 'Ngày lập', 'Khách hàng', 'Tiền hàng/dịch vụ', 'Giảm giá', 'Phí giao', 'Thành tiền', 'Trạng thái'], ',', '"', '');
-            foreach ($this->invoices($from, $to)->join('KHACHHANG as k', 'k.MAKH', '=', 'h.MAKH')->select('h.MAHD', 'h.NGAYLAP', 'k.TENKH', 'h.TONGTIEN', 'h.GIAMGIA', 'f.shipping_fee', 'h.THANHTIEN', 'h.TRANGTHAI')->orderBy('h.MAHD')->cursor() as $row) {
+            foreach ($report['invoices'] as $invoice) {
+                $row = (object) ['id' => $invoice->MAHD, 'created_at' => $invoice->NGAYLAP, 'name' => $invoice->TENKH, 'gross' => $invoice->TONGTIEN, 'discount' => $invoice->GIAMGIA, 'shipping' => $invoice->shipping_fee ?? 0, 'total' => $invoice->THANHTIEN, 'state' => $invoice->TRANGTHAI];
                 $values = array_map(fn ($value) => is_string($value) && preg_match('/^[\s]*[=+@\-]/u', $value) ? "'".$value : $value, array_values((array) $row));
+                fputcsv($stream, $values, ',', '"', '');
+            }
+            foreach ($report['orders'] as $order) {
+                $values = ['LEGACY-'.$order->id, $order->created_at->format('Y-m-d H:i:s'), $order->user->name, $order->amount, 0, 0, $order->amount, ['paid' => 'Đã thanh toán', 'pending' => 'Chưa thanh toán', 'cancelled' => 'Hủy'][$order->status]];
+                $values = array_map(fn ($value) => is_string($value) && preg_match('/^[\s]*[=+@\-]/u', $value) ? "'".$value : $value, $values);
                 fputcsv($stream, $values, ',', '"', '');
             }
             fclose($stream);

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\GymSetting;
 use App\Models\HeroBanner;
 use App\Repositories\GymPackageRepository;
+use App\Services\GymCommerceService;
 use App\Services\MembershipOrderService;
 use App\Services\MembershipPeriod;
 use Illuminate\Http\Request;
@@ -36,9 +37,9 @@ class HomeController extends Controller
             'lastTrainingDays' => $lastTrainingDays,
             'selectedPackageId' => $request->integer('package_id'),
             'featuredProducts' => Schema::hasTable('SANPHAM')
-                ? DB::table('SANPHAM as p')->select('p.*')
+                ? app(GymCommerceService::class)->availableProductsQuery()
                     ->selectSub(DB::table('HINHANH')->select('URL')->whereColumn('MASP', 'p.MASP')->orderByDesc('ISMAIN')->orderBy('MAHINH')->limit(1), 'image')
-                    ->where('SOLUONGTON', '>', 0)->orderByRaw('GIAKHUYENMAI IS NULL')->orderBy('MASP')->limit(10)->get()
+                    ->whereRaw('p.SOLUONGTON - p.reserved_quantity > 0')->orderByRaw('GIAKHUYENMAI IS NULL')->orderBy('MASP')->limit(10)->get()
                 : collect(),
             'heroBanners' => HeroBanner::query()->where('is_active', true)->orderBy('position')->orderBy('id')->get(),
             'gymSettings' => $gymSettings,

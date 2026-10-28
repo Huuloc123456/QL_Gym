@@ -134,7 +134,7 @@ class StaffMembershipTest extends TestCase
             'membership_order_id' => $order->id, 'starts_on' => '2026-10-21', 'expires_on' => '2027-10-21',
         ]);
         $this->assertDatabaseCount('memberships', 1);
-        $this->actingAs($customer)->get(route('my.orders.show', $order))
+        $this->actingAs($customer)->followingRedirects()->get(route('my.orders.show', $order))
             ->assertSee('Thời hạn đã đặt: 12 tháng');
     }
 

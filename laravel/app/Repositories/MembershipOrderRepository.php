@@ -26,6 +26,7 @@ class MembershipOrderRepository
     public function paginateForCustomer(User $customer, string $status): LengthAwarePaginator
     {
         $query = $customer->membershipOrders()
+            ->whereNull('sql_invoice_id')
             ->with(['gymPackage', 'membership'])
             ->withSum('payments', 'amount')
             ->orderByDesc('created_at')
@@ -117,6 +118,7 @@ class MembershipOrderRepository
     public function recent(int $limit): Collection
     {
         return MembershipOrder::query()
+            ->whereNull('sql_invoice_id')
             ->with(['user', 'gymPackage'])
             ->latest()
             ->limit($limit)
@@ -125,7 +127,8 @@ class MembershipOrderRepository
 
     public function pendingCount(): int
     {
-        return MembershipOrder::query()->where('status', MembershipOrder::STATUS_PENDING)->count();
+        return MembershipOrder::query()->whereNull('sql_invoice_id')->where('status', MembershipOrder::STATUS_PENDING)->count()
+            + DB::table('HOADON')->where('TRANGTHAI', 'Chưa thanh toán')->count();
     }
 
     public function paidRevenue(): int

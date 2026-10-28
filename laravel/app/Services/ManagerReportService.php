@@ -42,6 +42,7 @@ class ManagerReportService
         $toExclusive = $to->copy()->addDay()->startOfDay();
 
         $orders = MembershipOrder::query()
+            ->whereNull('sql_invoice_id')
             ->with(['user', 'gymPackage', 'confirmedBy', 'payments.receiver'])
             ->withSum('payments as total_received', 'amount')
             ->selectSub(DB::table('gym_online_payments')->selectRaw('COALESCE(SUM(amount), 0)')
@@ -61,12 +62,41 @@ class ManagerReportService
             ->get();
 
         $counts = MembershipOrder::query()
+            ->whereNull('sql_invoice_id')
             ->selectRaw('status, COUNT(*) as total')
             ->where('created_at', '>=', $from)
             ->where('created_at', '<', $toExclusive)
             ->groupBy('status')
             ->pluck('total', 'status')
             ->all();
+
+        $legacyDates = DB::table('membership_orders')->select('sql_invoice_id')->selectRaw('MAX(paid_at) AS paid_at')
+            ->whereNotNull('sql_invoice_id')->groupBy('sql_invoice_id');
+        $invoiceBase = DB::table('HOADON as h')->join('KHACHHANG as k', 'k.MAKH', '=', 'h.MAKH')
+            ->leftJoin('gym_fulfillments as f', 'f.invoice_id', '=', 'h.MAHD')
+            ->leftJoinSub($legacyDates, 'legacy_dates', 'legacy_dates.sql_invoice_id', '=', 'h.MAHD');
+        $confirmedAt = 'COALESCE(f.paid_at, legacy_dates.paid_at, h.NGAYLAP)';
+        $invoices = (clone $invoiceBase)->select('h.*', 'k.TENKH', 'k.EMAIL', 'k.SDT', 'f.shipping_fee')
+            ->selectRaw($confirmedAt.' AS confirmed_at')
+            ->selectSub(DB::table('gym_invoice_lines')->selectRaw("GROUP_CONCAT(name SEPARATOR ', ')")->whereColumn('invoice_id', 'h.MAHD'), 'contents')
+            ->selectSub(DB::table('gym_receipts')->selectRaw('COALESCE(SUM(amount), 0)')->whereColumn('invoice_id', 'h.MAHD'), 'counter_received')
+            ->selectSub(DB::table('gym_online_payments')->selectRaw('COALESCE(SUM(amount), 0)')->where('target_type', 'invoice')->where('status', 'succeeded')->whereColumn('target_id', 'h.MAHD'), 'online_received')
+            ->selectSub(DB::table('order_payments as p')->join('membership_orders as o', 'o.id', '=', 'p.membership_order_id')->selectRaw('COALESCE(SUM(p.amount), 0)')->whereColumn('o.sql_invoice_id', 'h.MAHD'), 'legacy_received')
+            ->selectSub(DB::table('gym_online_payments as p')->join('membership_orders as o', 'o.id', '=', 'p.target_id')->selectRaw('COALESCE(SUM(p.amount), 0)')->where('p.target_type', 'membership_order')->where('p.status', 'succeeded')->whereColumn('o.sql_invoice_id', 'h.MAHD'), 'legacy_online_received')
+            ->where(function ($query) use ($from, $toExclusive, $confirmedAt): void {
+                $query->where(function ($created) use ($from, $toExclusive): void {
+                    $created->where('h.NGAYLAP', '>=', $from)->where('h.NGAYLAP', '<', $toExclusive);
+                })->orWhere(function ($paid) use ($from, $toExclusive, $confirmedAt): void {
+                    $paid->where('h.TRANGTHAI', 'Đã thanh toán')->whereRaw($confirmedAt.' >= ? AND '.$confirmedAt.' < ?', [$from, $toExclusive]);
+                });
+            })->orderByDesc('h.NGAYLAP')->orderByDesc('h.MAHD')->get();
+        $invoiceCounts = (clone $invoiceBase)->where('h.NGAYLAP', '>=', $from)->where('h.NGAYLAP', '<', $toExclusive)
+            ->selectRaw('h.TRANGTHAI, COUNT(*) AS total')->groupBy('h.TRANGTHAI')->pluck('total', 'TRANGTHAI');
+        foreach (['pending' => 'Chưa thanh toán', 'paid' => 'Đã thanh toán', 'cancelled' => 'Hủy'] as $state => $label) {
+            $counts[$state] = (int) ($counts[$state] ?? 0) + (int) ($invoiceCounts[$label] ?? 0);
+        }
+        $invoiceRevenue = (int) (clone $invoiceBase)->where('h.TRANGTHAI', 'Đã thanh toán')
+            ->whereRaw($confirmedAt.' >= ? AND '.$confirmedAt.' < ?', [$from, $toExclusive])->sum('h.THANHTIEN');
 
         $payments = OrderPayment::query()
             ->with(['order.user', 'receiver'])
@@ -115,10 +145,11 @@ class ManagerReportService
                 MembershipOrder::STATUS_CANCELLED => (int) ($counts[MembershipOrder::STATUS_CANCELLED] ?? 0),
             ],
             'confirmed_revenue' => (int) MembershipOrder::query()
+                ->whereNull('sql_invoice_id')
                 ->where('status', MembershipOrder::STATUS_PAID)
                 ->where('paid_at', '>=', $from)
                 ->where('paid_at', '<', $toExclusive)
-                ->sum('amount'),
+                ->sum('amount') + $invoiceRevenue,
             'receipts_total' => (int) $payments->sum('amount') + (int) $invoiceReceipts->sum('amount') + (int) $onlinePayments->sum('amount'),
             'receipts_by_method' => [
                 'cash' => (int) ($receiptsByMethod['cash'] ?? 0),
@@ -126,6 +157,7 @@ class ManagerReportService
                 'vnpay' => (int) $onlinePayments->sum('amount'),
             ],
             'orders' => $orders,
+            'invoices' => $invoices,
             'payments' => $payments,
             'invoice_receipts' => $invoiceReceipts,
             'online_payments' => $onlinePayments,
@@ -181,6 +213,17 @@ class ManagerReportService
                 (int) $order->amount,
                 $received,
                 max(0, (int) $order->amount - $received),
+            ]]);
+        }
+        foreach ($report['invoices'] as $invoice) {
+            $received = (int) $invoice->counter_received + (int) $invoice->online_received + (int) $invoice->legacy_received + (int) $invoice->legacy_online_received;
+            $this->writeRows($orderSheet, [[
+                'HD-'.$invoice->MAHD, $invoice->TENKH, $invoice->EMAIL ?? '', $invoice->SDT ?? '',
+                $invoice->contents ?: 'Hóa đơn SQL #'.$invoice->MAHD,
+                Carbon::parse($invoice->NGAYLAP)->format('d/m/Y H:i'),
+                $invoice->TRANGTHAI === 'Đã thanh toán' ? Carbon::parse($invoice->confirmed_at)->format('d/m/Y H:i') : '',
+                $invoice->TRANGTHAI, (int) $invoice->THANHTIEN, $received,
+                $invoice->TRANGTHAI === 'Đã thanh toán' ? 0 : max(0, (int) $invoice->THANHTIEN - $received),
             ]]);
         }
         $this->formatDataSheet($orderSheet, 'K');

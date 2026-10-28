@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Repositories\MembershipOrderRepository;
 use App\Repositories\MembershipRepository;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
@@ -63,6 +64,7 @@ class MembershipOrderService
     ): OrderPayment {
         return $this->sql->transaction(function () use ($order, $staff, $amount, $paymentMethod, $reference): OrderPayment {
             $lockedOrder = $this->orders->lockForUpdate($order->id);
+            $this->assertNoPaymentReview($lockedOrder);
 
             if ($lockedOrder->status !== MembershipOrder::STATUS_PENDING) {
                 throw ValidationException::withMessages(['order' => 'Chỉ ghi nhận tiền cho đơn đang chờ thanh toán.']);
@@ -98,6 +100,7 @@ class MembershipOrderService
     {
         return $this->sql->transaction(function () use ($order, $staff, $startsOn, $legacyDurationMonths): Membership {
             $lockedOrder = $this->orders->lockForUpdate($order->id);
+            $this->assertNoPaymentReview($lockedOrder);
 
             if ($lockedOrder->status === MembershipOrder::STATUS_PAID) {
                 return $lockedOrder->membership()->firstOrFail();
@@ -156,6 +159,7 @@ class MembershipOrderService
     {
         $this->sql->transaction(function () use ($order): void {
             $lockedOrder = $this->orders->lockForUpdate($order->id);
+            $this->assertNoPaymentReview($lockedOrder);
 
             if ($lockedOrder->status === MembershipOrder::STATUS_CANCELLED) {
                 return;
@@ -204,6 +208,13 @@ class MembershipOrderService
 
         if ($hasOverlap) {
             throw ValidationException::withMessages(['start_date' => 'Khoảng tập dự kiến bị trùng với một gói đã thanh toán.']);
+        }
+    }
+
+    private function assertNoPaymentReview(MembershipOrder $order): void
+    {
+        if (DB::table('gym_online_payments')->where('target_type', 'membership_order')->where('target_id', $order->id)->where('status', 'review')->exists()) {
+            throw ValidationException::withMessages(['payment' => 'Đơn có giao dịch VNPay chờ đối soát; quản lý cần xử lý trước.']);
         }
     }
 }

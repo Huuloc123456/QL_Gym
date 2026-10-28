@@ -161,6 +161,14 @@ if (chatWidget) {
     });
 
     input.addEventListener('input', updateForm);
+    input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+            event.preventDefault();
+            if (input.value.trim() && !isSending) {
+                form.requestSubmit();
+            }
+        }
+    });
 
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
