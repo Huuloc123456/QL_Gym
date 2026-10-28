@@ -2,11 +2,11 @@
 
 namespace Database\Seeders;
 
-use App\Http\Controllers\TrialRequestController;
 use App\Models\CheckIn;
 use App\Models\GymPackage;
 use App\Models\GymSetting;
 use App\Models\Membership;
+use App\Models\TrialEntitlement;
 use App\Models\TrialRequest;
 use App\Models\User;
 use App\Services\CheckInService;
@@ -15,9 +15,9 @@ use App\Services\GymIdentityService;
 use App\Services\GymTrainingService;
 use App\Services\MembershipPeriod;
 use App\Services\OriginalGymSql;
+use App\Services\TrialRegistrationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
@@ -60,7 +60,6 @@ class GymDemoScenarioSeeder extends Seeder
                 'held' => $this->record('SANPHAM', 'MASP', 'TENSP', 'DEMO Dây kháng lực giữ chỗ', ['MALOAISP' => $category, 'DONGIA' => 100000, 'SOLUONGTON' => 1, 'HANG' => 'DEMO']),
             ];
             $package = GymPackage::query()->firstOrCreate(['name' => 'DEMO Gói 1 tháng'], ['description' => 'Gói dùng cho kịch bản test.', 'price' => 300000, 'duration_months' => 1, 'is_active' => true]);
-            $trialPackage = GymPackage::query()->firstOrCreate(['name' => 'DEMO Gói 3 tháng'], ['description' => 'Trả phí 3 tháng; khi duyệt thử, procedure gốc dùng 3 ngày.', 'price' => 800000, 'duration_months' => 3, 'is_active' => true]);
             $specialty = $this->record('CHUYENMON', 'MACM', 'TENCHUYENMON', 'DEMO Thể lực', ['MOTA' => 'Chuyên môn mẫu cho lớp và PT.']);
             $pt = $accounts['demo_pt']->sql_employee_id;
             DB::table('NHANVIEN')->where('MANV', $pt)->update(['MACHUCVU' => DB::table('CHUCVU')->where('TENCHUCVU', 'PT')->value('MACHUCVU')]);
@@ -116,20 +115,10 @@ class GymDemoScenarioSeeder extends Seeder
             }
             $invoices['held_stock'] = $this->invoice('held-stock', $active, [['product', $products['held'], 1]], $staff);
             $invoices['class'] = $this->invoice('class', $active, [['class', $class, 1]], $staff, confirm: true);
-            $invoices['pt'] = $this->invoice('pt', $active, [], $staff, confirm: true, pt: ['employee' => $pt, 'sessions' => 2]);
-            $contract = DB::table('CHITIETHOADON')->where('MAHD', $invoices['pt'])->value('MADKPT');
-            if (! DB::table('LICHTAPPT')->where('MADKPT', $contract)->exists()) {
-                $this->backdate($invoices['pt'], $day->subDays(2));
-                DB::table('DANGKYPT')->where('MADKPT', $contract)->update(['NGAYDANGKY' => $day->subDays(2)]);
-                DB::table('LICHTAPPT')->insert(['MALICHPT' => app(OriginalGymSql::class)->nextId('LICHTAPPT'), 'MADKPT' => $contract, 'NGAYTAP' => $day->subDay(), 'GIOBATDAU' => $day->subDay()->setTime(11, 0), 'GIOKETTHUC' => $day->subDay()->setTime(12, 0), 'TRANGTHAI' => 'Chưa tập']);
-                app(GymTrainingService::class)->bookPt($active, $contract, ['date' => $day->addDays(2)->toDateString(), 'start' => '11:00', 'end' => '12:00']);
-            }
             $trialUser = $accounts['demo_tapthu'];
-            $trial = TrialRequest::query()->firstOrCreate(['phone' => $trialUser->phone], ['name' => $trialUser->name, 'email' => $trialUser->email, 'status' => 'received']);
-            if (! $trial->sql_membership_id) {
-                $request = Request::create('/staff/yeu-cau-tap-thu/'.$trial->id.'/duyet', 'POST', ['package' => $trialPackage->sql_package_id, 'identity_verified' => 1]);
-                $request->setUserResolver(fn () => $staff);
-                app(TrialRequestController::class)->approve($request, $trial, app(OriginalGymSql::class), app(GymIdentityService::class));
+            $trial = TrialRequest::query()->firstOrCreate(['phone' => $trialUser->phone], ['user_id' => $trialUser->id, 'name' => $trialUser->name, 'email' => $trialUser->email, 'status' => 'pending', 'desired_date' => $day->toDateString()]);
+            if (! TrialEntitlement::query()->where('trial_request_id', $trial->id)->exists()) {
+                app(TrialRegistrationService::class)->approve($trial, $staff, $day->toDateString());
             }
             TrialRequest::query()->firstOrCreate(['phone' => '0999000901'], ['name' => 'DEMO - Yêu cầu thử chưa xử lý', 'email' => 'trial.pending@example.test', 'status' => 'received']);
             if (! CheckIn::query()->where('user_id', $active->id)->exists()) {
@@ -143,7 +132,7 @@ class GymDemoScenarioSeeder extends Seeder
             $invoices['review'] = $this->invoice('review', $accounts['demo_khach_b'], [['product', $products['history'], 1]], $staff);
             DB::table('gym_online_payments')->insertOrIgnore(['target_type' => 'invoice', 'target_id' => $invoices['review'], 'user_id' => $accounts['demo_khach_b']->id, 'txn_ref' => 'DEMO-REVIEW-01', 'amount' => $shop->invoice($invoices['review'])->THANHTIEN, 'status' => 'review', 'response_code' => '00', 'review_reason' => 'Dữ liệu DEMO giả lập để test đối soát, không có giao dịch ngân hàng thật.', 'callback_payload' => json_encode(['vnp_ResponseCode' => '00', 'vnp_TransactionStatus' => '00', 'demo' => true]), 'expires_at' => now()->subMinute(), 'created_at' => now(), 'updated_at' => now()]);
 
-            return ['created_on' => substr((string) DB::table('HOADON')->where('MAHD', $invoices['active_package'])->value('NGAYLAP'), 0, 10), 'accounts' => collect($accounts)->map(fn ($user) => ['username' => $user->username, 'name' => $user->name, 'role' => $user->role, 'phone' => $user->phone, 'customer_id' => $user->sql_customer_id, 'employee_id' => $user->sql_employee_id])->all(), 'products' => $products, 'package_id' => $package->id, 'sql_package_id' => $package->sql_package_id, 'class_id' => $class, 'one_seat_class_id' => $smallClass, 'pt_id' => $pt, 'pt_contract_id' => $contract, 'invoices' => $invoices];
+            return ['created_on' => substr((string) DB::table('HOADON')->where('MAHD', $invoices['active_package'])->value('NGAYLAP'), 0, 10), 'accounts' => collect($accounts)->map(fn ($user) => ['username' => $user->username, 'name' => $user->name, 'role' => $user->role, 'phone' => $user->phone, 'customer_id' => $user->sql_customer_id, 'employee_id' => $user->sql_employee_id])->all(), 'products' => $products, 'package_id' => $package->id, 'sql_package_id' => $package->sql_package_id, 'class_id' => $class, 'one_seat_class_id' => $smallClass, 'invoices' => $invoices];
         });
         Storage::disk('local')->put('demo/scenario.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
         $this->command?->info('Dữ liệu DEMO đã sẵn sàng. Mật khẩu ban đầu: DemoGym@2026. Danh sách mã tại storage/app/private/demo/scenario.json.');
@@ -172,7 +161,7 @@ class GymDemoScenarioSeeder extends Seeder
         return DB::table('DIACHI')->insertGetId(['MAKH' => $customer->sql_customer_id, 'TINHTHANHPHO' => 'TP Hồ Chí Minh', 'QUANHUYEN' => 'Quận demo', 'PHUONGXA' => 'Phường demo', 'DIACHICUTHE' => 'DEMO - 01 Phố Kiểm thử, không giao thật', 'LADIACHIMACDINH' => ! DB::table('DIACHI')->where('MAKH', $customer->sql_customer_id)->exists(), 'NGAYTHEM' => now()]);
     }
 
-    private function invoice(string $key, User $customer, array $items, User $staff, string $mode = 'pickup', int $amount = 0, bool $confirm = false, ?string $start = null, ?array $pt = null): int
+    private function invoice(string $key, User $customer, array $items, User $staff, string $mode = 'pickup', int $amount = 0, bool $confirm = false, ?string $start = null): int
     {
         $token = $this->token($key);
         $existing = DB::table('gym_fulfillments')->where('checkout_token', $token)->value('invoice_id');
@@ -187,7 +176,7 @@ class GymDemoScenarioSeeder extends Seeder
         if ($mode === 'delivery') {
             $data['address_id'] = $this->address($customer);
         }
-        $invoice = $shop->checkout($customer, $data, $pt);
+        $invoice = $shop->checkout($customer, $data);
         $received = $confirm ? (int) $shop->invoice($invoice)->THANHTIEN : $amount;
         if ($received > 0) {
             $shop->receive($invoice, $staff, ['amount' => $received, 'method' => 'cash', 'token' => $this->token('receipt-'.$key), 'reference' => 'DEMO-'.$key]);

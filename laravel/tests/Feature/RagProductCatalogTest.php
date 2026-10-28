@@ -177,10 +177,10 @@ class RagProductCatalogTest extends TestCase
 
         $this->postJson('/chatbot/message', ['message' => 'Mua sản phẩm trên web như thế nào?'])
             ->assertOk()
-            ->assertJsonPath('answer', 'Mở /san-pham, đăng nhập, thêm sản phẩm vào giỏ và tạo đơn.');
+            ->assertJsonPath('answer', 'Mở /san-pham, đăng nhập, thêm sản phẩm vào giỏ và tạo đơn.')
+            ->assertJsonPath('sources.0', 'Hướng dẫn mua hàng');
 
-        Http::assertSent(fn ($request): bool => $request->url() === 'http://127.0.0.1:8090/chat'
-            && $request['message'] === 'Mua sản phẩm trên web như thế nào?');
+        Http::assertNotSent(fn ($request): bool => str_ends_with($request->url(), '/chat'));
     }
 
     public function test_managed_product_catalog_documents_cannot_be_manually_edited_or_disabled(): void

@@ -52,7 +52,7 @@ class MembershipOrderController extends Controller
     public function show(Request $request, MembershipOrder $order, MembershipOrderRepository $orderRepository, VietQrService $vietQr): View|RedirectResponse
     {
         $order = $orderRepository->findForCustomer($request->user(), $order->id);
-        if ($order->sql_invoice_id) {
+        if ($order->sql_invoice_id && DB::table('gym_fulfillments')->where('invoice_id', $order->sql_invoice_id)->exists()) {
             return redirect()->route('gym.invoices.show', $order->sql_invoice_id);
         }
 

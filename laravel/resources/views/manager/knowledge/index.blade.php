@@ -81,9 +81,7 @@
                     @endunless
                 </article>
             @empty
-                @unless ($serviceError)
-                    <p class="gym-card p-8 text-center text-slate-600">{{ $search !== '' ? 'Không tìm thấy nội dung phù hợp.' : 'Chưa có tài liệu. Thêm câu hỏi hoặc hướng dẫn công khai để chatbot trả lời.' }}</p>
-                @endunless
+                <p class="gym-card p-8 text-center text-slate-600">{{ $search !== '' ? 'Không tìm thấy nội dung phù hợp.' : 'Chưa có tài liệu. Thêm câu hỏi hoặc hướng dẫn công khai để chatbot trả lời.' }}</p>
             @endforelse
         </div>
         <nav class="mt-6" aria-label="Các trang tài liệu chatbot">{{ $documents->links() }}</nav>

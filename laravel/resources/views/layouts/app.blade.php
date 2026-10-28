@@ -34,6 +34,7 @@
                                     </summary>
                                     <ul class="mt-1 grid gap-1 border-l border-slate-200 pl-2 lg:absolute lg:left-0 lg:top-full lg:z-50 lg:mt-2 lg:min-w-56 lg:rounded-xl lg:border lg:bg-white lg:p-2 lg:shadow-lg">
                                         <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep focus-visible:outline-2 focus-visible:outline-gym-blue {{ request()->routeIs('staff.dashboard') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('staff.dashboard') }}" @if (request()->routeIs('staff.dashboard')) aria-current="page" @endif>Tổng quan vận hành</a></li>
+                                        <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep focus-visible:outline-2 focus-visible:outline-gym-blue {{ request()->routeIs('staff.products.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('staff.products.index') }}" @if (request()->routeIs('staff.products.*')) aria-current="page" @endif>Quản lý sản phẩm</a></li>
                                         @can('viewAny', \App\Models\TrialRequest::class)
                                             <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep focus-visible:outline-2 focus-visible:outline-gym-blue {{ request()->routeIs('staff.trial-requests.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('staff.trial-requests.index') }}" @if (request()->routeIs('staff.trial-requests.*')) aria-current="page" @endif>Đăng ký tập thử</a></li>
                                         @endcan
@@ -43,6 +44,7 @@
                                         @can('viewAny', \App\Models\MembershipOrder::class)
                                             <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep focus-visible:outline-2 focus-visible:outline-gym-blue {{ request()->routeIs('gym.invoices.*') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('gym.invoices.index') }}" @if (request()->routeIs('gym.invoices.*')) aria-current="page" @endif>Đơn hàng và hóa đơn</a></li>
                                         @endcan
+                                        <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-sky-50 hover:text-gym-blue-deep focus-visible:outline-2 focus-visible:outline-gym-blue {{ request()->routeIs('gym.calendar') ? 'bg-sky-50 font-semibold text-gym-blue-deep' : 'text-slate-700' }}" href="{{ route('gym.calendar') }}" @if (request()->routeIs('gym.calendar')) aria-current="page" @endif>Lịch lớp học</a></li>
                                     </ul>
                                 </details>
                             </li>

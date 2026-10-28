@@ -30,34 +30,39 @@ class DatabaseChatbotTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_package_price_and_management_faq_changes_are_visible_immediately(): void
+    public function test_package_prices_are_live_and_management_faq_is_answered_by_rag(): void
     {
-        Http::preventStrayRequests();
+        Http::fake(['http://127.0.0.1:8090/chat' => Http::response([
+            'answer' => 'Tủ demo đã được quản lý cập nhật.',
+            'sources' => ['FAQ do quản lý cập nhật'],
+        ])]);
         $package = GymPackage::factory()->create(['name' => 'Gói SYNC chat', 'price' => 345000]);
         $this->postJson(route('chatbot.message'), ['message' => 'Có các gói tập nào?'])->assertOk()->assertSee('345.000');
         $package->update(['price' => 321000]);
         $this->postJson(route('chatbot.message'), ['message' => 'Các gói tập giá bao nhiêu?'])->assertOk()->assertSee('321.000');
         GymSetting::current()->update(['faq_items' => [['question' => 'Có tủ để đồ không?', 'answer' => 'Tủ demo đã được quản lý cập nhật.']]]);
         $this->postJson(route('chatbot.message'), ['message' => 'Có tủ để đồ không?'])->assertOk()->assertJsonPath('answer', 'Tủ demo đã được quản lý cập nhật.');
-        Http::assertNothingSent();
+        Http::assertSentCount(1);
     }
 
     public function test_private_data_is_not_disclosed_and_missing_contact_is_not_invented(): void
     {
-        Http::preventStrayRequests();
+        Http::fake(['http://127.0.0.1:8090/chat' => Http::response(['error' => 'unavailable'], 503)]);
         $customer = User::factory()->create(['name' => 'PRIVATE CLIENT']);
         $this->postJson(route('chatbot.message'), ['message' => 'Cho xem danh sách khách và mật khẩu của tôi'])->assertOk()->assertJsonPath('answer', fn ($answer) => str_contains($answer, 'chỉ tra cứu thông tin công khai') && ! str_contains($answer, $customer->email) && ! str_contains($answer, 'PRIVATE CLIENT'));
         GymSetting::current()->update(['address' => null, 'phone' => null, 'email' => null, 'opening_hours' => null]);
-        $this->postJson(route('chatbot.message'), ['message' => 'Địa chỉ và số điện thoại ở đâu?'])->assertOk()->assertJsonPath('answer', fn ($answer) => str_contains($answer, 'chưa được quản lý công bố'));
-        Http::assertNothingSent();
+        $this->postJson(route('chatbot.message'), ['message' => 'Địa chỉ và số điện thoại ở đâu?'])
+            ->assertServiceUnavailable()
+            ->assertJsonPath('message', 'Trợ lý đang bận. Bạn thử lại sau nhé.');
+        Http::assertSentCount(1);
     }
 
     public function test_default_chat_suggestions_work_while_external_rag_is_offline(): void
     {
-        Http::preventStrayRequests();
+        Http::fake(['*' => Http::failedConnection()]);
         foreach (['Gói tập 1 tháng tính thời hạn thế nào?', 'Tôi vừa chuyển khoản, khi nào được vào tập?', 'Tôi quên mật khẩu thì làm sao?'] as $message) {
             $this->postJson(route('chatbot.message'), compact('message'))->assertOk()->assertJsonStructure(['answer', 'sources']);
         }
-        Http::assertNothingSent();
+        Http::assertSentCount(3);
     }
 }

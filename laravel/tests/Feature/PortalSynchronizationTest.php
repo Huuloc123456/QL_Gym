@@ -63,7 +63,7 @@ class PortalSynchronizationTest extends TestCase
         $this->assertSame(100000, $report['confirmed_revenue']);
         $this->assertSame(100000, $report['receipts_total']);
         $this->assertSame(1, $report['order_counts']['paid']);
-        $this->assertCount(1, $report['invoices']);
+        $this->assertCount(1, $report['invoice_orders']);
         $this->assertCount(0, $report['orders']);
         $csv = $this->actingAs($manager)->get(route('gym.reports.export', ['from_date' => '2027-02-01', 'to_date' => '2027-02-01']))->assertOk()->streamedContent();
         $this->assertStringContainsString('100000', $csv);
@@ -124,9 +124,9 @@ class PortalSynchronizationTest extends TestCase
     {
         [$customer, $invoice, $payment, $callback] = $this->reviewInvoice();
         $this->actingAs($customer)->post(route('gym.invoices.vnpay', $invoice))->assertSessionHasErrors('payment');
-        $this->actingAs(User::factory()->employee()->create())->get(route('gym.invoices.show', $invoice))->assertOk()->assertSee($payment->txn_ref)->assertSee('đang được đối soát');
+        $this->actingAs(User::factory()->employee()->create())->get(route('gym.invoices.show', $invoice))->assertOk()->assertSee($payment->txn_ref)->assertSee('Chờ nhân viên đối soát');
         $this->post(route('gym.invoices.receive', $invoice), ['amount' => 100000, 'method' => 'cash', 'token' => (string) Str::uuid()])->assertSessionHasErrors('payment');
-        $this->post(route('gym.invoices.cancel', $invoice))->assertSessionHasErrors('payment');
+        $this->post(route('gym.invoices.cancel', $invoice))->assertSessionHasErrors('invoice');
         $this->get(route('manager.payment-reviews.index'))->assertForbidden();
         DB::table('gym_fulfillments')->where('invoice_id', $invoice)->update(['expires_at' => now()->subMinute()]);
         $this->assertSame(0, app(GymPortalService::class)->expireOrders());

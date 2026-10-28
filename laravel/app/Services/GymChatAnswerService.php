@@ -14,11 +14,13 @@ class GymChatAnswerService
     /** @return array{answer: string, sources: list<string>}|null */
     public function answer(string $question): ?array
     {
+        $privateAnswer = $this->answerPrivateAccountQuestion($question);
+        if ($privateAnswer !== null) {
+            return $privateAnswer;
+        }
+
         $text = $this->normalize($question);
         $settings = GymSetting::query()->find(1);
-        if (preg_match('/\b(cua toi|cua minh|mat khau cua|ma otp|token|du lieu khach|danh sach khach)\b/', $text)) {
-            return $this->result('Trợ lý chỉ tra cứu thông tin công khai. Hãy đăng nhập và mở Đơn hàng, Gói hội viên hoặc Lịch tập để xem dữ liệu của chính bạn. Không gửi mật khẩu hay mã OTP vào chat.', 'Quyền riêng tư tài khoản');
-        }
         if (preg_match('/\b(quen mat khau|doi mat khau|dat lai mat khau)\b/', $text)) {
             return $this->result('Quên mật khẩu: mở /quen-mat-khau và nhập email tài khoản. Đổi mật khẩu: đăng nhập rồi mở Bảo mật tài khoản, nhập mật khẩu hiện tại và xác nhận mật khẩu mới. Email thật chỉ đến hộp thư khi máy chủ đã cấu hình gửi thư.', 'Hướng dẫn tài khoản');
         }
@@ -36,7 +38,7 @@ class GymChatAnswerService
                 $settings?->email ? 'Email: '.$settings->email : null,
             ]);
 
-            return $this->result($details ? implode("\n", $details) : 'Thông tin liên hệ và giờ mở cửa chưa được quản lý công bố. Bạn có thể kiểm tra lại trang Liên hệ.', 'Cấu hình công khai của phòng tập');
+            return $details ? $this->result(implode("\n", $details), 'Cấu hình công khai của phòng tập') : null;
         }
         if (preg_match('/\b(giao hang|phi giao|nhan tai quay|van chuyen)\b/', $text)) {
             return $this->result('Nhận sản phẩm tại quầy không tính phí giao. Giao theo địa chỉ cần địa chỉ đã lưu, người nhận và điện thoại. Phí giao hiện tại: '.$this->money((int) ($settings?->shipping_fee ?? 0)).'. Ưu đãi hạng khách không giảm phí giao; phí cuối cùng được hiển thị trước khi đặt đơn.', 'Cấu hình giao hàng và giỏ hàng');
@@ -94,6 +96,16 @@ class GymChatAnswerService
         }
 
         return null;
+    }
+
+    /** @return array{answer: string, sources: list<string>}|null */
+    public function answerPrivateAccountQuestion(string $question): ?array
+    {
+        if (! preg_match('/\b(cua toi|cua minh|mat khau cua|ma otp|token|du lieu khach|danh sach khach)\b/', $this->normalize($question))) {
+            return null;
+        }
+
+        return $this->result('Trợ lý chỉ tra cứu thông tin công khai. Hãy đăng nhập và mở Đơn hàng, Gói hội viên hoặc Lịch tập để xem dữ liệu của chính bạn. Không gửi mật khẩu hay mã OTP vào chat.', 'Quyền riêng tư tài khoản');
     }
 
     private function normalize(string $text): string

@@ -37,6 +37,14 @@
                 <p class="sm:col-span-2 xl:col-span-3">Hiện chưa có gói tập mở bán.</p>
             @endforelse
         </div>
+        @auth
+            @if (auth()->user()->role === 'customer')
+                <div class="gym-container mt-6 flex flex-wrap justify-center gap-3">
+                    <a class="gym-btn-outline" href="{{ route('gym.cart') }}">Giỏ hàng</a>
+                    <a class="gym-btn-outline" href="{{ route('gym.invoices.index') }}">Đơn hàng và hóa đơn</a>
+                </div>
+            @endif
+        @endauth
     </section>
 
 @endsection

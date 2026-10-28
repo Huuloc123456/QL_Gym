@@ -114,6 +114,26 @@ class GymInvoiceController extends Controller
         $bankTransferQrUrl = $canShowBankTransferQr
             ? app(VietQrService::class)->invoiceImageUrl($settings, $invoice, $remainingAmount)
             : null;
+        $legacyOrderReceipts = DB::table('order_payments as p')
+            ->join('users as u', 'u.id', '=', 'p.received_by')
+            ->where('p.membership_order_id', $legacyPackageOrder?->id ?? 0)
+            ->selectRaw("p.id, 'order_payment' as source_type, p.received_at as created_at, p.amount, p.payment_method as method, p.reference, u.name");
+        $receipts = DB::table('gym_receipts as r')
+            ->join('users as u', 'u.id', '=', 'r.user_id')
+            ->where('r.invoice_id', $invoice)
+            ->selectRaw("r.id, 'receipt' as source_type, r.created_at, r.amount, r.method, r.reference, u.name")
+            ->unionAll($legacyOrderReceipts)
+            ->orderBy('created_at')
+            ->get();
+        $onlinePayments = DB::table('gym_online_payments')
+            ->where(function ($query) use ($invoice, $legacyPackageOrder): void {
+                $query->where(fn ($query) => $query->where('target_type', 'invoice')->where('target_id', $invoice));
+                if ($legacyPackageOrder) {
+                    $query->orWhere(fn ($query) => $query->where('target_type', 'membership_order')->where('target_id', $legacyPackageOrder->id));
+                }
+            })
+            ->orderByDesc('id')
+            ->get();
 
         return view('gym.invoice', [
             'invoice' => $bill,
@@ -124,9 +144,9 @@ class GymInvoiceController extends Controller
             'originalLines' => $sets[1] ?? [],
             'fulfillment' => $fulfillment,
             'legacyPackageOrder' => $legacyPackageOrder,
-            'receipts' => DB::table('gym_receipts as r')->join('users as u', 'u.id', '=', 'r.user_id')->where('invoice_id', $invoice)->select('r.*', 'u.name')->orderBy('r.id')->get(),
+            'receipts' => $receipts,
             'refunds' => DB::table('gym_refunds')->where('target_type', 'invoice')->where('target_id', $invoice)->orderBy('id')->get(),
-            'onlinePayments' => DB::table('gym_online_payments')->where('target_type', 'invoice')->where('target_id', $invoice)->orderByDesc('id')->get(),
+            'onlinePayments' => $onlinePayments,
             'received' => $received,
             'remainingAmount' => $remainingAmount,
             'bankTransferQrUrl' => $bankTransferQrUrl,

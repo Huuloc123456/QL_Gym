@@ -19,6 +19,18 @@ class ChatbotController extends Controller
         ]);
         $message = trim($validated['message']);
         $productCards = [];
+        $privateAnswer = $answers->answerPrivateAccountQuestion($message);
+        if ($privateAnswer !== null) {
+            return response()->json($privateAnswer);
+        }
+        $purchaseGuide = $productCatalog->purchaseHowToAnswer($message);
+        if ($purchaseGuide !== null) {
+            return response()->json([
+                'answer' => $purchaseGuide,
+                'sources' => ['Hướng dẫn mua hàng'],
+                'products' => [],
+            ]);
+        }
 
         $packageAnswer = $productCatalog->answerPackageQuestion($message);
         if ($packageAnswer !== null) {
@@ -40,7 +52,7 @@ class ChatbotController extends Controller
             ]);
         }
 
-        if ($productCatalog->isProductRelatedQuestion($message)) {
+        if ($purchaseGuide === null && $productCatalog->isProductRelatedQuestion($message)) {
             $productCards = $productCatalog->cardsForQuestion($message);
 
             $catalogAnswer = $productCatalog->answerOverviewQuestion($message);
@@ -62,11 +74,7 @@ class ChatbotController extends Controller
             }
         }
 
-        $local = $answers->answer(trim($validated['message']));
-        if ($local !== null) {
-            return response()->json($local);
-        }
-
+        $local = $answers->answer($message);
         try {
             $response = Http::acceptJson()
                 ->connectTimeout(2)
@@ -75,6 +83,10 @@ class ChatbotController extends Controller
                     'message' => $message,
                 ]);
         } catch (ConnectionException) {
+            if ($local !== null) {
+                return response()->json($local);
+            }
+
             return response()->json([
                 'message' => 'Trợ lý đang bận. Bạn thử lại sau nhé.',
             ], 503);
@@ -82,6 +94,10 @@ class ChatbotController extends Controller
 
         $answer = $response->json('answer');
         if (! $response->successful() || ! is_string($answer) || trim($answer) === '') {
+            if ($local !== null) {
+                return response()->json($local);
+            }
+
             return response()->json([
                 'message' => 'Trợ lý đang bận. Bạn thử lại sau nhé.',
             ], 503);

@@ -76,10 +76,10 @@
 @if (auth()->user()->role === 'manager' && $invoice->TRANGTHAI === 'Chưa thanh toán' && $receipts->isNotEmpty())
     <section class="gym-card mt-6 space-y-4"><div><h2 class="text-xl font-bold">Ghi nhận hoàn tiền</h2><p class="mt-2 text-sm text-slate-600">Hoàn tiền cho khách bên ngoài website trước, rồi ghi lại chứng từ. Không xóa khoản thu ban đầu.</p></div>
         @foreach ($receipts as $receipt)
-            @php($refundable = (int) $receipt->amount - (int) $refunds->where('source_type', 'receipt')->where('source_id', $receipt->id)->sum('amount'))
+            @php($refundable = (int) $receipt->amount - (int) $refunds->where('source_type', $receipt->source_type)->where('source_id', $receipt->id)->sum('amount'))
             @if ($refundable > 0)
                 <form class="grid gap-4 border-t border-slate-200 pt-4 sm:grid-cols-2" method="POST" action="{{ route('manager.refunds.store') }}">
-                    @csrf<input type="hidden" name="source_type" value="receipt"><input type="hidden" name="source_id" value="{{ $receipt->id }}"><input type="hidden" name="token" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
+                    @csrf<input type="hidden" name="source_type" value="{{ $receipt->source_type }}"><input type="hidden" name="source_id" value="{{ $receipt->id }}"><input type="hidden" name="token" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
                     <p class="text-sm sm:col-span-2">Khoản thu #{{ $receipt->id }} · Còn có thể hoàn {{ number_format($refundable, 0, ',', '.') }} VNĐ</p>
                     <div><label class="gym-label" for="refund-amount-{{ $receipt->id }}">Số tiền đã hoàn</label><input class="gym-input" id="refund-amount-{{ $receipt->id }}" name="amount" type="number" min="1" max="{{ $refundable }}" value="{{ $refundable }}" required></div>
                     <div><label class="gym-label" for="refund-reference-{{ $receipt->id }}">Mã chứng từ hoàn</label><input class="gym-input" id="refund-reference-{{ $receipt->id }}" name="reference" minlength="3" maxlength="100" required></div>

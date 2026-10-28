@@ -32,6 +32,19 @@ class ChatbotEndpointTest extends TestCase
             && $request['message'] === 'Làm thế nào để bảo vệ tài khoản hội viên?');
     }
 
+    public function test_chat_uses_purchase_instructions_for_general_package_purchase_questions(): void
+    {
+        Http::fake(['*' => Http::response([
+            'answer' => 'Gói tập tính theo tháng.',
+            'sources' => ['Thời gian sử dụng hội viên'],
+        ])]);
+
+        $this->postJson('/chatbot/message', ['message' => 'Cách mua gói tập thế nào?'])
+            ->assertOk()
+            ->assertJsonPath('answer', 'Mở /goi-tap, đăng nhập, thêm gói vào giỏ và tạo đơn.')
+            ->assertJsonPath('sources.0', 'Hướng dẫn mua hàng');
+    }
+
     public function test_chat_rejects_blank_and_overlong_messages_before_calling_rag(): void
     {
         Http::fake();
@@ -59,6 +72,30 @@ class ChatbotEndpointTest extends TestCase
         $this->postJson('/chatbot/message', ['message' => 'Giờ mở cửa phòng tập thế nào?'])
             ->assertServiceUnavailable()
             ->assertJsonPath('message', 'Trợ lý đang bận. Bạn thử lại sau nhé.');
+    }
+
+    public function test_chat_falls_back_to_a_manager_faq_when_rag_is_unavailable(): void
+    {
+        $this->setGymSettings(['faq_items' => [[
+            'question' => 'Tôi cần mang gì khi đến tập?',
+            'answer' => 'Bạn chỉ cần mang quần áo và giày tập phù hợp.',
+        ]]]);
+        Http::fake(['*' => Http::response(['error' => 'unavailable'], 503)]);
+
+        $this->postJson('/chatbot/message', ['message' => 'Tôi cần mang gì khi đến tập?'])
+            ->assertOk()
+            ->assertJsonPath('answer', 'Bạn chỉ cần mang quần áo và giày tập phù hợp.')
+            ->assertJsonPath('sources.0', 'Câu hỏi thường gặp do quản lý cập nhật');
+    }
+
+    public function test_chat_falls_back_to_purchase_instructions_when_rag_is_unavailable(): void
+    {
+        Http::fake(['*' => Http::failedConnection()]);
+
+        $this->postJson('/chatbot/message', ['message' => 'Mua sản phẩm trên web như thế nào?'])
+            ->assertOk()
+            ->assertJsonPath('answer', 'Mở /san-pham, đăng nhập, thêm sản phẩm vào giỏ và tạo đơn.')
+            ->assertJsonPath('sources.0', 'Hướng dẫn mua hàng');
     }
 
     public function test_public_gym_hours_are_answered_from_current_settings(): void

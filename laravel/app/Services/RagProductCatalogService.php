@@ -149,7 +149,7 @@ class RagProductCatalogService
     /**
      * Return a small set of live product cards relevant to a product question.
      *
-     * @return list<array{id: int, name: string, image_url: string, image_placeholder_url: string, detail_url: string, price: string, availability: string}>
+     * @return list<array{id: int, name: string, image_url: string, image_placeholder_url: string, detail_url: string, price: string, availability: string, available_quantity: int}>
      */
     public function cardsForQuestion(string $question, int $limit = 4): array
     {
@@ -213,6 +213,7 @@ class RagProductCatalogService
                 'detail_url' => route('gym.products.show', $id),
                 'price' => $this->price($product),
                 'availability' => $product->available_quantity > 0 ? 'Còn hàng' : 'Tạm hết hàng',
+                'available_quantity' => (int) $product->available_quantity,
             ];
         })->all();
     }
@@ -239,17 +240,38 @@ class RagProductCatalogService
             return 'Mình tìm thấy một số sản phẩm phù hợp. Giá và tình trạng hiện tại được hiển thị bên dưới; nhấn “Chi tiết” để xem từng sản phẩm.';
         }
 
-        if (! preg_match('/\b(?:hinh|anh|xem|chi tiet|mo ta)\b/u', $normalizedQuestion)) {
-            return null;
+        if (preg_match('/\b(?:hinh|anh|xem|chi tiet|mo ta)\b/u', $normalizedQuestion)) {
+            if (count($cards) === 1) {
+                $product = $cards[0];
+
+                return 'Đây là '.$product['name'].', giá '.$product['price'].', hiện '.mb_strtolower($product['availability']).'. Ảnh và thông tin chi tiết hiển thị bên dưới; nhấn “Chi tiết” để mở trang sản phẩm.';
+            }
+
+            return 'Mình tìm thấy một số sản phẩm phù hợp. Xem ảnh bên dưới và nhấn “Chi tiết” ở sản phẩm muốn xem trên website.';
         }
 
         if (count($cards) === 1) {
             $product = $cards[0];
 
-            return 'Đây là '.$product['name'].', giá '.$product['price'].', hiện '.mb_strtolower($product['availability']).'. Ảnh và thông tin chi tiết hiển thị bên dưới; nhấn “Chi tiết” để mở trang sản phẩm.';
+            return $product['name'].' có giá '.$product['price'].', có thể đặt '.$product['available_quantity'].'.';
         }
 
-        return 'Mình tìm thấy một số sản phẩm phù hợp. Xem ảnh bên dưới và nhấn “Chi tiết” ở sản phẩm muốn xem trên website.';
+        return 'Mình tìm thấy một số sản phẩm phù hợp. Giá và tình trạng hiện tại được hiển thị bên dưới; nhấn “Chi tiết” để xem từng sản phẩm.';
+    }
+
+    public function purchaseHowToAnswer(string $question): ?string
+    {
+        $normalizedQuestion = $this->normalize($question);
+        $specificTerms = array_diff($this->productTerms($normalizedQuestion), ['goi']);
+        if (! preg_match('/\b(?:mua|dat hang)\b/u', $normalizedQuestion)
+            || ! preg_match('/\b(?:the nao|nhu the nao|lam sao|cach|huong dan)\b/u', $normalizedQuestion)
+            || $specificTerms !== []) {
+            return null;
+        }
+
+        return str_contains($normalizedQuestion, 'goi')
+            ? 'Mở /goi-tap, đăng nhập, thêm gói vào giỏ và tạo đơn.'
+            : 'Mở /san-pham, đăng nhập, thêm sản phẩm vào giỏ và tạo đơn.';
     }
 
     public function isProductRelatedQuestion(string $question): bool
@@ -441,7 +463,7 @@ class RagProductCatalogService
     /** @return list<string> */
     private function productTerms(string $text): array
     {
-        $ignored = ['anh', 'ban', 'bao', 'cho', 'co', 'cua', 'danh', 'gia', 'hang', 'hinh', 'la', 'mua', 'nhieu', 'nao', 'pham', 'san', 'tap', 'the', 'toi', 'xem', 'web'];
+        $ignored = ['anh', 'ban', 'bao', 'cach', 'cho', 'co', 'cua', 'danh', 'dat', 'gia', 'hang', 'hinh', 'huong', 'la', 'lam', 'mua', 'nhieu', 'nao', 'nhu', 'pham', 'sao', 'san', 'tap', 'the', 'toi', 'tren', 'web', 'dan'];
         $terms = preg_split('/[^a-z0-9]+/u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
         return array_values(array_unique(array_filter(

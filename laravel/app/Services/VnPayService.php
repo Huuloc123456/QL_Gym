@@ -184,6 +184,7 @@ class VnPayService
                 ]);
 
                 if ($payment->target_type === 'invoice') {
+                    DB::table('gym_fulfillments')->where('invoice_id', $payment->target_id)->update(['cancellation_requested' => false, 'updated_at' => $timestamp]);
                     $this->commerce->confirmOnline((int) $payment->target_id, allowExpired: true, startDate: $data['start_date'] ?? null);
                 } elseif ($payment->target_type === 'membership_order') {
                     $order = MembershipOrder::query()->findOrFail((int) $payment->target_id);
