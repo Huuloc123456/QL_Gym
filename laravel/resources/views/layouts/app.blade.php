@@ -24,6 +24,11 @@
                 <ul class="flex flex-col gap-1 lg:flex-row lg:items-center lg:gap-1">
                     <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-wide hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-gym-blue lg:px-2 {{ request()->routeIs('home') ? 'bg-sky-50 text-gym-blue-deep' : 'text-slate-800' }}" href="{{ route('home') }}" @if (request()->routeIs('home')) aria-current="page" @endif>Trang chủ</a></li>
                     <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-wide hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-gym-blue lg:px-2 {{ request()->routeIs('packages.*') ? 'bg-sky-50 text-gym-blue-deep' : 'text-slate-800' }}" href="{{ route('packages.index') }}" @if (request()->routeIs('packages.*')) aria-current="page" @endif>Gói tập</a></li>
+                    @auth
+                        @if (auth()->user()->role === 'customer')
+                            <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-wide hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-gym-blue lg:px-2 {{ request()->routeIs('gym.cart') ? 'bg-sky-50 text-gym-blue-deep' : 'text-slate-800' }}" href="{{ route('gym.cart') }}" @if (request()->routeIs('gym.cart')) aria-current="page" @endif>Giỏ hàng</a></li>
+                        @endif
+                    @endauth
                     <li><a class="block whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-800 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-gym-blue lg:px-2" href="{{ route('home') }}#trial">Trải nghiệm</a></li>
                     @auth
                         @if (in_array(auth()->user()->role, ['employee', 'manager'], true))
