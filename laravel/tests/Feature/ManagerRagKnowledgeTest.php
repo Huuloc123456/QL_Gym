@@ -97,7 +97,10 @@ class ManagerRagKnowledgeTest extends TestCase
             'content' => '# Hướng dẫn đang chờ',
             'is_active' => true,
         ]);
-        Http::fake(['127.0.0.1:8090/admin/documents/batch' => Http::response(['updated' => 1])]);
+        Http::fake([
+            '127.0.0.1:8090/admin/documents' => Http::response(['documents' => []]),
+            '127.0.0.1:8090/admin/documents/batch' => Http::response(['updated' => 1]),
+        ]);
 
         $this->actingAs($manager)->get(route('manager.knowledge.index'))
             ->assertOk()
@@ -202,5 +205,30 @@ class ManagerRagKnowledgeTest extends TestCase
         $document = RagDocument::query()->where('document_key', 'thong-tin-goi-tap')->firstOrFail();
         $this->assertNull($document->synced_at);
         $this->assertNotNull($document->sync_error);
+    }
+
+    public function test_manual_sync_restores_mysql_documents_when_rag_index_is_empty(): void
+    {
+        $documents = collect([
+            ['document_key' => 'gym-introduction', 'title' => 'Giới thiệu The Gym', 'content' => '# Giới thiệu The Gym', 'is_active' => true],
+            ['document_key' => 'membership-rules', 'title' => 'Quy tắc hội viên', 'content' => '# Quy tắc hội viên', 'is_active' => false],
+        ])->map(fn (array $attributes): RagDocument => RagDocument::query()->create($attributes + ['synced_at' => now()]));
+
+        Http::fake([
+            '127.0.0.1:8090/admin/documents' => Http::response(['documents' => []]),
+            '127.0.0.1:8090/admin/documents/batch' => Http::response(['updated' => 2]),
+        ]);
+
+        app(RagKnowledgeService::class)->syncPending(reseedIfRemoteEmpty: true);
+
+        Http::assertSent(fn ($request): bool => $request->method() === 'POST'
+            && $request->url() === 'http://127.0.0.1:8090/admin/documents/batch'
+            && collect($request['documents'])->contains(fn (array $document): bool => $document['id'] === 'gym-introduction' && $document['active'])
+            && collect($request['documents'])->contains(fn (array $document): bool => $document['id'] === 'membership-rules' && ! $document['active']));
+
+        foreach ($documents as $document) {
+            $this->assertNotNull($document->fresh()->synced_at);
+            $this->assertNull($document->fresh()->sync_error);
+        }
     }
 }

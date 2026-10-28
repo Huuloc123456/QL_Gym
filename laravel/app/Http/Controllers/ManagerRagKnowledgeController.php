@@ -51,7 +51,7 @@ class ManagerRagKnowledgeController extends Controller
     {
         try {
             $this->productCatalog->stage();
-            $this->knowledge->syncPending();
+            $this->knowledge->syncPending(reseedIfRemoteEmpty: true);
         } catch (RuntimeException $exception) {
             return redirect()->route('manager.knowledge.index')->with('error', 'Tài liệu vẫn được giữ trong MySQL nhưng chatbot chưa đồng bộ. '.$exception->getMessage());
         }

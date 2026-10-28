@@ -26,14 +26,6 @@
             </article>
         </div>
 
-        <div class="border-t border-slate-200 bg-white px-3 pb-1 pt-2 sm:px-4" data-chat-suggestions>
-            <div class="flex gap-2 overflow-x-auto pb-2">
-                <button class="gym-chat-suggestion" type="button" data-chat-prompt="Gói tập 1 tháng tính thời hạn thế nào?">Thời hạn gói</button>
-                <button class="gym-chat-suggestion" type="button" data-chat-prompt="Tôi vừa chuyển khoản, khi nào được vào tập?">Thanh toán</button>
-                <button class="gym-chat-suggestion" type="button" data-chat-prompt="Tôi quên mật khẩu thì làm sao?">Quên mật khẩu</button>
-            </div>
-        </div>
-
         <form class="border-t border-slate-200 bg-white px-3 pb-3 pt-2 sm:px-4" action="{{ route('chatbot.message') }}" method="POST" data-chat-form>
             @csrf
             <label class="sr-only" for="gymChatMessage">Nhập câu hỏi cho The Gym</label>

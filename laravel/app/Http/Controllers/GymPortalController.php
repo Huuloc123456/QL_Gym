@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\GymSetting;
+use App\Models\User;
+use App\Services\GymInvoiceReconciliationService;
 use App\Services\GymPortalService;
 use App\Services\OriginalGymSql;
 use Illuminate\Http\RedirectResponse;
@@ -35,13 +37,20 @@ class GymPortalController extends Controller
         return back()->with('success', 'Đã đánh dấu các thông báo là đã đọc.');
     }
 
-    public function settings(): View
+    public function settings(GymInvoiceReconciliationService $reconciliations): View
     {
         $products = DB::table('SANPHAM as p')->select('p.MASP', 'p.TENSP')->selectSub(DB::table('HINHANH')->select('URL')->whereColumn('MASP', 'p.MASP')->orderByDesc('ISMAIN')->orderBy('MAHINH')->limit(1), 'image')->get();
 
         return view('gym.settings', ['settings' => $this->portal->settings(), 'mailDriver' => config('mail.default'),
             'failedEmails' => DB::table('gym_messages')->where('email_state', 'failed')->count(),
-            'incompleteInvoices' => $this->portal->unreconciledInvoices()->select('h.MAHD', 'h.TRANGTHAI')->get(),
+            'incompleteInvoices' => $reconciliations->cases(),
+            'reconciliationManagers' => User::query()->where('role', 'manager')->where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'resolvedReconciliations' => DB::table('gym_invoice_reconciliations as reconciliation')
+                ->join('users as owner', 'owner.id', '=', 'reconciliation.owner_user_id')
+                ->join('users as reviewer', 'reviewer.id', '=', 'reconciliation.reviewed_by_user_id')
+                ->where('reconciliation.status', 'resolved')->orderByDesc('reconciliation.reviewed_at')->limit(20)
+                ->get(['reconciliation.invoice_id', 'reconciliation.category', 'reconciliation.evidence', 'reconciliation.note',
+                    'reconciliation.reviewed_at', 'owner.name as owner_name', 'reviewer.name as reviewer_name']),
             'missingImages' => $products->filter(fn ($product) => OriginalGymSql::image($product->image, (int) $product->MASP) === asset('images/product-placeholder.svg')),
             'currentClasses' => DB::table('LOPHOC')->whereDate('NGAYKETTHUC', '>=', now()->toDateString())->count(),
         ]);

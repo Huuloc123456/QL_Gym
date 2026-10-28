@@ -202,9 +202,10 @@ class ManagerReportService
                         ->whereRaw('COALESCE(f.paid_at, legacy_order_dates.legacy_paid_at, h.NGAYLAP) < ?', [$toExclusive]);
                 });
             })
-            ->select('h.MAHD as id', 'k.TENKH as customer_name', 'k.EMAIL as customer_email', 'k.SDT as customer_phone', 'h.NGAYLAP as created_at', 'h.TRANGTHAI as status', 'h.THANHTIEN as amount', 'f.paid_at')
+            ->select('h.MAHD as id', 'k.TENKH as customer_name', 'k.EMAIL as customer_email', 'k.SDT as customer_phone', 'h.NGAYLAP as created_at', 'h.TRANGTHAI as status', 'h.THANHTIEN as amount', 'h.GIAMGIA as discount_amount', 'f.paid_at')
             ->selectRaw("CASE WHEN h.TRANGTHAI = 'Đã thanh toán' THEN COALESCE(f.paid_at, legacy_order_dates.legacy_paid_at, h.NGAYLAP) ELSE f.paid_at END as confirmed_at")
             ->selectRaw("COALESCE((SELECT l.name FROM gym_invoice_lines l WHERE l.invoice_id = h.MAHD ORDER BY l.id LIMIT 1), 'Hóa đơn') as item_name")
+            ->selectRaw("CASE WHEN COALESCE(h.GIAMGIA, 0) = 0 THEN 'Không có' WHEN EXISTS (SELECT 1 FROM gym_invoice_discounts d WHERE d.invoice_id = h.MAHD) THEN (SELECT CONCAT(d.tier_name, ' (', d.rate_percent, '%)') FROM gym_invoice_discounts d WHERE d.invoice_id = h.MAHD ORDER BY d.id LIMIT 1) ELSE 'Chưa xác định' END as discount_source")
             ->selectSub(DB::table('gym_receipts')->selectRaw('COALESCE(SUM(amount), 0)')->whereColumn('invoice_id', 'h.MAHD'), 'total_received')
             ->selectSub(DB::table('order_payments')->selectRaw('COALESCE(SUM(amount), 0)')
                 ->whereIn('membership_order_id', DB::table('membership_orders as linked_orders')->select('linked_orders.id')->whereColumn('linked_orders.sql_invoice_id', 'h.MAHD')), 'legacy_total_received')
@@ -358,7 +359,7 @@ class ManagerReportService
         $orderSheet->setTitle('Đơn hàng');
         $this->writeRows($orderSheet, [[
             'Mã đơn', 'Hội viên', 'Email', 'Số điện thoại', 'Sản phẩm/dịch vụ', 'Ngày tạo', 'Ngày xác nhận',
-            'Trạng thái', 'Giá trị đơn (VNĐ)', 'Đã nhận gộp (VNĐ)', 'Đã hoàn (VNĐ)', 'Thu ròng (VNĐ)', 'Còn phải thu (VNĐ)',
+            'Trạng thái', 'Giá trị đơn (VNĐ)', 'Đã nhận gộp (VNĐ)', 'Đã hoàn (VNĐ)', 'Thu ròng (VNĐ)', 'Còn phải thu (VNĐ)', 'Tiền giảm (VNĐ)', 'Nguồn giảm',
         ]], 1);
         foreach ($report['orders'] as $order) {
             $received = (int) ($order->total_received ?? 0) + (int) ($order->online_received ?? 0);
@@ -380,6 +381,8 @@ class ManagerReportService
                 (int) $order->refunded_total,
                 (int) $order->net_received,
                 (int) $order->remaining_amount,
+                '',
+                'Không có ảnh chụp giảm giá (đơn gói cũ)',
             ]]);
         }
         foreach ($report['invoice_orders'] as $order) {
@@ -402,9 +405,11 @@ class ManagerReportService
                 (int) $order->refunded_total,
                 (int) $order->net_received,
                 (int) $order->remaining_amount,
+                (int) $order->discount_amount,
+                $order->discount_source,
             ]]);
         }
-        $this->formatDataSheet($orderSheet, 'M');
+        $this->formatDataSheet($orderSheet, 'O');
 
         $paymentSheet = $spreadsheet->createSheet();
         $paymentSheet->setTitle('Khoản thu');

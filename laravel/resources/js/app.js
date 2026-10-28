@@ -75,7 +75,6 @@ if (chatWidget) {
     const sendButton = chatWidget.querySelector('[data-chat-send]');
     const messages = chatWidget.querySelector('[data-chat-messages]');
     const status = chatWidget.querySelector('[data-chat-status]');
-    const suggestions = chatWidget.querySelector('[data-chat-suggestions]');
     let isSending = false;
 
     const setOpen = (isOpen) => {
@@ -182,14 +181,6 @@ if (chatWidget) {
         if (event.key === 'Escape' && !panel.hidden) {
             setOpen(false);
         }
-    });
-
-    suggestions.querySelectorAll('[data-chat-prompt]').forEach((button) => {
-        button.addEventListener('click', () => {
-            input.value = button.dataset.chatPrompt;
-            updateForm();
-            form.requestSubmit();
-        });
     });
 
     input.addEventListener('input', updateForm);

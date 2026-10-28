@@ -11,6 +11,7 @@ use App\Services\OriginalGymSql;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class GymStoreController extends Controller
@@ -28,21 +29,21 @@ class GymStoreController extends Controller
             ->when($data['brand'] ?? null, fn ($q, $value) => $q->where('p.HANG', $value))
             ->when($data['origin'] ?? null, fn ($q, $value) => $q->where('p.XUATXU', $value));
         if (isset($data['min'])) {
-            $query->whereRaw('LEAST(p.DONGIA, COALESCE(p.GIAKHUYENMAI, p.DONGIA)) >= ?', [$data['min']]);
+            $query->whereRaw($this->shop->effectiveProductPriceSql().' >= ?', [$data['min']]);
         }
         if (isset($data['max'])) {
-            $query->whereRaw('LEAST(p.DONGIA, COALESCE(p.GIAKHUYENMAI, p.DONGIA)) <= ?', [$data['max']]);
+            $query->whereRaw($this->shop->effectiveProductPriceSql().' <= ?', [$data['max']]);
         }
         if (isset($data['stock'])) {
             $query->where('p.available_quantity', '>', 0);
         }
         if (isset($data['sale'])) {
-            $query->whereColumn('p.GIAKHUYENMAI', '<', 'p.DONGIA');
+            $query->where('p.GIAKHUYENMAI', '>', 0)->whereColumn('p.GIAKHUYENMAI', '<', 'p.DONGIA');
         }
         match ($data['sort'] ?? 'name') {
             'name' => $query->orderBy('p.TENSP'),
-            'price_up' => $query->orderByRaw('LEAST(p.DONGIA, COALESCE(p.GIAKHUYENMAI, p.DONGIA)) ASC'),
-            'price_down' => $query->orderByRaw('LEAST(p.DONGIA, COALESCE(p.GIAKHUYENMAI, p.DONGIA)) DESC'),
+            'price_up' => $query->orderByRaw($this->shop->effectiveProductPriceSql().' ASC'),
+            'price_down' => $query->orderByRaw($this->shop->effectiveProductPriceSql().' DESC'),
             default => $query->orderByDesc('p.MASP'),
         };
 
@@ -56,12 +57,27 @@ class GymStoreController extends Controller
 
     public function cart(Request $request): View
     {
-        $customer = $this->identities->customer($request->user());
+        $quote = $this->shop->quote($request->user());
         $lines = $this->shop->cart($request->user());
-        $total = array_sum(array_column($lines, 'total'));
-        $tier = DB::table('KHACHHANG as k')->leftJoin('LOAIKHACHHANG as t', 't.MALOAIKH', '=', 'k.MALOAIKH')->where('k.MAKH', $customer)->select('t.TENLOAI', 't.MUCGIAM')->first();
+        $checkoutToken = (string) Str::uuid();
+        $checkoutQuotes = $request->session()->get('gym.checkout_quotes', []);
+        $checkoutQuotes = is_array($checkoutQuotes) ? $checkoutQuotes : [];
+        $checkoutQuotes[$checkoutToken] = $quote;
+        $request->session()->put('gym.checkout_quotes', array_slice($checkoutQuotes, -5, null, true));
 
-        return view('gym.cart', ['lines' => $lines, 'total' => $total, 'tier' => $tier, 'settings' => $this->portal->settings(), 'hasProducts' => collect($lines)->contains(fn ($line) => $line->item->kind === 'product'), 'discount' => intdiv($total * (int) $tier->MUCGIAM, 100), 'addresses' => DB::table('DIACHI')->where('MAKH', $customer)->orderByDesc('LADIACHIMACDINH')->orderBy('MADC')->get()]);
+        return view('gym.cart', [
+            'lines' => $lines,
+            'total' => $quote['subtotal'],
+            'tier' => (object) ['TENLOAI' => $quote['tier']['name'], 'MUCGIAM' => $quote['tier']['rate']],
+            'effectiveRate' => $quote['rate'],
+            'tierVerified' => $quote['tier']['verified'],
+            'requiresTierVerification' => $quote['tier']['requires_verification'],
+            'settings' => $this->portal->settings(),
+            'hasProducts' => collect($lines)->contains(fn ($line) => $line->item->kind === 'product'),
+            'discount' => $quote['discount'],
+            'checkoutToken' => $checkoutToken,
+            'addresses' => DB::table('DIACHI')->where('MAKH', $quote['customer_id'])->orderByDesc('LADIACHIMACDINH')->orderBy('MADC')->get(),
+        ]);
     }
 
     public function add(Request $request): RedirectResponse
@@ -89,7 +105,13 @@ class GymStoreController extends Controller
     public function checkout(Request $request): RedirectResponse
     {
         $data = $request->validate(['token' => 'required|uuid', 'mode' => 'required|in:pickup,delivery', 'address_id' => 'nullable|integer', 'recipient' => 'required_if:mode,delivery|nullable|string|max:150', 'phone' => 'required_if:mode,delivery|nullable|string|max:20', 'payment_method' => 'required|in:cash,bank_transfer,vnpay', 'start_date' => 'nullable|date|after_or_equal:today']);
-        $invoice = $this->shop->checkout($request->user(), $data);
+        $checkoutQuotes = $request->session()->get('gym.checkout_quotes', []);
+        $quotedPrice = is_array($checkoutQuotes) ? ($checkoutQuotes[$data['token']] ?? null) : null;
+        if (is_array($checkoutQuotes) && array_key_exists($data['token'], $checkoutQuotes)) {
+            unset($checkoutQuotes[$data['token']]);
+            $request->session()->put('gym.checkout_quotes', $checkoutQuotes);
+        }
+        $invoice = $this->shop->checkout($request->user(), $data, is_array($quotedPrice) ? $quotedPrice : null);
 
         return redirect()->route('gym.invoices.show', $invoice)->with('success', 'Đã đặt đơn. Nhân viên sẽ xác nhận sau khi nhận đủ tiền.');
     }

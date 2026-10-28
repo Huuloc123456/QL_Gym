@@ -88,9 +88,53 @@
 
         <section class="gym-card mt-6" aria-labelledby="reconciliation-title">
             <h2 class="text-xl font-bold" id="reconciliation-title">Dữ liệu cần đối chiếu</h2>
-            <p class="mt-2 text-sm leading-7 text-slate-500">Các danh sách dưới đây lấy từ dữ liệu hiện tại. Chỉ sửa khi có thông tin đúng; không tạo chi tiết hóa đơn, ảnh hay giá dịch vụ giả để lấp chỗ trống.</p>
-            <div class="mt-5 grid gap-6 md:grid-cols-2">
-                <div><h3 class="font-bold">Hóa đơn thiếu/lệch chi tiết hoặc tổng tiền</h3><ul class="mt-3 space-y-2 text-sm">@forelse ($incompleteInvoices as $row)<li><a class="text-gym-blue underline" href="{{ route('gym.invoices.show', $row->MAHD) }}">#{{ $row->MAHD }} · {{ $row->TRANGTHAI }}</a></li>@empty<li>Không phát hiện hóa đơn cần đối chiếu.</li>@endforelse</ul></div>
+            <p class="mt-2 text-sm leading-7 text-slate-500">Mỗi hóa đơn hiển thị riêng hai nguồn dòng hàng, khoản thu/hoàn và liên kết gói. Ghi người phụ trách, bằng chứng và hướng xử lý; không tự điền dữ liệu hóa đơn còn thiếu. Hóa đơn còn sai lệch vẫn bị chặn thu và chốt.</p>
+            @php($categoryLabels = ['missing_details' => 'Thiếu chi tiết', 'detail_sources_disagree' => 'Hai nguồn chi tiết không khớp', 'detail_total_mismatch' => 'Tổng dòng hàng không khớp', 'payable_mismatch' => 'Thành tiền không khớp', 'payment_mismatch' => 'Khoản thu/trạng thái không khớp', 'package_link_mismatch' => 'Liên kết đơn gói không khớp', 'legacy_service' => 'Dịch vụ cũ không còn hỗ trợ', 'other' => 'Khác'])
+            <div class="mt-5 space-y-5">
+                @forelse ($incompleteInvoices as $row)
+                    <article class="rounded-xl border border-amber-200 bg-amber-50/50 p-4 sm:p-5">
+                        <header class="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                                <h3 class="text-lg font-bold"><a class="text-gym-blue underline" href="{{ route('gym.invoices.show', $row->invoice_id) }}">Hóa đơn #{{ $row->invoice_id }}</a> · {{ $row->invoice_status }}</h3>
+                                <p class="mt-1 text-sm text-slate-600">Khách #{{ $row->customer_id }} · {{ \Illuminate\Support\Carbon::parse($row->invoice_date)->format('d/m/Y H:i') }}</p>
+                            </div>
+                            <span class="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-950">{{ $row->review_status ? ['in_review' => 'Đang xác minh', 'blocked' => 'Chặn chờ chứng từ'][$row->review_status] ?? $row->review_status : 'Chưa ghi nhận đối soát' }}</span>
+                        </header>
+                        <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                            <div class="rounded-lg bg-white p-3"><dt class="text-slate-500">Tổng / giảm / phải trả</dt><dd class="mt-1 font-semibold">{{ number_format($row->gross_total, 0, ',', '.') }} / {{ number_format($row->discount_total ?? 0, 0, ',', '.') }} / {{ number_format($row->payable_total, 0, ',', '.') }}đ</dd></div>
+                            <div class="rounded-lg bg-white p-3"><dt class="text-slate-500">Chi tiết SQL gốc</dt><dd class="mt-1 font-semibold">{{ $row->legacy_line_count }} dòng · {{ number_format($row->legacy_line_total, 0, ',', '.') }}đ</dd></div>
+                            <div class="rounded-lg bg-white p-3"><dt class="text-slate-500">Chi tiết website</dt><dd class="mt-1 font-semibold">{{ $row->current_line_count }} dòng · {{ number_format($row->current_line_total, 0, ',', '.') }}đ</dd></div>
+                            <div class="rounded-lg bg-white p-3"><dt class="text-slate-500">Thu / hoàn</dt><dd class="mt-1 font-semibold">{{ $row->receipt_count }} khoản · {{ number_format($row->receipt_total, 0, ',', '.') }}đ / {{ number_format($row->online_payment_total, 0, ',', '.') }}đ online ({{ $row->online_payment_states ?: 'không có' }}) / hoàn {{ number_format($row->refund_total, 0, ',', '.') }}đ</dd></div>
+                            <div class="rounded-lg bg-white p-3"><dt class="text-slate-500">Liên kết đơn gói</dt><dd class="mt-1 font-semibold">{{ $row->package_order_count }} đơn</dd></div>
+                            <div class="rounded-lg bg-white p-3 sm:col-span-2 lg:col-span-3"><dt class="text-slate-500">Bằng chứng đã ghi</dt><dd class="mt-1">{{ $row->evidence ?: 'Chưa ghi nhận.' }}</dd></div>
+                        </dl>
+                        @if ($row->note)
+                            <p class="mt-3 text-sm"><strong>Hướng xử lý:</strong> {{ $row->note }}</p>
+                        @endif
+                        <form class="mt-5 grid gap-4 border-t border-amber-200 pt-4 sm:grid-cols-2" method="POST" action="{{ route('manager.reconciliations.update', $row->invoice_id) }}">
+                            @csrf
+                            @method('PUT')
+                            <div><label class="gym-label" for="reconciliation-category-{{ $row->invoice_id }}">Nhóm sai lệch</label><select class="gym-input" id="reconciliation-category-{{ $row->invoice_id }}" name="category" required>@foreach ($categoryLabels as $value => $label)<option value="{{ $value }}" @selected(old('category', $row->review_category ?? $row->suggested_category) === $value)>{{ $label }}</option>@endforeach</select>@error('category')<p class="mt-1 text-sm text-red-700">{{ $message }}</p>@enderror</div>
+                            <div><label class="gym-label" for="reconciliation-status-{{ $row->invoice_id }}">Trạng thái</label><select class="gym-input" id="reconciliation-status-{{ $row->invoice_id }}" name="status" required>@foreach (['in_review' => 'Đang xác minh', 'blocked' => 'Chặn chờ chứng từ', 'resolved' => 'Đã xử lý'] as $value => $label)<option value="{{ $value }}" @selected(old('status', $row->review_status ?? 'blocked') === $value)>{{ $label }}</option>@endforeach</select></div>
+                            <div><label class="gym-label" for="reconciliation-owner-{{ $row->invoice_id }}">Quản lý phụ trách</label><select class="gym-input" id="reconciliation-owner-{{ $row->invoice_id }}" name="owner_user_id" required>@foreach ($reconciliationManagers as $manager)<option value="{{ $manager->id }}" @selected((int) old('owner_user_id', $row->owner_user_id ?? auth()->id()) === (int) $manager->id)>{{ $manager->name }}</option>@endforeach</select></div>
+                            <div><label class="gym-label" for="reconciliation-evidence-{{ $row->invoice_id }}">Bằng chứng đã kiểm tra</label><textarea class="gym-input min-h-20" id="reconciliation-evidence-{{ $row->invoice_id }}" name="evidence" minlength="8" maxlength="2000" required>{{ old('evidence', $row->evidence) }}</textarea>@error('evidence')<p class="mt-1 text-sm text-red-700">{{ $message }}</p>@enderror</div>
+                            <div class="sm:col-span-2"><label class="gym-label" for="reconciliation-note-{{ $row->invoice_id }}">Lý do / bước tiếp theo</label><textarea class="gym-input min-h-20" id="reconciliation-note-{{ $row->invoice_id }}" name="note" minlength="8" maxlength="2000" required>{{ old('note', $row->note) }}</textarea>@error('note')<p class="mt-1 text-sm text-red-700">{{ $message }}</p>@enderror</div>
+                            @error('status')<p class="text-sm font-semibold text-red-700 sm:col-span-2">{{ $message }}</p>@enderror
+                            @error('owner_user_id')<p class="text-sm font-semibold text-red-700 sm:col-span-2">{{ $message }}</p>@enderror
+                            <button class="gym-btn sm:justify-self-start" type="submit">Lưu đối soát hóa đơn #{{ $row->invoice_id }}</button>
+                        </form>
+                    </article>
+                @empty
+                    <p class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">Không phát hiện hóa đơn cần đối chiếu.</p>
+                @endforelse
+            </div>
+            @if ($resolvedReconciliations->isNotEmpty())
+                <div class="mt-6 border-t border-slate-200 pt-5">
+                    <h3 class="font-bold">Đối soát đã xử lý gần đây</h3>
+                    <ul class="mt-3 space-y-3 text-sm">@foreach ($resolvedReconciliations as $resolved)<li class="rounded-lg bg-slate-50 p-3"><strong>Hóa đơn #{{ $resolved->invoice_id }}</strong> · {{ $categoryLabels[$resolved->category] ?? $resolved->category }} · {{ \Illuminate\Support\Carbon::parse($resolved->reviewed_at)->format('d/m/Y H:i') }}<br><span class="text-slate-600">Phụ trách: {{ $resolved->owner_name }} · Ghi nhận bởi: {{ $resolved->reviewer_name }} · {{ $resolved->note }}</span></li>@endforeach</ul>
+                </div>
+            @endif
+            <div class="mt-8 grid gap-6 border-t border-slate-200 pt-6 md:grid-cols-2">
                 <div><h3 class="font-bold">Ảnh sản phẩm cần cập nhật</h3><ul class="mt-3 max-h-48 space-y-2 overflow-y-auto text-sm">@forelse ($missingImages as $row)<li><a class="text-gym-blue underline" href="{{ route('gym.admin.edit', ['products', $row->MASP]) }}">#{{ $row->MASP }} · {{ $row->TENSP }}</a></li>@empty<li>Ảnh đại diện đã đầy đủ.</li>@endforelse</ul></div>
                 <div><h3 class="font-bold">Lớp chưa kết thúc: {{ $currentClasses }}</h3><p class="mt-2 text-sm leading-7 text-slate-500">Lịch sử được giữ nguyên. Để nhận đăng ký mới, tạo lớp có ngày bắt đầu trong tương lai rồi xếp lịch và phân công nhân viên phụ trách.</p><a class="mt-3 inline-block text-sm text-gym-blue underline" href="{{ route('gym.admin.create', 'classes') }}">Tạo lớp hiện hành</a></div>
             </div>

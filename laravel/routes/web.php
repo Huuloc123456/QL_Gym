@@ -15,6 +15,7 @@ use App\Http\Controllers\ManagerDashboardController;
 use App\Http\Controllers\ManagerEmployeeController;
 use App\Http\Controllers\ManagerGymPackageController;
 use App\Http\Controllers\ManagerHeroBannerController;
+use App\Http\Controllers\ManagerInvoiceReconciliationController;
 use App\Http\Controllers\ManagerPaymentReviewController;
 use App\Http\Controllers\ManagerRagKnowledgeController;
 use App\Http\Controllers\ManagerRefundController;
@@ -164,6 +165,7 @@ Route::middleware(['auth', 'role:manager'])->prefix('quan-ly')->name('manager.')
 
     Route::get('cai-dat', [GymPortalController::class, 'settings'])->name('settings.edit');
     Route::put('cai-dat', [GymPortalController::class, 'saveSettings'])->name('settings.update');
+    Route::put('doi-soat-hoa-don/{invoice}', [ManagerInvoiceReconciliationController::class, 'update'])->whereNumber('invoice')->name('reconciliations.update');
     Route::get('banner', [ManagerHeroBannerController::class, 'index'])->name('banners.index');
     Route::post('banner', [ManagerHeroBannerController::class, 'store'])->name('banners.store');
     Route::put('banner/{banner}', [ManagerHeroBannerController::class, 'update'])->name('banners.update');
@@ -285,6 +287,7 @@ Route::middleware('auth')->group(function (): void {
 
 Route::middleware(['auth', 'role:manager'])->prefix('quan-ly/danh-muc')->name('gym.admin.')->group(function (): void {
     Route::get('/khach-hang/{customer}', [GymAdministrationController::class, 'showCustomer'])->whereNumber('customer')->name('customers.show');
+    Route::post('/khach-hang/{customer}/xac-minh-hang', [GymAdministrationController::class, 'verifyCustomerTier'])->whereNumber('customer')->name('customers.verify-tier');
     Route::get('/{resource}', [GymAdministrationController::class, 'index'])->name('index');
     Route::get('/{resource}/them', [GymAdministrationController::class, 'edit'])->name('create');
     Route::get('/{resource}/{record}/sua', [GymAdministrationController::class, 'edit'])->whereNumber('record')->name('edit');

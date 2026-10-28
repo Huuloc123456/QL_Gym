@@ -99,6 +99,7 @@ class GymInvoiceController extends Controller
         $hasUnsupportedServices = $lines->contains(fn ($line): bool => ! in_array($line->kind, ['product', 'package', 'class'], true));
         $settings = app(GymPortalService::class)->settings();
         $fulfillment = DB::table('gym_fulfillments')->where('invoice_id', $invoice)->first();
+        $discountSnapshot = DB::table('gym_invoice_discounts')->where('invoice_id', $invoice)->where('source_type', 'customer_tier')->first();
         $legacyPackageOrder = $fulfillment ? null : MembershipOrder::query()->where('sql_invoice_id', $invoice)->first();
         $received = $this->shop->received($invoice);
         $needsReconciliation = app(GymPortalService::class)->unreconciledInvoices()->where('h.MAHD', $invoice)->exists();
@@ -143,6 +144,7 @@ class GymInvoiceController extends Controller
             'hasPaymentReview' => $hasPaymentReview,
             'originalLines' => $sets[1] ?? [],
             'fulfillment' => $fulfillment,
+            'discountSnapshot' => $discountSnapshot,
             'legacyPackageOrder' => $legacyPackageOrder,
             'receipts' => $receipts,
             'refunds' => DB::table('gym_refunds')->where('target_type', 'invoice')->where('target_id', $invoice)->orderBy('id')->get(),

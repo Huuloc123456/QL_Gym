@@ -9,7 +9,7 @@ Tài liệu này mô tả ứng dụng Laravel đang chạy trong repository. Ph
 | Khách chưa đăng nhập | Xem gói, sản phẩm, lớp học và đăng ký tài khoản hội viên. |
 | Hội viên | Quản lý hồ sơ được phép, gửi yêu cầu tập thử, đặt gói/mua hàng/đăng ký lớp qua giỏ hàng, xem hóa đơn và lịch sử của mình, gửi yêu cầu hủy khi đơn còn chờ. |
 | Nhân viên | Tiếp nhận yêu cầu tập thử; xử lý hóa đơn và đơn gói; tạo/sửa sản phẩm, cập nhật ảnh/tồn kho; xác nhận khoản thu; check-in/check-out hội viên. |
-| Quản lý | Xem báo cáo; quản lý hội viên, gói, sản phẩm, nhân viên và quyền; cập nhật thông tin phòng tập, banner và tài liệu chatbot. |
+| Quản lý | Xem báo cáo; quản lý hội viên, gói, sản phẩm, nhân viên và quyền; cập nhật thông tin phòng tập, banner và tài liệu chatbot; phân công, ghi bằng chứng và theo dõi đối soát hóa đơn cũ. |
 
 Quyền được kiểm tra ở server theo vai trò. Nhân viên không vào được trang quản lý; hội viên chỉ xem dữ liệu thuộc tài khoản của mình. Nhân viên được tạo/sửa sản phẩm và điều chỉnh tồn, còn xóa sản phẩm dành cho quản lý.
 
@@ -38,6 +38,11 @@ Quyền được kiểm tra ở server theo vai trò. Nhân viên không vào đ
 3. Hóa đơn cửa hàng, lớp học và đơn gói được tra cứu trong các màn phù hợp. Danh sách hóa đơn hỗ trợ tìm kiếm/lọc/phân trang để tra cứu lịch sử.
 4. Chuyển khoản thủ công có thể hiển thị mã VietQR theo số tiền và nội dung của hóa đơn. QR chỉ giúp điền thông tin chuyển khoản; ngân hàng không tự xác nhận đơn. Nhân viên phải đối chiếu khoản tiền thực nhận.
 5. Hủy hóa đơn chưa thu tiền giữ lại lịch sử trạng thái, không xóa giao dịch; nếu đơn có giữ hàng, hệ thống trả số lượng về tồn có thể bán. Hoàn tiền tự động không thuộc phạm vi.
+6. Quản lý xem riêng hai nguồn chi tiết hóa đơn, khoản thu/hoàn và liên kết gói trong **Dữ liệu cần đối chiếu**. Mỗi sai lệch cần nhóm lỗi, bằng chứng, hướng xử lý và quản lý phụ trách. Hóa đơn đang sai dữ liệu bị chặn thu/chốt; chỉ được đánh dấu đã xử lý sau khi nguồn hóa đơn đã hết sai lệch. Không tự tạo dòng hàng, chứng từ thu, giá lịch sử hay quyền tập.
+7. Giá khuyến mãi chỉ có hiệu lực khi lớn hơn 0 và thấp hơn giá gốc; dữ liệu khuyến mãi cũ bằng 0 hoặc cao hơn giá gốc được hiểu là không giảm. Danh mục, tìm/lọc, chatbot, giỏ và hóa đơn dùng cùng cách hiểu này.
+8. Ưu đãi hạng được tính trên tổng giá bán sau khuyến mãi của sản phẩm, gói và lớp; không giảm phí giao hàng. Giá khuyến mãi sản phẩm đã nằm trong đơn giá nên không bị trừ lần hai. Hạng “Học sinh, Sinh viên” cần quản lý xác minh trực tiếp trước khi giảm; ngày sinh không tự cấp ưu đãi. Khách mới mặc định vào hạng “Gym Null”. Khách hiện đang mang hạng học sinh/sinh viên chưa được giảm trên đơn mới cho đến khi được xác minh; đơn cũ không bị sửa.
+9. Khi mở giỏ, hệ thống lưu báo giá theo phiên và đối chiếu lại giá hàng, số lượng, hạng/ưu đãi và phí giao lúc đặt. Nếu có thay đổi, đơn chưa được tạo và khách phải xem lại giỏ. Mỗi hóa đơn mới lưu giá gốc/giá bán cùng căn cứ ưu đãi; hóa đơn cũ thiếu nguồn hiển thị “chưa xác định” và không suy diễn từ phần trăm.
+10. Quản lý có thể xác minh/thu hồi xác minh hạng với lý do; thao tác được ghi nhật ký. Sửa giá gốc, giá khuyến mãi hoặc mức ưu đãi ghi lại giá trị trước/sau. Báo cáo Excel tách số tiền giảm và nguồn giảm; đơn cũ không có ảnh chụp ghi “Chưa xác định”.
 
 ## Nhân viên và quản lý
 
@@ -45,6 +50,7 @@ Quyền được kiểm tra ở server theo vai trò. Nhân viên không vào đ
 - Quản lý tra cứu hồ sơ hội viên kèm gói, hóa đơn và check-in; quản lý giá/gói, sản phẩm, tài khoản nhân viên và quyền, nội dung trang chủ, banner cùng cài đặt phòng tập.
 - Báo cáo theo khoảng ngày phân biệt đơn được tạo, doanh thu đã xác nhận và các khoản thu thực tế theo phương thức. Tệp Excel gồm tổng quan, đơn hàng và khoản thu.
 - Khi nhiều nhân viên mở cùng một hóa đơn, server phải kiểm tra trạng thái mới nhất trước thao tác thu tiền, chốt hoặc hủy để tránh ghi nhận hai lần hoặc xử lý một hóa đơn đã đổi trạng thái.
+- Ba hóa đơn lịch sử `#138`, `#144`, `#182` đang bị chặn chờ chứng từ và giao cho quản lý The Gym. Cần có hóa đơn/chứng từ gốc mới quyết định sửa hoặc đóng các hồ sơ này; dữ liệu hiện có chưa đủ để xác nhận tiền đã nhận.
 
 ## Chatbot và tài liệu RAG
 

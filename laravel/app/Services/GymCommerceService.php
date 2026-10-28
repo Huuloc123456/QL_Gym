@@ -34,11 +34,19 @@ class GymCommerceService
         $row->kind = $kind;
         $row->item_name = $row->$name;
         $row->unit_price = (int) $row->$price;
-        if ($kind === 'product' && $row->GIAKHUYENMAI !== null && $row->GIAKHUYENMAI < $row->DONGIA) {
+        $row->original_unit_price = (int) $row->$price;
+        $row->is_promotional = false;
+        if ($kind === 'product' && $row->GIAKHUYENMAI !== null && (int) $row->GIAKHUYENMAI < (int) $row->DONGIA && (int) $row->GIAKHUYENMAI > 0) {
             $row->unit_price = (int) $row->GIAKHUYENMAI;
+            $row->is_promotional = true;
         }
 
         return $row;
+    }
+
+    public function effectiveProductPriceSql(string $alias = 'p'): string
+    {
+        return "CASE WHEN {$alias}.GIAKHUYENMAI > 0 AND {$alias}.GIAKHUYENMAI < {$alias}.DONGIA THEN {$alias}.GIAKHUYENMAI ELSE {$alias}.DONGIA END";
     }
 
     public function available(int $product): int
@@ -76,13 +84,83 @@ class GymCommerceService
                 $line->unavailable = false;
             } catch (NotFoundHttpException) {
                 $line->unavailable = true;
-                $item = (object) ['kind' => $kind, 'item_id' => $id, 'item_name' => 'Mặt hàng #'.$id, 'unit_price' => 0];
+                $item = (object) ['kind' => $kind, 'item_id' => $id, 'item_name' => 'Mặt hàng #'.$id, 'unit_price' => 0, 'original_unit_price' => 0, 'is_promotional' => false];
             }
             $line->item = $item;
             $line->total = $item->unit_price * (int) $line->SOLUONG;
 
             return $line;
         })->all();
+    }
+
+    /** @return array{lines: array, subtotal: int, discount: int, rate: int, tier: array, shipping_fee: int, customer_id: int} */
+    public function quote(User $user): array
+    {
+        $customer = $this->identities->customer($user);
+
+        return $this->quoteForLines($customer, $this->cart($user));
+    }
+
+    /** @param array<int, object> $lines
+     * @return array{lines: array, subtotal: int, discount: int, rate: int, tier: array, shipping_fee: int, customer_id: int}
+     */
+    private function quoteForLines(int $customer, array $lines): array
+    {
+        $subtotal = array_sum(array_map(fn ($line): int => (int) $line->total, $lines));
+        $tier = DB::table('KHACHHANG as k')
+            ->leftJoin('LOAIKHACHHANG as t', 't.MALOAIKH', '=', 'k.MALOAIKH')
+            ->where('k.MAKH', $customer)
+            ->select('t.MALOAIKH as id', 't.TENLOAI as name', 't.MUCGIAM as rate', 't.REQUIRES_VERIFICATION as requires_verification')
+            ->first();
+        $rate = (int) ($tier->rate ?? 0);
+        if ($rate >= 100) {
+            $this->fail('discount', 'Mức ưu đãi 100% chưa được phép cho đơn thanh toán thông thường. Hãy liên hệ quản lý để điều chỉnh hạng.');
+        }
+        $requiresVerification = (bool) ($tier->requires_verification ?? false);
+        $verified = ! $requiresVerification || DB::table('gym_customer_tier_verifications')
+            ->where('customer_id', $customer)
+            ->where('tier_id', $tier->id)
+            ->whereNull('revoked_at')
+            ->exists();
+        $effectiveRate = $verified ? max(0, $rate) : 0;
+        $settings = $this->portal->settings();
+
+        return [
+            'lines' => array_map(fn ($line): array => [
+                'kind' => $line->item->kind,
+                'item_id' => (int) $line->item->item_id,
+                'quantity' => (int) $line->SOLUONG,
+                'unit_price' => (int) $line->item->unit_price,
+                'original_unit_price' => (int) $line->item->original_unit_price,
+            ], $lines),
+            'subtotal' => $subtotal,
+            'discount' => intdiv($subtotal * $effectiveRate, 100),
+            'rate' => $effectiveRate,
+            'tier' => [
+                'id' => $tier->id ?? null,
+                'name' => $tier->name ?? 'Chưa xếp hạng',
+                'rate' => $rate,
+                'requires_verification' => $requiresVerification,
+                'verified' => $verified,
+            ],
+            'shipping_fee' => (int) $settings->shipping_fee,
+            'customer_id' => $customer,
+        ];
+    }
+
+    private function quoteSignature(array $quote, string $mode): string
+    {
+        $snapshot = [
+            'customer_id' => $quote['customer_id'],
+            'lines' => $quote['lines'],
+            'tier_id' => $quote['tier']['id'],
+            'tier_name' => $quote['tier']['name'],
+            'rate' => $quote['rate'],
+            'discount' => $quote['discount'],
+            'shipping_fee' => $mode === 'delivery' ? $quote['shipping_fee'] : 0,
+        ];
+
+        return hash('sha256', json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
     }
 
     public function add(User $user, string $kind, int $id, int $quantity): void
@@ -96,6 +174,9 @@ class GymCommerceService
                 'product' => 'MASP', 'package' => 'MAGOITAP', 'class' => 'MALOP', default => abort(404)
             };
             $item = $this->item($kind, $id);
+            if ($item->unit_price < 1) {
+                $this->fail('item', 'Mặt hàng chưa có giá bán hợp lệ để đặt hàng. Vui lòng liên hệ nhân viên.');
+            }
             $line = DB::table('CHITIETGIOHANG')->where('MAKH', $customer)->where($column, $id)->first();
             if (! $line && DB::table('CHITIETGIOHANG')->where('MAKH', $customer)->count() >= 100) {
                 $this->fail('cart', 'Mỗi đơn tối đa 100 mặt hàng khác nhau.');
@@ -134,9 +215,9 @@ class GymCommerceService
         });
     }
 
-    public function checkout(User $user, array $data): int
+    public function checkout(User $user, array $data, ?array $quotedPrice = null): int
     {
-        return $this->sql->transaction(function () use ($user, $data): int {
+        return $this->sql->transaction(function () use ($user, $data, $quotedPrice): int {
             $this->portal->expireOrders();
             $customer = $this->identities->customer($user);
             $repeat = DB::table('gym_fulfillments')->where('checkout_token', $data['token'])->first();
@@ -152,6 +233,10 @@ class GymCommerceService
             if (collect($cart)->contains(fn ($line): bool => $line->unavailable)) {
                 $this->fail('cart', 'Có mặt hàng không còn mở bán. Hãy bỏ khỏi giỏ trước khi đặt hàng.');
             }
+            $quote = $this->quoteForLines($customer, $cart);
+            if ($quotedPrice && ! hash_equals($this->quoteSignature($quotedPrice, $data['mode']), $this->quoteSignature($quote, $data['mode']))) {
+                $this->fail('pricing_changed', 'Giá bán, ưu đãi hoặc phí giao hàng vừa thay đổi. Hãy kiểm tra tổng tiền mới trong giỏ rồi xác nhận lại.');
+            }
             $this->assertClassesDoNotOverlap(collect($cart)->filter(fn ($line): bool => $line->item->kind === 'class')->map(fn ($line): int => (int) $line->item->item_id)->all());
             $total = 0;
             $lines = [];
@@ -159,6 +244,9 @@ class GymCommerceService
             foreach ($cart as $entry) {
                 $item = $entry->item;
                 $quantity = (int) $entry->SOLUONG;
+                if ($item->unit_price < 1) {
+                    $this->fail('cart', $item->item_name.' chưa có giá bán hợp lệ. Hãy bỏ mặt hàng khỏi giỏ và liên hệ nhân viên.');
+                }
                 $details = [];
                 if ($item->kind === 'product') {
                     $hasProducts = true;
@@ -173,7 +261,7 @@ class GymCommerceService
                     $this->assertClassAvailable($customer, $item);
                 }
                 $total += $item->unit_price * $quantity;
-                $lines[] = ['kind' => $item->kind, 'item_id' => $item->item_id, 'name' => $item->item_name, 'quantity' => $quantity, 'unit_price' => $item->unit_price, 'details' => json_encode($details)];
+                $lines[] = ['kind' => $item->kind, 'item_id' => $item->item_id, 'name' => $item->item_name, 'quantity' => $quantity, 'unit_price' => $item->unit_price, 'original_unit_price' => $item->original_unit_price, 'details' => json_encode($details)];
             }
             $address = null;
             $mode = $hasProducts ? $data['mode'] : 'pickup';
@@ -183,8 +271,8 @@ class GymCommerceService
                     $this->fail('address_id', 'Chọn địa chỉ giao hàng của bạn.');
                 }
             }
-            $percent = (int) DB::table('KHACHHANG as k')->leftJoin('LOAIKHACHHANG as t', 't.MALOAIKH', '=', 'k.MALOAIKH')->where('k.MAKH', $customer)->value('t.MUCGIAM');
-            $discount = intdiv($total * $percent, 100);
+            $percent = (int) $quote['rate'];
+            $discount = (int) $quote['discount'];
             $settings = $this->portal->settings();
             $shipping = $mode === 'delivery' ? (int) $settings->shipping_fee : 0;
             $deadline = now()->addHours((int) $settings->payment_hours);
@@ -193,7 +281,19 @@ class GymCommerceService
             foreach ($lines as $line) {
                 DB::table('gym_invoice_lines')->insert(['invoice_id' => $invoice] + $line);
             }
-            DB::table('gym_fulfillments')->insert(['invoice_id' => $invoice, 'mode' => $mode, 'payment_method' => $data['payment_method'], 'recipient' => $data['recipient'] ?? $user->name, 'phone' => $data['phone'] ?? $user->phone, 'address' => $address ? json_encode($address, JSON_UNESCAPED_UNICODE) : null, 'checkout_token' => $data['token'], 'shipping_fee' => $shipping, 'expires_at' => $deadline, 'created_at' => now(), 'updated_at' => now()]);
+            if ($discount > 0) {
+                DB::table('gym_invoice_discounts')->insert([
+                    'invoice_id' => $invoice,
+                    'source_type' => 'customer_tier',
+                    'tier_id' => $quote['tier']['id'],
+                    'tier_name' => $quote['tier']['name'],
+                    'rate_percent' => $percent,
+                    'base_amount' => $total,
+                    'discount_amount' => $discount,
+                    'created_at' => now(),
+                ]);
+            }
+            DB::table('gym_fulfillments')->insert(['invoice_id' => $invoice, 'mode' => $mode, 'payment_method' => $data['payment_method'], 'recipient' => $data['recipient'] ?? $user->name, 'phone' => $data['phone'] ?? $user->phone, 'address' => $address ? json_encode($address, JSON_UNESCAPED_UNICODE) : null, 'checkout_token' => $data['token'], 'pricing_snapshot_version' => 1, 'shipping_fee' => $shipping, 'expires_at' => $deadline, 'created_at' => now(), 'updated_at' => now()]);
             $this->portal->invoiceMessage($invoice, 'created', 'Đã tiếp nhận đơn hàng', 'Đơn #'.$invoice.' cần thanh toán '.number_format($total - $discount + $shipping, 0, ',', '.').'đ trước '.$deadline->format('H:i d/m/Y').'.');
             DB::table('CHITIETGIOHANG')->where('MAKH', $customer)->delete();
             $this->sql->audit('Đặt hàng', 'HOADON:'.$invoice);

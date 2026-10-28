@@ -17,6 +17,28 @@
         <article class="gym-card"><p class="text-sm text-slate-500">Tổng đơn</p><p class="mt-2 text-lg font-bold">{{ $invoices->total() }}</p></article>
         <article class="gym-card"><p class="text-sm text-slate-500">Lượt check-in</p><p class="mt-2 text-lg font-bold">{{ $checkIns->total() }}</p></article>
     </div>
+    @if ((bool) $profile->REQUIRES_VERIFICATION)
+        <section class="gym-card">
+            <div class="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                    <h2 class="text-xl font-bold">Xác minh ưu đãi {{ $profile->TENLOAI }}</h2>
+                    @if ($tierVerification)
+                        <p class="mt-2 text-sm text-emerald-800">Đã xác minh bởi {{ $tierVerification->verifier_name ?: 'quản lý' }} lúc {{ \Illuminate\Support\Carbon::parse($tierVerification->verified_at)->format('d/m/Y H:i') }}.</p>
+                        <p class="mt-1 text-sm text-slate-600">Lý do: {{ $tierVerification->reason }}</p>
+                    @else
+                        <p class="mt-2 text-sm text-amber-800">Chưa xác minh. Ưu đãi chưa được áp dụng cho đơn mới.</p>
+                    @endif
+                    <p class="mt-2 text-xs text-slate-500">Kiểm tra trực tiếp giấy tờ tại quầy; không tải ảnh giấy tờ cá nhân lên website.</p>
+                </div>
+                <form class="flex flex-wrap items-end gap-3" method="POST" action="{{ route('gym.admin.customers.verify-tier', $profile->MAKH) }}">
+                    @csrf
+                    <input type="hidden" name="verified" value="{{ $tierVerification ? 0 : 1 }}">
+                    <div><label class="gym-label" for="verification_reason">{{ $tierVerification ? 'Lý do thu hồi' : 'Lý do xác minh' }}</label><input class="gym-input" id="verification_reason" name="reason" maxlength="255" minlength="8" required placeholder="Ví dụ: Đã kiểm tra thẻ tại quầy"></div>
+                    <button class="{{ $tierVerification ? 'gym-btn-outline border-red-600 text-red-700' : 'gym-btn-primary' }}" type="submit">{{ $tierVerification ? 'Thu hồi xác minh' : 'Xác minh hạng' }}</button>
+                </form>
+            </div>
+        </section>
+    @endif
     <section class="gym-card">
         <h2 class="text-xl font-bold">Lịch sử gói tập</h2>
         <div class="mt-4 overflow-x-auto"><table class="gym-table"><thead><tr><th>Gói</th><th>Ngày bắt đầu</th><th>Ngày tập cuối</th><th>Trạng thái</th></tr></thead><tbody>

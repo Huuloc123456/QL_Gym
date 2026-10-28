@@ -696,10 +696,7 @@ CREATE PROCEDURE SP_KHACHHANGDANGKY(
     IN p_MatKhau     VARCHAR(100)
 )
 BEGIN
-    DECLARE v_Tuoi INT DEFAULT NULL;
     DECLARE v_MaLoaiKHMoi DECIMAL(18,0);
-    DECLARE v_MaLoaiHSSV DECIMAL(18,0);
-    DECLARE v_MaLoaiNull DECIMAL(18,0);
     DECLARE v_NewID DECIMAL(18,0);
     DECLARE v_MatKhauEnc VARCHAR(100);
     DECLARE v_EmailEnc VARCHAR(100) DEFAULT NULL;
@@ -728,21 +725,9 @@ BEGIN
             MESSAGE_TEXT = 'Email này đã được đăng ký cho một tài khoản khác.';
     END IF;
 
-    -- 5. Lấy mã loại khách hàng
-    SELECT MALOAIKH INTO v_MaLoaiHSSV FROM LOAIKHACHHANG WHERE TENLOAI = 'Học sinh, Sinh viên' LIMIT 1;
-    SELECT MALOAIKH INTO v_MaLoaiNull FROM LOAIKHACHHANG WHERE TENLOAI = 'Gym Null' LIMIT 1;
-
-    -- 6. Tính tuổi (giống DATEDIFF(YEAR, ...) của SQL Server)
-    IF p_NgaySinh IS NOT NULL THEN
-        SET v_Tuoi = YEAR(NOW()) - YEAR(p_NgaySinh);
-    END IF;
-
-    -- 7. Logic phân loại
-    IF v_Tuoi IS NOT NULL AND v_Tuoi < 24 THEN
-        SET v_MaLoaiKHMoi = v_MaLoaiHSSV;
-    ELSE
-        SET v_MaLoaiKHMoi = v_MaLoaiNull;
-    END IF;
+    -- New accounts start on the base tier. Discount tiers requiring proof
+    -- are assigned only by an authorized manager after verification.
+    SELECT MALOAIKH INTO v_MaLoaiKHMoi FROM LOAIKHACHHANG WHERE TENLOAI = 'Gym Null' LIMIT 1;
 
     -- 8. Tự tạo ID mới (Max + 1)
     SELECT IFNULL(MAX(MAKH), 0) + 1 INTO v_NewID FROM KHACHHANG;
